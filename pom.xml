@@ -44,6 +44,7 @@
 
     <modules>
         <module>constraint</module>
+        <module>expression</module>
         <module>function</module>
     </modules>
 
@@ -76,6 +77,11 @@
             <dependency>
                 <groupId>io.smallrye</groupId>
                 <artifactId>smallrye-common-constraint</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye</groupId>
+                <artifactId>smallrye-common-expression</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
