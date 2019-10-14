@@ -45,6 +45,7 @@
 
     <modules>
         <module>constraint</module>
+        <module>cpu</module>
         <module>expression</module>
         <module>function</module>
         <module>net</module>
