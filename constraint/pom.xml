@@ -12,6 +12,8 @@
 
     <artifactId>smallrye-common-constraint</artifactId>
 
+    <name>SmallRye Common: Constraints</name>
+
     <dependencies>
         <dependency>
             <groupId>org.jboss.logging</groupId>
