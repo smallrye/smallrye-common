@@ -12,6 +12,8 @@
 
     <artifactId>smallrye-common-expression</artifactId>
 
+    <name>SmallRye Common: Expressions</name>
+
     <dependencies>
         <dependency>
             <groupId>io.smallrye</groupId>
