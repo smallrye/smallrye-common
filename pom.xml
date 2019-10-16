@@ -8,7 +8,7 @@
     <parent>
         <groupId>io.smallrye</groupId>
         <artifactId>smallrye-parent</artifactId>
-        <version>12</version>
+        <version>13</version>
     </parent>
 
     <artifactId>smallrye-common-parent</artifactId>
