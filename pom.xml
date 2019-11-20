@@ -21,7 +21,7 @@
     <properties>
         <version.org.jboss.logging.jboss-logging>3.4.1.Final</version.org.jboss.logging.jboss-logging>
         <version.org.jboss.logging.jboss-logging-tools>2.2.0.Final</version.org.jboss.logging.jboss-logging-tools>
-        <version.graalvm>19.2.0.1</version.graalvm>
+        <version.graalvm>19.2.1</version.graalvm>
     </properties>
 
     <licenses>
