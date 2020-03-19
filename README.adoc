@@ -1,4 +1,4 @@
-![SmallRye Common CI](https://github.com/smallrye/smallrye-common/workflows/SmallRye%20Common%20CI/badge.svg) 
+image:https://github.com/smallrye/smallrye-common/workflows/SmallRye%20Common%20CI/badge.svg[SmallRye Common CI, link="https://github.com/smallrye/smallrye-common/workflows/SmallRye%20Common%20CI"]
 image:https://sonarcloud.io/api/project_badges/measure?project=smallrye_smallrye-common&metric=alert_status["Quality Gate Status", link="https://sonarcloud.io/dashboard?id=smallrye_smallrye-common"]
 image:https://img.shields.io/github/license/smallrye/smallrye-common.svg["License", link="http://www.apache.org/licenses/LICENSE-2.0"]
 
