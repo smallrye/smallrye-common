@@ -1,4 +1,4 @@
-image:https://semaphoreci.com/api/v1/smallrye/smallrye-common/branches/master/badge.svg["Semaphore CI", link="https://semaphoreci.com/smallrye/smallrye-common"]
+image:https://github.com/smallrye/smallrye-common/workflows/SmallRye%20Common%20CI/badge.svg[SmallRye Common CI, link="https://github.com/smallrye/smallrye-common/workflows/SmallRye%20Common%20CI"]
 image:https://sonarcloud.io/api/project_badges/measure?project=smallrye_smallrye-common&metric=alert_status["Quality Gate Status", link="https://sonarcloud.io/dashboard?id=smallrye_smallrye-common"]
 image:https://img.shields.io/github/license/smallrye/smallrye-common.svg["License", link="http://www.apache.org/licenses/LICENSE-2.0"]
 
