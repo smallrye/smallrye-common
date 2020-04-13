@@ -540,7 +540,7 @@ public final class Assert {
      */
     @SuppressWarnings("ConstantConditions")
     public static boolean assertTrue(boolean expr) {
-        assert expr : Messages.log.expectedBoolean(expr);
+        assert expr : Messages.log.expectedBoolean(true);
         return expr;
     }
 
@@ -552,7 +552,7 @@ public final class Assert {
      */
     @SuppressWarnings("ConstantConditions")
     public static boolean assertFalse(boolean expr) {
-        assert !expr : Messages.log.expectedBoolean(expr);
+        assert !expr : Messages.log.expectedBoolean(false);
         return expr;
     }
 
