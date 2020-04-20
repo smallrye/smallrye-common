@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.smallrye</groupId>
         <artifactId>smallrye-parent</artifactId>
-        <version>17</version>
+        <version>18</version>
     </parent>
 
     <groupId>io.smallrye.common</groupId>
@@ -18,8 +18,6 @@
     <url>http://smallrye.io</url>
 
     <properties>
-        <version.org.jboss.logging.jboss-logging>3.4.1.Final</version.org.jboss.logging.jboss-logging>
-        <version.org.jboss.logging.jboss-logging-tools>2.2.1.Final</version.org.jboss.logging.jboss-logging-tools>
         <version.graalvm>19.2.1</version.graalvm>
 
         <!-- Sonar settings -->
@@ -57,23 +55,6 @@
     <dependencyManagement>
         <dependencies>
             <!-- External build dependencies -->
-            <dependency>
-                <groupId>org.jboss.logging</groupId>
-                <artifactId>jboss-logging-annotations</artifactId>
-                <version>${version.org.jboss.logging.jboss-logging-tools}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.jboss.logging</groupId>
-                <artifactId>jboss-logging-processor</artifactId>
-                <version>${version.org.jboss.logging.jboss-logging-tools}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.jboss.logging</groupId>
-                <artifactId>jboss-logging</artifactId>
-                <version>${version.org.jboss.logging.jboss-logging}</version>
-            </dependency>
             <dependency>
                 <groupId>com.oracle.substratevm</groupId>
                 <artifactId>svm</artifactId>
