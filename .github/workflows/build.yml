@@ -1,4 +1,4 @@
-name: SmallRye Common CI
+name: SmallRye Build
 
 on:
   push:
@@ -34,5 +34,22 @@ jobs:
           java-version: ${{matrix.java}}
 
       - name: build with maven
-        run: mvn verify
+        run: mvn -B formatter:validate verify --file pom.xml
 
+  quality:
+    needs: [build]
+    if: github.event_name == 'push' && github.repository == 'smallrye/smallrye-common'
+    runs-on: ubuntu-latest
+    name: quality
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1.3.0
+        with:
+          java-version: 8
+
+      - name: sonar
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          SONAR_TOKEN: ${{secrets.SONAR_TOKEN}}
+        run: mvn -B verify --file pom.xml -Pcoverage javadoc:javadoc sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.login=$SONAR_TOKEN
