@@ -45,6 +45,7 @@
     </scm>
 
     <modules>
+        <module>annotation</module>
         <module>constraint</module>
         <module>cpu</module>
         <module>expression</module>
