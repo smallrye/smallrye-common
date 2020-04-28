@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
 @Inherited
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.METHOD, ElementType.TYPE })
+@Target({ ElementType.METHOD, ElementType.TYPE, ElementType.FIELD, ElementType.PACKAGE })
 public @interface Experimental {
     /**
      * Describes why the annotated element is experimental.
