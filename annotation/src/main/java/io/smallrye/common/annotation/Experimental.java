@@ -15,10 +15,23 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.METHOD, ElementType.TYPE })
 public @interface Experimental {
+
     /**
-     * Describes why the annotated element is experimental.
-     * 
+     * The reason why the annotated element is experimental.
+     *
+     * @return the reason for being experimental.
+     */
+    Reason reason();
+
+    /**
+     * Further description why the annotated element is experimental.
+     *
      * @return the experimental description.
      */
-    String value() default "";
+    String explanation() default "";
+
+    enum Reason {
+        NOT_COVERED_BY_SPECIFICATION,
+        DIFFERENCE_FROM_SPECIFICATION
+    }
 }
