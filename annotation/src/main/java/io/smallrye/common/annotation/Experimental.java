@@ -20,5 +20,5 @@ public @interface Experimental {
      * 
      * @return the experimental description.
      */
-    String value() default "";
+    String value();
 }
