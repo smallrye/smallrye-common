@@ -53,6 +53,7 @@
         <module>function</module>
         <module>net</module>
         <module>io</module>
+        <module>version</module>
     </modules>
 
     <dependencyManagement>
