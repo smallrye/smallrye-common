@@ -51,6 +51,7 @@
         <module>expression</module>
         <module>function</module>
         <module>net</module>
+        <module>io</module>
     </modules>
 
     <dependencyManagement>
