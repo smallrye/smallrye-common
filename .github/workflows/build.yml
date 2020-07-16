@@ -25,24 +25,24 @@ jobs:
       - uses: actions/checkout@v2
         name: checkout
 
-      - uses: AdoptOpenJDK/setup-java@v1
+      - uses: AdoptOpenJDK/install-jdk@v1
         name: set up JDK 11
         with:
           version: 11
 
-      - uses: AdoptOpenJDK/setup-java@v1
+      - uses: AdoptOpenJDK/install-jdk@v1
         name: set up JDK 10
         with:
           version: 10
           targets: 'JAVA_HOME_10'
 
-      - uses: AdoptOpenJDK/setup-java@v1
+      - uses: AdoptOpenJDK/install-jdk@v1
         name: set up JDK 9
         with:
           version: 9
           targets: 'JAVA_HOME_9'
 
-      - uses: AdoptOpenJDK/setup-java@v1
+      - uses: AdoptOpenJDK/install-jdk@v1
         name: set up JDK 8
         with:
           version: 8
@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - uses: AdoptOpenJDK/setup-java@v1
+      - uses: AdoptOpenJDK/install-jdk@v1
         with:
           version: 11
 
