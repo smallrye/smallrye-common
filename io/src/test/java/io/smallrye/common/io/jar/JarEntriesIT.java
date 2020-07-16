@@ -18,7 +18,7 @@ public class JarEntriesIT {
     @Test
     @DisabledOnJre(JRE.JAVA_8)
     public void shouldUseMultiReleaseName() throws IOException {
-        File tmpFile = MultiReleaseJarGenerator.generateMultiReleaseJar();
+        File tmpFile = JarGenerator.generateMultiReleaseJar();
         JarFile jarFile = JarFiles.create(tmpFile);
         JarEntry jarEntry = jarFile.getJarEntry("foo.txt");
         assertEquals("META-INF/versions/9/foo.txt", JarEntries.getRealName(jarEntry));
@@ -27,7 +27,7 @@ public class JarEntriesIT {
     @Test
     @EnabledOnJre(JRE.JAVA_8)
     public void shouldUseName() throws IOException {
-        File tmpFile = MultiReleaseJarGenerator.generateMultiReleaseJar();
+        File tmpFile = JarGenerator.generateMultiReleaseJar();
         JarFile jarFile = JarFiles.create(tmpFile);
         JarEntry jarEntry = jarFile.getJarEntry("foo.txt");
         assertEquals("foo.txt", JarEntries.getRealName(jarEntry));

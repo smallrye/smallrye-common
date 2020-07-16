@@ -8,7 +8,15 @@ import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 
-public class MultiReleaseJarGenerator {
+public class JarGenerator {
+    public static File generatePlainJar() throws IOException {
+        JavaArchive jar = ShrinkWrap.create(JavaArchive.class)
+                .addAsResource(new StringAsset("Original"), "foo.txt");
+        File tmpFile = File.createTempFile("tmp", ".tmp");
+        jar.as(ZipExporter.class).exportTo(tmpFile, true);
+        return tmpFile;
+    }
+
     public static File generateMultiReleaseJar() throws IOException {
         JavaArchive jar = ShrinkWrap.create(JavaArchive.class)
                 .addAsManifestResource(new StringAsset("Multi-Release: true\n"), "MANIFEST.MF")
