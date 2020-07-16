@@ -9,14 +9,15 @@ import java.util.jar.JarFile;
 
 import org.junit.Test;
 
-public class JarEntriesTest {
+// This needs to be run as an integration-test
+public class JarEntriesIT {
 
     @Test
     public void shouldUseRealName() throws IOException {
         File tmpFile = MultiReleaseJarGenerator.generateMultiReleaseJar();
         JarFile jarFile = JarFiles.create(tmpFile);
         JarEntry jarEntry = jarFile.getJarEntry("foo.txt");
-        assertEquals(jarEntry.getRealName(), JarEntries.getRealName(jarEntry));
+        assertEquals("META-INF/versions/9/foo.txt", JarEntries.getRealName(jarEntry));
     }
 
 }
