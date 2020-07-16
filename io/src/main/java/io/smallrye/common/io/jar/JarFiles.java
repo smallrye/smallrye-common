@@ -1,8 +1,10 @@
-package io.smallrye.common.io;
+package io.smallrye.common.io.jar;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 /**
  * Java 8 variant of a JDK-specific class for working with {@code JarFile}s.
@@ -38,5 +40,22 @@ public class JarFiles {
      */
     public static JarFile create(File file, boolean verify) throws IOException {
         return new JarFile(file, verify);
+    }
+
+    /**
+     * Returns true if this {@link JarFile} is a multi-release jar. On Java 8 this is done by browsing the manifest.
+     * On Java 9+, there is a isMultiRelease method
+     */
+    public static boolean isMultiRelease(JarFile jarFile) {
+        String value = null;
+        try {
+            Manifest manifest = jarFile.getManifest();
+            if (manifest != null) {
+                value = manifest.getMainAttributes().getValue("Multi-Release");
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot read manifest attributes", e);
+        }
+        return Boolean.parseBoolean(value);
     }
 }

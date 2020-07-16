@@ -1,4 +1,4 @@
-package io.smallrye.common.io;
+package io.smallrye.common.io.jar;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,4 +40,13 @@ public class JarFiles {
     public static JarFile create(File file, boolean verify) throws IOException {
         return new JarFile(file, verify, ZipFile.OPEN_READ, JarFile.runtimeVersion());
     }
+
+    /**
+     * Returns true if this {@link JarFile} is a multi-release jar. On Java 8 this is done by browsing the manifest.
+     * On Java 9+, there is a isMultiRelease method
+     */
+    public static boolean isMultiRelease(JarFile jarFile) {
+        return jarFile.isMultiRelease();
+    }
+
 }
