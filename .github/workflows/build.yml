@@ -25,28 +25,31 @@ jobs:
       - uses: actions/checkout@v2
         name: checkout
 
-      - uses: actions/setup-java@v1.3.0
+      - uses: AdoptOpenJDK/setup-java@v1
         name: set up JDK 11
         with:
-          java-version: 11
+          version: 11
 
-      - uses: actions/setup-java@v1.3.0
+      - uses: AdoptOpenJDK/setup-java@v1
         name: set up JDK 10
         with:
-          java-version: 10
+          version: 10
+          targets: 'JAVA_HOME_10'
 
-      - uses: actions/setup-java@v1.3.0
+      - uses: AdoptOpenJDK/setup-java@v1
         name: set up JDK 9
         with:
-          java-version: 9
+          version: 9
+          targets: 'JAVA_HOME_9'
 
-      - uses: actions/setup-java@v1.3.0
+      - uses: AdoptOpenJDK/setup-java@v1
         name: set up JDK 8
         with:
-          java-version: 8
+          version: 8
+          targets: 'JAVA_HOME_8'
 
       - name: build with maven
-        run: JAVA_HOME=$JAVA_HOME_11_X64 mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8_X64 -Djava9.home=$JAVA_HOME_9_X64 -Djava10.home=$JAVA_HOME_10_X64
+        run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
 
   quality:
     needs: [build]
@@ -56,9 +59,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-java@v1.3.0
+      - uses: AdoptOpenJDK/setup-java@v1
         with:
-          java-version: 11
+          version: 11
 
       - name: sonar
         env:
