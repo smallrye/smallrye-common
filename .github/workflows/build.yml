@@ -45,6 +45,14 @@ jobs:
         with:
           java-version: 8
 
+      - name: debug (do not commit this)
+        run: |
+          echo "Java 8: '$JAVA_HOME_8_X64'"
+          echo "Java 9: '$JAVA_HOME_9_X64'"
+          echo "Java 10: '$JAVA_HOME_10_X64'"
+          echo "Java 11: '$JAVA_HOME_11_X64'"
+          echo "Default JAVA_HOME is: '$JAVA_HOME'"
+
       - name: build with maven
         run: JAVA_HOME=$JAVA_HOME_11_X64 mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8_X64 -Djava9.home=$JAVA_HOME_9_X64 -Djava10.home=$JAVA_HOME_10_X64
 
