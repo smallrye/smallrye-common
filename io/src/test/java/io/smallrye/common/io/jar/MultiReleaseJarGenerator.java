@@ -1,4 +1,4 @@
-package io.smallrye.common.io;
+package io.smallrye.common.io.jar;
 
 import java.io.File;
 import java.io.IOException;

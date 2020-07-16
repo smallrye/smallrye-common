@@ -1,4 +1,4 @@
-package io.smallrye.common.io;
+package io.smallrye.common.io.jar;
 
 import static org.junit.Assert.assertTrue;
 
