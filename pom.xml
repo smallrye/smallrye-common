@@ -126,6 +126,19 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- TODO - Remove when Parent 22 -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${version.jacoco.plugin}</version>
+                <configuration>
+                    <propertyName>jacocoArgLine</propertyName>
+                    <append>true</append>
+                    <excludes>
+                        <exclude>META-INF/**</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
