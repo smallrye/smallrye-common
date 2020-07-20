@@ -61,3 +61,6 @@ client/shade/dependency-reduced-pom.xml
 **/.zanata-cache/
 
 .java-version
+
+# formatter cache directories
+.cache
