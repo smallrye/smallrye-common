@@ -46,6 +46,7 @@
 
     <modules>
         <module>annotation</module>
+        <module>classloader</module>
         <module>constraint</module>
         <module>cpu</module>
         <module>expression</module>
@@ -78,7 +79,12 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm</artifactId>
+                <version>7.0</version>
+                <scope>test</scope>
+            </dependency>
 
             <!-- Internal module dependencies -->
             <dependency>
