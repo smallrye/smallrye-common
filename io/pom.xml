@@ -26,16 +26,16 @@
     </dependencies>
     <build>
         <plugins>
+            <!-- Skip default Surefire runner. Tests will run with JDK profiles -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.0.0-M5</version>
+                <artifactId>maven-surefire-plugin</artifactId>
                 <executions>
                     <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
+                        <id>default-test</id>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

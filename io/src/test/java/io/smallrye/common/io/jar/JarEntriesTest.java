@@ -12,9 +12,7 @@ import org.junit.jupiter.api.condition.DisabledOnJre;
 import org.junit.jupiter.api.condition.EnabledOnJre;
 import org.junit.jupiter.api.condition.JRE;
 
-// This needs to be run as an integration-test
-public class JarEntriesIT {
-
+public class JarEntriesTest {
     @Test
     @DisabledOnJre(JRE.JAVA_8)
     public void shouldUseMultiReleaseName() throws IOException {
@@ -32,5 +30,4 @@ public class JarEntriesIT {
         JarEntry jarEntry = jarFile.getJarEntry("foo.txt");
         assertEquals("foo.txt", JarEntries.getRealName(jarEntry));
     }
-
 }
