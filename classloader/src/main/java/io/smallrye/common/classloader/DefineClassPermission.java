@@ -25,11 +25,7 @@ public class DefineClassPermission extends Permission {
 
     @Override
     public boolean equals(final Object obj) {
-        if (obj == this) {
-            return true;
-        } else {
-            return obj != null && obj.getClass() == this.getClass();
-        }
+        return obj instanceof DefineClassPermission;
     }
 
     @Override
