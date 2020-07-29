@@ -74,7 +74,7 @@ public interface VersionScheme extends Comparator<String> {
      * A basic versioning scheme which is roughly compatible with semantic versioning, GNU's scheme, the OpenSSL scheme,
      * the numeric scheme used by Unix-style and ELF dynamic linkers, etc. The syntax of this scheme can be described
      * with this grammar:
-     * <code><pre>
+     * <pre><code>
 
 version ::= underscore-sequence
           | version "." underscore-sequence
@@ -100,7 +100,7 @@ number-parts ::= digit+
 digit ::= &lt;{@linkplain Character#isDigit(int) Unicode digits}&gt;
 
 letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
-    </pre></code>
+    </code></pre>
      * <p>
      * Digit parts are sorted numerically (with leading zeros stripped). Alpha parts are sorted lexicographically and
      * case-sensitively. Trailing zero segments are trimmed. When comparing two sequences, the shorter sequence is
