@@ -100,6 +100,7 @@ public interface VersionIterator {
      * Append the current alphabetical part to the given string builder. If the iterator is not positioned on an
      * alphabetical part (i.e. {@link #isAlphaPart()} returns {@code false}), then an exception is thrown.
      *
+     * @param target the StringBuilder to append
      * @return the current alphabetical part
      * @throws IllegalStateException if the current token is not an alphabetical part
      */
@@ -176,6 +177,7 @@ public interface VersionIterator {
      * alphabetical parts or an exception is thrown.
      *
      * @param other the other iterator (must not be {@code null})
+     * @param ignoreCase a boolean to ignore case in the compare
      * @return {@code -1}, {@code 0}, or {@code 1} if this segment is less than, equal to, or greater than the other
      *         iterator's part
      * @throws IllegalStateException if this or the other iterator are not positioned on an alphabetical part
@@ -199,6 +201,7 @@ public interface VersionIterator {
      * part (i.e. {@link #isNumberPart()} returns {@code false}), then an exception is thrown. Any redundant
      * leading zeros are removed.
      *
+     * @param target the StringBuilder to append
      * @return the current numeric part as a {@code String}
      * @throws IllegalStateException if the current token is not a numeric part
      */
