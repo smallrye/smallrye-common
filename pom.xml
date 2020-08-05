@@ -45,6 +45,10 @@
     </scm>
 
     <modules>
+        <!-- the BOM, in a place of honor -->
+        <module>bom</module>
+
+        <!-- implementations -->
         <module>annotation</module>
         <module>classloader</module>
         <module>constraint</module>
