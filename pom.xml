@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
 
@@ -16,9 +17,10 @@
     <packaging>pom</packaging>
     <name>SmallRye Common: Parent</name>
     <url>http://smallrye.io</url>
-
+    <description>Common utilities for SmallRye</description>
     <properties>
         <version.graalvm>19.2.1</version.graalvm>
+        <version.sundrio>0.21.0</version.sundrio>
 
         <!-- Sonar settings -->
         <sonar.projectName>SmallRye Common</sonar.projectName>
@@ -29,6 +31,7 @@
         <license>
             <name>Apache License, Version 2.0</name>
             <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
         </license>
     </licenses>
 
@@ -44,10 +47,16 @@
         <tag>HEAD</tag>
     </scm>
 
-    <modules>
-        <!-- the BOM, in a place of honor -->
-        <module>bom</module>
+    <developers>
+        <developer>
+            <id>smallrye-common-team</id>
+            <name>SmallRye Common Team</name>
+            <organization>smallrye-common</organization>
+            <organizationUrl>https://smallrye.io/</organizationUrl>
+        </developer>
+    </developers>
 
+    <modules>
         <!-- implementations -->
         <module>annotation</module>
         <module>classloader</module>
@@ -137,43 +146,30 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- TODO - Remove when Parent 22 -->
             <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>${version.jacoco.plugin}</version>
-                <configuration>
-                    <propertyName>jacocoArgLine</propertyName>
-                    <append>true</append>
-                    <excludes>
-                        <exclude>META-INF/**</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-release-plugin</artifactId>
-                <version>${version.release.plugin}</version>
-                <configuration>
-                    <autoVersionSubmodules>true</autoVersionSubmodules>
-                    <tagNameFormat>@{project.version}</tagNameFormat>
-                    <preparationGoals>verify</preparationGoals>
-                    <pushChanges>false</pushChanges>
-                    <localCheckout>true</localCheckout>
-                    <remoteTagging>false</remoteTagging>
-                    <arguments>-DskipTests ${release.arguments}</arguments>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-                <version>${version.gpg.plugin}</version>
-                <configuration>
-                    <gpgArguments>
-                        <arg>--pinentry-mode</arg>
-                        <arg>loopback</arg>
-                    </gpgArguments>
-                </configuration>
+                <groupId>io.sundr</groupId>
+                <artifactId>sundr-maven-plugin</artifactId>
+                <version>${version.sundrio}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate-bom</goal>
+                        </goals>
+                        <configuration>
+                            <boms>
+                                <bom>
+                                    <artifactId>smallrye-common-bom</artifactId>
+                                    <name>Smallrye Common: BOM</name>
+                                    <description>Centralized dependencyManagement for the SmallRye Common Project</description>
+                                    <properties>
+                                        <skipStagingRepositoryClose>true</skipStagingRepositoryClose>
+                                        <sonar.skip>true</sonar.skip>
+                                    </properties>
+                                </bom>
+                            </boms>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
