@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project
+        xmlns="http://maven.apache.org/POM/4.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.smallrye.common</groupId>
+        <artifactId>power-annotations-parent</artifactId>
+        <version>1.3.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>power-annotations-tck</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.smallrye.common</groupId>
+            <artifactId>power-annotations-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.smallrye.common</groupId>
+            <artifactId>power-annotations-implementation</artifactId>
+            <version>${project.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>jandex</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jboss.jandex</groupId>
+                        <artifactId>jandex-maven-plugin</artifactId>
+                        <version>1.0.8</version>
+                        <executions>
+                            <execution>
+                                <id>make-index</id>
+                                <goals>
+                                    <goal>jandex</goal>
+                                </goals>
+                                <phase>process-classes</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

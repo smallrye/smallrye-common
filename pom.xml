@@ -55,8 +55,9 @@
         <module>cpu</module>
         <module>expression</module>
         <module>function</module>
-        <module>net</module>
         <module>io</module>
+        <module>net</module>
+        <module>power-annotations</module>
         <module>version</module>
     </modules>
 
