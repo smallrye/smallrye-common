@@ -64,8 +64,9 @@
         <module>cpu</module>
         <module>expression</module>
         <module>function</module>
-        <module>net</module>
         <module>io</module>
+        <module>net</module>
+        <module>os</module>
         <module>version</module>
     </modules>
 
