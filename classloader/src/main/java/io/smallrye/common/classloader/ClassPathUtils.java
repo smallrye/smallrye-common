@@ -137,7 +137,7 @@ public class ClassPathUtils {
         }
 
         if (FILE.equals(url.getProtocol())) {
-            return function.apply(toLocalPath(url));
+            return function.apply(Paths.get(url.getFile()));
         }
 
         throw new IllegalArgumentException("Unexpected protocol " + url.getProtocol() + " for URL " + url);
@@ -202,7 +202,7 @@ public class ClassPathUtils {
             }
         }
         if (FILE.equals(url.getProtocol())) {
-            try (InputStream is = Files.newInputStream(toLocalPath(url))) {
+            try (InputStream is = Files.newInputStream(Paths.get(url.getFile()))) {
                 return function.apply(is);
             }
         }
