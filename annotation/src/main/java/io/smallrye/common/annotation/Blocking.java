@@ -1,7 +1,6 @@
 package io.smallrye.common.annotation;
 
-import static java.lang.annotation.ElementType.METHOD;
-
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
@@ -22,12 +21,16 @@ import java.lang.annotation.Target;
  * execution.</li>
  * </ul>
  * <p>
- * This annotation is not <em>inheritable</em>, so the user must repeat the annotation when overriding the method.
+ * When this annotation is used on a {@code class}, all the methods declared by the annotated class are considered
+ * <em>blocking</em>.
+ * <p>
+ * This annotation is not <em>inheritable</em>, so the user must repeat the annotation when sub-classing the class
+ * or overriding the method.
  *
  * @see NonBlocking
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(METHOD)
+@Target({ ElementType.METHOD, ElementType.TYPE })
 public @interface Blocking {
 
     // Just a marker annotation.
