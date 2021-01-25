@@ -16,8 +16,8 @@ import com.oracle.svm.core.annotate.Substitute;
 import com.oracle.svm.core.annotate.TargetClass;
 
 final class Substitutions {
-    @TargetClass(className = "org.wildfly.common.net.GetHostInfoAction")
-    static final class Target_org_wildfly_common_net_GetHostInfoAction {
+    @TargetClass(className = "io.smallrye.common.net.GetHostInfoAction")
+    static final class Target_io_smallrye_common_net_GetHostInfoAction {
         @Substitute
         public String[] run() {
             // still allow host name to be overridden
