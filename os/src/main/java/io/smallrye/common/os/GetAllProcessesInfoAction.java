@@ -64,7 +64,7 @@ final class GetAllProcessesInfoAction implements PrivilegedAction<List<ProcessIn
         List<ProcessInfo> processes = new ArrayList<>();
         java.lang.Process process = null;
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder("ps", "-ax", "-o", "pid=,comm=");
+            ProcessBuilder processBuilder = new ProcessBuilder("/usr/bin/ps", "-ax", "-o", "pid=,comm=");
             String thisCmd = String.join(" ", processBuilder.command());
             process = processBuilder.start();
             try (Scanner scanner = new Scanner(process.getInputStream())) {
@@ -92,7 +92,7 @@ final class GetAllProcessesInfoAction implements PrivilegedAction<List<ProcessIn
         List<ProcessInfo> processes = new ArrayList<>();
         java.lang.Process process = null;
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder("tasklist.exe", "/fo", "csv", "/nh");
+            ProcessBuilder processBuilder = new ProcessBuilder("%WINDIR%\\system32\\tasklist.exe", "/fo", "csv", "/nh");
             String thisCmd = String.join(" ", processBuilder.command());
             process = processBuilder.start();
             try (Scanner sc = new Scanner(process.getInputStream())) {
