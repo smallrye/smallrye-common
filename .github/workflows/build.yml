@@ -48,6 +48,14 @@ jobs:
           version: 8
           targets: 'JAVA_HOME_8'
 
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
       - name: build with maven
         run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
 
@@ -81,6 +89,14 @@ jobs:
         with:
           version: 8
           targets: 'JAVA_HOME_8'
+
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
       - name: build with maven
         shell: bash
@@ -117,6 +133,14 @@ jobs:
           version: 8
           targets: 'JAVA_HOME_8'
 
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
       - name: build with maven
         run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
 
@@ -131,6 +155,14 @@ jobs:
       - uses: AdoptOpenJDK/install-jdk@v1
         with:
           version: 11
+
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
       - name: sonar
         env:
