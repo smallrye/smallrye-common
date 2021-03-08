@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -79,8 +80,8 @@ class ClassPathUtilsTest {
         Path filePath = tempDir.resolve("resources.jar");
         jar.as(ZipExporter.class).exportTo(filePath.toFile());
 
-        URL resource = new URL("jar:file:" + filePath.toString() + "!/resources.properties");
-        Properties properties = ClassPathUtils.processAsPath(resource, path -> {
+        URI resource = new URI("jar", filePath.toUri().toASCIIString() + "!/resources.properties", null);
+        Properties properties = ClassPathUtils.processAsPath(resource.toURL(), path -> {
             Properties properties1 = new Properties();
             try (InputStreamReader reader = new InputStreamReader(Files.newInputStream(path))) {
                 properties1.load(reader);
@@ -102,8 +103,8 @@ class ClassPathUtilsTest {
         Path filePath = tempDir.resolve("resources.jar");
         jar.as(ZipExporter.class).exportTo(filePath.toFile());
 
-        URL resource = new URL("jar:file:" + filePath.toString() + "!/resources.properties");
-        Properties properties = ClassPathUtils.readStream(resource, inputStream -> {
+        URI resource = new URI("jar", filePath.toUri().toASCIIString() + "!/resources.properties", null);
+        Properties properties = ClassPathUtils.readStream(resource.toURL(), inputStream -> {
             Properties properties1 = new Properties();
             try (InputStreamReader reader = new InputStreamReader(inputStream)) {
                 properties1.load(reader);

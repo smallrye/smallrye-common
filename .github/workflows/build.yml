@@ -17,9 +17,78 @@ on:
       - 'README*'
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
-    name: build with JDK 11
+    name: build with JDK 11 (Linux)
+
+    steps:
+      - uses: actions/checkout@v2
+        name: checkout
+
+      - uses: AdoptOpenJDK/install-jdk@v1
+        name: set up JDK 11
+        with:
+          version: 11
+
+      - uses: AdoptOpenJDK/install-jdk@v1
+        name: set up JDK 10
+        with:
+          version: 10
+          targets: 'JAVA_HOME_10'
+
+      - uses: AdoptOpenJDK/install-jdk@v1
+        name: set up JDK 9
+        with:
+          version: 9
+          targets: 'JAVA_HOME_9'
+
+      - uses: AdoptOpenJDK/install-jdk@v1
+        name: set up JDK 8
+        with:
+          version: 8
+          targets: 'JAVA_HOME_8'
+
+      - name: build with maven
+        run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
+
+  build-windows:
+    runs-on: windows-latest
+    name: build with JDK 11 (Windows)
+
+    steps:
+      - uses: actions/checkout@v2
+        name: checkout
+
+      - uses: AdoptOpenJDK/install-jdk@v1
+        name: set up JDK 11
+        with:
+          version: 11
+
+      - uses: AdoptOpenJDK/install-jdk@v1
+        name: set up JDK 10
+        with:
+          version: 10
+          targets: 'JAVA_HOME_10'
+
+      - uses: AdoptOpenJDK/install-jdk@v1
+        name: set up JDK 9
+        with:
+          version: 9
+          targets: 'JAVA_HOME_9'
+
+      - uses: AdoptOpenJDK/install-jdk@v1
+        name: set up JDK 8
+        with:
+          version: 8
+          targets: 'JAVA_HOME_8'
+
+      - name: build with maven
+        shell: bash
+        run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
+
+  build-macos:
+    runs-on: macos-latest
+    name: build with JDK 11 (Mac OS)
 
     steps:
       - uses: actions/checkout@v2
@@ -52,7 +121,7 @@ jobs:
         run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
 
   quality:
-    needs: [build]
+    needs: [build-linux,build-macos,build-windows]
     if: github.event_name == 'push' && github.repository == 'smallrye/smallrye-common'
     runs-on: ubuntu-latest
     name: quality
