@@ -25,11 +25,11 @@ import java.security.PrivilegedAction;
 
 /**
  */
-final class GetProcessInfoAction implements PrivilegedAction<Object[]> {
+final class GetProcessInfoAction implements PrivilegedAction<ProcessInfo> {
     GetProcessInfoAction() {
     }
 
-    public Object[] run() {
+    public ProcessInfo run() {
         final ProcessHandle processHandle = ProcessHandle.current();
         final long pid = processHandle.pid();
         String processName = System.getProperty("jboss.process.name");
@@ -82,6 +82,6 @@ final class GetProcessInfoAction implements PrivilegedAction<Object[]> {
         if (processName == null) {
             processName = "<unknown>";
         }
-        return new Object[] { pid, processName };
+        return new ProcessInfo(pid, processName);
     }
 }

@@ -20,19 +20,18 @@ package io.smallrye.common.os;
 
 import static java.security.AccessController.doPrivileged;
 
+import java.util.List;
+
 /**
  * Utilities for getting information about the current process.
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class Process {
-    private static final long processId;
-    private static final String processName;
+    private static final ProcessInfo currentProcess;
 
     static {
-        Object[] array = doPrivileged(new GetProcessInfoAction());
-        processId = (Long) array[0];
-        processName = (String) array[1];
+        currentProcess = doPrivileged(new GetProcessInfoAction());
     }
 
     private Process() {
@@ -44,7 +43,7 @@ public final class Process {
      * @return the process name (not {@code null})
      */
     public static String getProcessName() {
-        return processName;
+        return currentProcess.getCommand();
     }
 
     /**
@@ -54,6 +53,25 @@ public final class Process {
      * @return the ID of this process, or -1 if it cannot be determined
      */
     public static long getProcessId() {
-        return processId;
+        return currentProcess.getId();
+    }
+
+    /**
+     * Returns information about the current process
+     *
+     * @return the current process
+     */
+    public static ProcessInfo getCurrentProcess() {
+        return currentProcess;
+    }
+
+    /**
+     * Returns all the running processes.
+     *
+     * @return a list of all the running processes. May throw an exception if running on an unsupported JDK
+     * @throws UnsupportedOperationException if running on JDK 8
+     */
+    public static List<ProcessInfo> getAllProcesses() {
+        return doPrivileged(new GetAllProcessesInfoAction());
     }
 }

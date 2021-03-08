@@ -27,18 +27,19 @@ import java.security.PrivilegedAction;
 
 /**
  */
-final class GetProcessInfoAction implements PrivilegedAction<Object[]> {
+final class GetProcessInfoAction implements PrivilegedAction<ProcessInfo> {
     GetProcessInfoAction() {
     }
 
-    public Object[] run() {
+    @Override
+    public ProcessInfo run() {
         long pid = -1L;
         String processName = "<unknown>";
         final RuntimeMXBean runtime;
         try {
             runtime = ManagementFactory.getPlatformMXBean(RuntimeMXBean.class);
         } catch (Exception ignored) {
-            return new Object[] { pid, processName };
+            return new ProcessInfo(pid, processName);
         }
         // TODO: on Java 9, use ProcessHandle.current().pid()
         // Process ID
@@ -101,6 +102,6 @@ final class GetProcessInfoAction implements PrivilegedAction<Object[]> {
         if (processName == null) {
             processName = "<unknown>";
         }
-        return new Object[] { pid, processName };
+        return new ProcessInfo(pid, processName);
     }
 }
