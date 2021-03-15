@@ -12,6 +12,25 @@
 
   <name>SmallRye Common: Annotations</name>
 
+  <dependencies>
+    <dependency>
+      <groupId>jakarta.enterprise</groupId>
+      <artifactId>jakarta.enterprise.cdi-api</artifactId>
+      <scope>provided</scope>
+      <exclusions>
+        <!-- keep the dependency tree of this module as small as possible -->
+        <exclusion>
+          <groupId>jakarta.el</groupId>
+          <artifactId>jakarta.el-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>jakarta.interceptor</groupId>
+          <artifactId>jakarta.interceptor-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+
   <profiles>
     <profile>
       <id>coverage</id>
