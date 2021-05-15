@@ -69,6 +69,24 @@ public final class Assert {
     }
 
     /**
+     * Check that the named parameter is not empty after trim. Use a standard exception message if it is.
+     *
+     * @param name the parameter name
+     * @param value the parameter value to trim and check
+     * @return the trimmed value (not the original passed in)
+     * @throws IllegalArgumentException if the value is empty
+     */
+    @NotNull
+    public static String checkNotEmptyAfterTrimParam(String name, String value) {
+        checkNotNullParamChecked("name", name);
+        checkNotNullParamChecked("value", value);
+        String trimmed = value.trim();
+        if (trimmed.isEmpty())
+            throw Messages.log.emptyParam(name);
+        return trimmed;
+    }
+
+    /**
      * Check that the named parameter is not empty. Use a standard exception message if it is.
      *
      * @param name the parameter name
