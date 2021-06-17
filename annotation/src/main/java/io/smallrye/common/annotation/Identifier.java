@@ -6,15 +6,15 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import javax.enterprise.util.AnnotationLiteral;
-import javax.inject.Qualifier;
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.inject.Qualifier;
 
 /**
  * String-based {@linkplain Qualifier qualifier}.
- * Unlike {@link javax.inject.Named @Named}, this is a proper qualifier in CDI environment.
+ * Unlike {@link jakarta.inject.Named @Named}, this is a proper qualifier in CDI environment.
  * <p>
  * Identifier must always be provided.
- * Unlike {@link javax.inject.Named @Named}, it is not deduced from the annotation use.
+ * Unlike {@link jakarta.inject.Named @Named}, it is not deduced from the annotation use.
  */
 @Qualifier
 @Documented
