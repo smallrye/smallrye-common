@@ -146,7 +146,7 @@ jobs:
 
   quality:
     needs: [build-linux,build-macos,build-windows]
-    if: github.event_name == 'push' && github.repository == 'smallrye/smallrye-common'
+    if: github.event_name == 'push' && github.repository_owner == 'smallrye'
     runs-on: ubuntu-latest
     name: quality
 
