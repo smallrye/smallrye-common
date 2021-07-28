@@ -171,3 +171,29 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
           SONAR_TOKEN: ${{secrets.SONAR_TOKEN}}
         run: mvn -B verify --file pom.xml -Pcoverage javadoc:javadoc sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.login=$SONAR_TOKEN
+
+  jakarta:
+    needs: [build-linux]
+    runs-on: ubuntu-latest
+    name: jakarta
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: AdoptOpenJDK/install-jdk@v1
+        with:
+          version: 11
+
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Rename Jakarta
+        run: |
+          mvn gav:rename -s .mvn/plugin-settings.xml -DgroupId=io.smallrye -DartifactId=smallrye-parent -DnewGroupId=io.smallrye -DnewArtifactId=smallrye-jakarta-parent
+          mvn gav:rename -s .mvn/plugin-settings.xml -DartifactIdPattern=smallrye-common -DnewArtifactId=smallrye-common-jakarta
+          find . -type f -name '*.java' -exec sed -i'' -e 's/javax./jakarta./g' {} +
+          mvn verify
