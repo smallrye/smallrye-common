@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.smallrye</groupId>
         <artifactId>smallrye-parent</artifactId>
-        <version>28</version>
+        <version>31</version>
     </parent>
 
     <groupId>io.smallrye.common</groupId>
@@ -19,7 +19,7 @@
     <description>Common utilities for SmallRye</description>
     <properties>
         <version.graalvm>19.2.1</version.graalvm>
-        <version.sundrio>0.40.1</version.sundrio>
+        <version.sundrio>0.50.2</version.sundrio>
 
         <!-- Sonar settings -->
         <sonar.projectName>SmallRye Common</sonar.projectName>
@@ -96,7 +96,7 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>9.1</version>
+                <version>9.2</version>
                 <scope>test</scope>
             </dependency>
 
@@ -128,7 +128,7 @@
         <plugins>
             <plugin>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.0.0-M3</version>
+                <version>3.0.0</version>
                 <executions>
                     <execution>
                         <id>enforce-versions</id>
