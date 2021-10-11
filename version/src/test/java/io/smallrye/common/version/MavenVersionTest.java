@@ -2,35 +2,11 @@ package io.smallrye.common.version;
 
 import static org.junit.Assert.assertEquals;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Properties;
-
 import org.apache.maven.artifact.versioning.ComparableVersion;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class MavenVersionTest {
-    static volatile String artifactPluginVersion;
-
-    @BeforeClass
-    public static void setUp() throws IOException {
-        InputStream stream = MavenVersionTest.class.getClassLoader()
-                .getResourceAsStream("META-INF/maven/org.apache.maven/maven-artifact/pom.properties");
-        if (stream != null) {
-            try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
-                Properties properties = new Properties();
-                properties.load(reader);
-                if ((artifactPluginVersion = properties.getProperty("version")) != null) {
-                    return;
-                }
-            }
-        }
-        throw new IllegalStateException("Could not determine plugin version");
-    }
 
     @Test
     public void testMavenCompare() {
@@ -69,19 +45,12 @@ public class MavenVersionTest {
         checkMavenConsistency("12-foo", "12_FOO");
         checkMavenConsistency("0_0", "0");
         checkMavenConsistency("0_0", "0_0final");
-        boolean atLeast382 = VersionScheme.MAVEN.compare(artifactPluginVersion, "3.8.2") >= 0;
-        if (atLeast382) {
-            // https://issues.apache.org/jira/browse/MNG-6964 - fixed since 3.8.2
-            checkMavenConsistency("1-0.alpha", "1");
-        } else {
-            assertEquals(1, VersionScheme.MAVEN.compare("1-0.alpha", "1"));
-        }
-        if (atLeast382) {
-            // https://issues.apache.org/jira/browse/MNG-6964 - fixed since 3.8.2
-            checkMavenConsistency("1-0.beta", "1");
-        } else {
-            assertEquals(1, VersionScheme.MAVEN.compare("1-0.beta", "1"));
-        }
+        // https://issues.apache.org/jira/browse/MNG-6964
+        // checkMavenConsistency("1-0.alpha", "1");
+        assertEquals(1, VersionScheme.MAVEN.compare("1-0.alpha", "1"));
+        // https://issues.apache.org/jira/browse/MNG-6964
+        //checkMavenConsistency("1-0.beta", "1");
+        assertEquals(1, VersionScheme.MAVEN.compare("1-0.beta", "1"));
     }
 
     private static void checkMavenConsistency(String v1, String v2) {
