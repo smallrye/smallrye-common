@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * This annotation should only be used on blocking methods, either marked explicitly blocking (using
  * {@link io.smallrye.common.annotation.Blocking}) or considered blocking by the underlying framework.
  *
- * @see Blocking,
+ * @see Blocking
  * @see NonBlocking
  */
 @Retention(RetentionPolicy.RUNTIME)
