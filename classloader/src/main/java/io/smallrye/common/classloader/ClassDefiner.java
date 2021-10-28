@@ -2,13 +2,17 @@ package io.smallrye.common.classloader;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.security.ProtectionDomain;
 
 import sun.misc.Unsafe;
 
 public class ClassDefiner {
     private static final Unsafe unsafe;
+    private static final Method defineClass;
 
     static {
         unsafe = AccessController.doPrivileged(new PrivilegedAction<Unsafe>() {
@@ -21,6 +25,18 @@ public class ClassDefiner {
                     throw new IllegalAccessError(e.getMessage());
                 } catch (NoSuchFieldException e) {
                     throw new NoSuchFieldError(e.getMessage());
+                }
+            }
+        });
+
+        defineClass = AccessController.doPrivileged(new PrivilegedAction<Method>() {
+            @Override
+            public Method run() {
+                try {
+                    return Unsafe.class.getMethod("defineClass", String.class, byte[].class, int.class, int.class,
+                            ClassLoader.class, ProtectionDomain.class);
+                } catch (NoSuchMethodException e) {
+                    throw new NoSuchMethodError(e.getMessage());
                 }
             }
         });
@@ -41,6 +57,13 @@ public class ClassDefiner {
             throw new IllegalArgumentException("Class not in same package as lookup class");
         }
 
-        return unsafe.defineClass(className, classBytes, 0, classBytes.length, parent.getClassLoader(), null);
+        try {
+            return (Class<?>) defineClass.invoke(unsafe, className, classBytes, 0, classBytes.length, parent.getClassLoader(),
+                    null);
+        } catch (IllegalAccessException e) {
+            throw new IllegalAccessError(e.getMessage());
+        } catch (InvocationTargetException e) {
+            throw new IllegalStateException(e.getMessage());
+        }
     }
 }

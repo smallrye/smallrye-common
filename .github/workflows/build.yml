@@ -21,16 +21,19 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    name: build with JDK 11 (Linux)
+    strategy:
+      matrix:
+        java: [ 11, 17 ]
+    name: build with JDK ${{matrix.java}} (Linux)
 
     steps:
       - uses: actions/checkout@v2
         name: checkout
 
       - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 11
+        name: set up JDK ${{matrix.java}}
         with:
-          version: 11
+          version: ${{matrix.java}}
 
       - uses: AdoptOpenJDK/install-jdk@v1
         name: set up JDK 10
