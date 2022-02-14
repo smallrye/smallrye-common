@@ -22,6 +22,8 @@
         <version.sundrio>0.80.0</version.sundrio>
         <version.jandex-maven-plugin>1.2.2</version.jandex-maven-plugin>
 
+        <version.vertx>4.2.4</version.vertx>
+
         <!-- Sonar settings -->
         <sonar.projectName>SmallRye Common</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
@@ -68,6 +70,7 @@
         <module>net</module>
         <module>os</module>
         <module>version</module>
+        <module>vertx-context</module>
     </modules>
 
     <dependencyManagement>
@@ -120,6 +123,11 @@
             <dependency>
                 <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-net</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-vertx-context</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
