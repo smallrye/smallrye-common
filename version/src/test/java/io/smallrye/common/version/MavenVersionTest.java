@@ -1,9 +1,9 @@
 package io.smallrye.common.version;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.maven.artifact.versioning.ComparableVersion;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class MavenVersionTest {
