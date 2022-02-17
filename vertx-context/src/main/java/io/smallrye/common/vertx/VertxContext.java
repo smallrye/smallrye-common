@@ -5,8 +5,6 @@ import io.smallrye.common.constraint.Nullable;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.impl.ContextInternal;
-import io.vertx.core.impl.EventLoopContext;
-import io.vertx.core.impl.WorkerContext;
 
 /**
  * Utility classes allowing to create duplicated contexts.
@@ -105,7 +103,7 @@ public class VertxContext {
      */
     public static boolean isDuplicatedContext(Context context) {
         Context actual = Assert.checkNotNullParam("context", context);
-        return !(actual instanceof EventLoopContext || actual instanceof WorkerContext);
+        return ((ContextInternal) actual).isDuplicate();
     }
 
     /**
