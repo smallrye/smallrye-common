@@ -22,7 +22,7 @@
         <version.sundrio>0.80.1</version.sundrio>
         <version.jandex-maven-plugin>1.2.2</version.jandex-maven-plugin>
 
-        <version.vertx>4.2.5</version.vertx>
+        <version.vertx>4.2.6</version.vertx>
 
         <!-- Sonar settings -->
         <sonar.projectName>SmallRye Common</sonar.projectName>
