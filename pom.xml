@@ -69,6 +69,7 @@
         <module>io</module>
         <module>net</module>
         <module>os</module>
+        <module>ref</module>
         <module>version</module>
         <module>vertx-context</module>
     </modules>
