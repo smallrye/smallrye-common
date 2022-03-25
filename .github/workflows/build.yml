@@ -63,7 +63,9 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: build with maven
-        run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
+        run: |
+          mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3
+          ./mvnw -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
 
   build-windows:
     runs-on: windows-latest
@@ -106,7 +108,9 @@ jobs:
 
       - name: build with maven
         shell: bash
-        run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
+        run: |
+          mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3
+          ./mvnw -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
 
   build-macos:
     runs-on: macos-latest
@@ -148,7 +152,9 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: build with maven
-        run: mvn -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
+        run: |
+          mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3
+          ./mvnw -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
 
   quality:
     needs: [build-linux,build-macos,build-windows]
@@ -174,4 +180,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
           SONAR_TOKEN: ${{secrets.SONAR_TOKEN}}
-        run: mvn -B verify --file pom.xml -Pcoverage javadoc:javadoc sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.login=$SONAR_TOKEN
+        run: |
+          mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3
+          ./mvnw -B verify --file pom.xml -Pcoverage javadoc:javadoc sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.login=$SONAR_TOKEN
