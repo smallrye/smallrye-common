@@ -18,7 +18,7 @@
     <url>http://smallrye.io</url>
     <description>Common utilities for SmallRye</description>
     <properties>
-        <version.graalvm>19.2.1</version.graalvm>
+        <version.graalvm>22.0.0.2</version.graalvm>
         <version.sundrio>0.90.1</version.sundrio>
         <version.jandex-maven-plugin>1.2.2</version.jandex-maven-plugin>
 
@@ -78,14 +78,14 @@
         <dependencies>
             <!-- External build dependencies -->
             <dependency>
-                <groupId>com.oracle.substratevm</groupId>
-                <artifactId>svm</artifactId>
+                <groupId>org.graalvm.sdk</groupId>
+                <artifactId>graal-sdk</artifactId>
                 <version>${version.graalvm}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>org.graalvm.sdk</groupId>
-                <artifactId>graal-sdk</artifactId>
+                <groupId>org.graalvm.nativeimage</groupId>
+                <artifactId>svm</artifactId>
                 <version>${version.graalvm}</version>
                 <scope>provided</scope>
             </dependency>
