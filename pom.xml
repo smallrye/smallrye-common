@@ -19,8 +19,12 @@
     <description>Common utilities for SmallRye</description>
     <properties>
         <!-- Plugins -->
+        <version.module-info>1.2</version.module-info>
         <version.sundrio>0.90.1</version.sundrio>
         <version.jandex-maven-plugin>1.2.2</version.jandex-maven-plugin>
+
+        <!-- Use newer surefire so that building with modules works -->
+        <version.surefire.plugin>3.0.0-M5</version.surefire.plugin>
 
         <!-- Dependencies -->
         <version.asm>9.2</version.asm>
@@ -150,6 +154,20 @@
                             <id>make-index</id>
                             <goals>
                                 <goal>jandex</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>io.github.dmlloyd.module-info</groupId>
+                    <artifactId>module-info</artifactId>
+                    <version>${version.module-info}</version>
+                    <executions>
+                        <execution>
+                            <id>module-info</id>
+                            <phase>process-classes</phase>
+                            <goals>
+                                <goal>generate</goal>
                             </goals>
                         </execution>
                     </executions>
