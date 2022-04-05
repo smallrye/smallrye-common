@@ -64,3 +64,6 @@ client/shade/dependency-reduced-pom.xml
 
 # formatter cache directories
 .cache
+.mvn
+mvnw
+mvnw.cmd
