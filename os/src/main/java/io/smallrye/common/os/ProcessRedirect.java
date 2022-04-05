@@ -18,21 +18,11 @@
 
 package io.smallrye.common.os;
 
-import java.io.File;
-
-/**
- * Process redirections that work on all JDK versions.
- */
 public final class ProcessRedirect {
     private ProcessRedirect() {
     }
 
-    /**
-     * Get the "discard" process redirection target.
-     *
-     * @return the discarding redirection target
-     */
     public static ProcessBuilder.Redirect discard() {
-        return ProcessBuilder.Redirect.to(new File(OS.WINDOWS.isCurrent() ? "NUL" : "/dev/null"));
+        return ProcessBuilder.Redirect.DISCARD;
     }
 }

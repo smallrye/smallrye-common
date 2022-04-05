@@ -36,24 +36,6 @@ jobs:
         with:
           version: ${{matrix.java}}
 
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 10
-        with:
-          version: 10
-          targets: 'JAVA_HOME_10'
-
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 9
-        with:
-          version: 9
-          targets: 'JAVA_HOME_9'
-
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 8
-        with:
-          version: 8
-          targets: 'JAVA_HOME_8'
-
       - name: Cache local Maven repository
         uses: actions/cache@v2
         with:
@@ -65,7 +47,7 @@ jobs:
       - name: build with maven
         run: |
           mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3
-          ./mvnw -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
+          ./mvnw -B formatter:validate verify --file pom.xml
 
   build-windows:
     runs-on: windows-latest
@@ -80,24 +62,6 @@ jobs:
         with:
           version: 11
 
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 10
-        with:
-          version: 10
-          targets: 'JAVA_HOME_10'
-
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 9
-        with:
-          version: 9
-          targets: 'JAVA_HOME_9'
-
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 8
-        with:
-          version: 8
-          targets: 'JAVA_HOME_8'
-
       - name: Cache local Maven repository
         uses: actions/cache@v2
         with:
@@ -110,7 +74,7 @@ jobs:
         shell: bash
         run: |
           mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3
-          ./mvnw -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
+          ./mvnw -B formatter:validate verify --file pom.xml
 
   build-macos:
     runs-on: macos-latest
@@ -125,24 +89,6 @@ jobs:
         with:
           version: 11
 
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 10
-        with:
-          version: 10
-          targets: 'JAVA_HOME_10'
-
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 9
-        with:
-          version: 9
-          targets: 'JAVA_HOME_9'
-
-      - uses: AdoptOpenJDK/install-jdk@v1
-        name: set up JDK 8
-        with:
-          version: 8
-          targets: 'JAVA_HOME_8'
-
       - name: Cache local Maven repository
         uses: actions/cache@v2
         with:
@@ -154,7 +100,7 @@ jobs:
       - name: build with maven
         run: |
           mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3
-          ./mvnw -B formatter:validate verify --file pom.xml -Djava8.home=$JAVA_HOME_8 -Djava9.home=$JAVA_HOME_9 -Djava10.home=$JAVA_HOME_10
+          ./mvnw -B formatter:validate verify --file pom.xml
 
   quality:
     needs: [build-linux,build-macos,build-windows]
