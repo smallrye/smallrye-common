@@ -2,12 +2,11 @@ package io.smallrye.common.io.jar;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.jar.JarFile;
-import java.util.jar.Manifest;
+import java.util.zip.ZipFile;
 
 /**
- * Java 8 variant of a JDK-specific class for working with {@code JarFile}s.
+ * Java 9+ variant of a JDK-specific class for working with {@code JarFile}s.
  */
 public class JarFiles {
     /**
@@ -15,7 +14,7 @@ public class JarFiles {
      * On Java 9+, an equivalent that is multi-release-enabled is returned.
      */
     public static JarFile create(String name) throws IOException {
-        return new JarFile(name);
+        return new JarFile(new File(name), true, ZipFile.OPEN_READ, JarFile.runtimeVersion());
     }
 
     /**
@@ -23,7 +22,7 @@ public class JarFiles {
      * On Java 9+, an equivalent that is multi-release-enabled is returned.
      */
     public static JarFile create(String name, boolean verify) throws IOException {
-        return new JarFile(name, verify);
+        return new JarFile(new File(name), verify, ZipFile.OPEN_READ, JarFile.runtimeVersion());
     }
 
     /**
@@ -31,7 +30,7 @@ public class JarFiles {
      * On Java 9+, an equivalent that is multi-release-enabled is returned.
      */
     public static JarFile create(File file) throws IOException {
-        return new JarFile(file);
+        return new JarFile(file, true, ZipFile.OPEN_READ, JarFile.runtimeVersion());
     }
 
     /**
@@ -39,7 +38,7 @@ public class JarFiles {
      * On Java 9+, an equivalent that is multi-release-enabled is returned.
      */
     public static JarFile create(File file, boolean verify) throws IOException {
-        return new JarFile(file, verify);
+        return new JarFile(file, verify, ZipFile.OPEN_READ, JarFile.runtimeVersion());
     }
 
     /**
@@ -47,15 +46,7 @@ public class JarFiles {
      * On Java 9+, there is a isMultiRelease method
      */
     public static boolean isMultiRelease(JarFile jarFile) {
-        String value = null;
-        try {
-            Manifest manifest = jarFile.getManifest();
-            if (manifest != null) {
-                value = manifest.getMainAttributes().getValue("Multi-Release");
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Cannot read manifest attributes", e);
-        }
-        return Boolean.parseBoolean(value);
+        return jarFile.isMultiRelease();
     }
+
 }

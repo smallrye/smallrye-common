@@ -21,8 +21,6 @@ package io.smallrye.common.os;
 import static java.lang.Math.max;
 
 import java.io.File;
-import java.lang.management.ManagementFactory;
-import java.lang.management.RuntimeMXBean;
 import java.security.PrivilegedAction;
 
 /**
@@ -31,30 +29,10 @@ final class GetProcessInfoAction implements PrivilegedAction<ProcessInfo> {
     GetProcessInfoAction() {
     }
 
-    @Override
     public ProcessInfo run() {
-        long pid = -1L;
-        String processName = "<unknown>";
-        final RuntimeMXBean runtime;
-        try {
-            runtime = ManagementFactory.getPlatformMXBean(RuntimeMXBean.class);
-        } catch (Exception ignored) {
-            return new ProcessInfo(pid, processName);
-        }
-        // TODO: on Java 9, use ProcessHandle.current().pid()
-        // Process ID
-        final String name = runtime.getName();
-        if (name != null) {
-            final int idx = name.indexOf('@');
-            if (idx != -1)
-                try {
-                    pid = Long.parseLong(name.substring(0, idx));
-                } catch (NumberFormatException ignored) {
-                }
-        }
-        // TODO: on Java 9, maybe ProcessHandle.current().info().commandLine() or .command() instead
-        // Process name
-        processName = System.getProperty("jboss.process.name");
+        final ProcessHandle processHandle = ProcessHandle.current();
+        final long pid = processHandle.pid();
+        String processName = System.getProperty("jboss.process.name");
         if (processName == null) {
             final String classPath = System.getProperty("java.class.path");
             final String commandLine = System.getProperty("sun.java.command");
@@ -98,6 +76,9 @@ final class GetProcessInfoAction implements PrivilegedAction<ProcessInfo> {
                     }
                 }
             }
+        }
+        if (processName == null) {
+            processName = processHandle.info().command().orElse(null);
         }
         if (processName == null) {
             processName = "<unknown>";
