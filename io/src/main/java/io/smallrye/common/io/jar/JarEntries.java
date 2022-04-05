@@ -8,6 +8,6 @@ public class JarEntries {
      * On Java 10+, a getRealName() method was added
      */
     public static String getRealName(JarEntry jarEntry) {
-        return jarEntry.getName();
+        return jarEntry.getRealName();
     }
 }
