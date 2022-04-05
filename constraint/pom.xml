@@ -27,6 +27,15 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.github.dmlloyd.module-info</groupId>
+                <artifactId>module-info</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
     <profiles>
         <profile>
             <id>coverage</id>
