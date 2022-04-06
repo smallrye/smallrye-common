@@ -37,9 +37,12 @@
         <groupId>org.jboss.jandex</groupId>
         <artifactId>jandex-maven-plugin</artifactId>
       </plugin>
+      <plugin>
+        <groupId>io.github.dmlloyd.module-info</groupId>
+        <artifactId>module-info</artifactId>
+      </plugin>
     </plugins>
   </build>
-
   <profiles>
     <profile>
       <id>coverage</id>
