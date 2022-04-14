@@ -29,7 +29,7 @@
         <!-- Dependencies -->
         <version.asm>9.3</version.asm>
         <version.graalvm>22.0.0.2</version.graalvm>
-        <version.vertx>4.2.6</version.vertx>
+        <version.vertx>4.2.7</version.vertx>
         <version.maven>3.8.5</version.maven>
 
         <!-- Sonar settings -->
