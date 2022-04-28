@@ -36,19 +36,11 @@
         </dependency>
     </dependencies>
 
-    <!-- Until we merge https://github.com/smallrye/smallrye-common/pull/159/ -->
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Automatic-Module-Name>io.smallrye.common.expression</Automatic-Module-Name>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
+              <groupId>io.github.dmlloyd.module-info</groupId>
+              <artifactId>module-info</artifactId>
             </plugin>
         </plugins>
     </build>
