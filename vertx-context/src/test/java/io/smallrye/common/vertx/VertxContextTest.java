@@ -123,7 +123,33 @@ public class VertxContextTest {
                 tc.completeNow();
             });
         });
+    }
 
+    @Test
+    public void createNewDuplicatedContextFromContext(Vertx vertx, VertxTestContext tc) {
+        Assertions.assertThat(VertxContext.createNewDuplicatedContext(null)).isNull();
+
+        Context context = vertx.getOrCreateContext();
+        Context dc1 = VertxContext.createNewDuplicatedContext(context);
+        Assertions.assertThat(dc1).isNotNull();
+        Assertions.assertThat(VertxContext.isDuplicatedContext(dc1)).isTrue();
+
+        Context dc2 = VertxContext.createNewDuplicatedContext(context);
+        Assertions.assertThat(dc2).isNotNull();
+        Assertions.assertThat(VertxContext.isDuplicatedContext(dc2)).isTrue();
+        Assertions.assertThat(dc1).isNotSameAs(dc2);
+
+        vertx.runOnContext(x -> {
+            Context actual1 = VertxContext.createNewDuplicatedContext(Vertx.currentContext());
+            Context actual2 = VertxContext.createNewDuplicatedContext();
+            Assertions.assertThat(actual1).isNotNull();
+            Assertions.assertThat(VertxContext.isDuplicatedContext(actual1)).isTrue();
+            Assertions.assertThat(actual2).isNotNull();
+            Assertions.assertThat(actual2).isNotSameAs(actual1);
+            Assertions.assertThat(VertxContext.isDuplicatedContext(actual2)).isTrue();
+
+            tc.completeNow();
+        });
     }
 
 }
