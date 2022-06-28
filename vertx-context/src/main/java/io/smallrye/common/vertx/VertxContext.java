@@ -87,7 +87,16 @@ public class VertxContext {
      * @return a new duplicated context if called from a Vert.x thread, {@code null} otherwise.
      */
     public static @Nullable Context createNewDuplicatedContext() {
-        Context context = Vertx.currentContext();
+        return createNewDuplicatedContext(Vertx.currentContext());
+    }
+
+    /**
+     * Creates a new duplicated context, even if the passed one is already a duplicated context.
+     * If the passed context is {@code null}, it returns {@code null}
+     *
+     * @return a new duplicated context created from the given context, {@code null} is the passed context is {@code null}
+     */
+    public static @Nullable Context createNewDuplicatedContext(Context context) {
         if (context == null) {
             return null;
         }
