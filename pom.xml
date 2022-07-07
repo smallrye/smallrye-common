@@ -20,7 +20,7 @@
     <properties>
         <!-- Plugins -->
         <version.module-info>1.2</version.module-info>
-        <version.sundrio>0.91.1</version.sundrio>
+        <version.sundrio>0.92.1</version.sundrio>
         <version.jandex-maven-plugin>1.2.3</version.jandex-maven-plugin>
 
         <!-- Use newer surefire so that building with modules works -->
