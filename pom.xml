@@ -158,6 +158,17 @@
                         </execution>
                     </executions>
                 </plugin>
+                <!-- TODO - Workaround for javadoc / module-info generation -->
+                <!-- The javadoc plugin expects a module-info.java (because it finds the .class generated one), and
+                     because we don't have one, it fails. Forcing to 1.8 removes any module configuration for the
+                     javadoc command
+                -->
+                <plugin>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <configuration>
+                        <source>1.8</source>
+                    </configuration>
+                </plugin>
                 <plugin>
                     <groupId>io.github.dmlloyd.module-info</groupId>
                     <artifactId>module-info</artifactId>
