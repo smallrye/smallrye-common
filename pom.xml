@@ -5,13 +5,13 @@
 
     <parent>
         <groupId>io.smallrye</groupId>
-        <artifactId>smallrye-parent</artifactId>
+        <artifactId>smallrye-jakarta-parent</artifactId>
         <version>36</version>
     </parent>
 
     <groupId>io.smallrye.common</groupId>
     <artifactId>smallrye-common-parent</artifactId>
-    <version>1.13.2-SNAPSHOT</version>
+    <version>2.0.0-SNAPSHOT</version>
 
     <packaging>pom</packaging>
     <name>SmallRye Common: Parent</name>
