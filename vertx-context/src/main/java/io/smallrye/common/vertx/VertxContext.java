@@ -111,8 +111,12 @@ public class VertxContext {
      * @return {@code true} if the given context is a duplicated context, {@code false} otherwise.
      */
     public static boolean isDuplicatedContext(Context context) {
-        Context actual = Assert.checkNotNullParam("context", context);
-        return ((ContextInternal) actual).isDuplicate();
+        //Do not use Assert.checkNotNullParam with type io.vertx.core.Context as it is likely
+        //to trigger a performance issue via JDK-8180450.
+        //Identified via https://github.com/franz1981/type-pollution-agent
+        //So we cast to ContextInternal first:
+        ContextInternal actual = Assert.checkNotNullParam("context", (ContextInternal) context);
+        return actual.isDuplicate();
     }
 
     /**
