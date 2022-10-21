@@ -299,13 +299,22 @@ public final class Expression {
                                 start = itr.getNextIdx();
                                 continue;
                             } else if (itr.peekNext() == ':') {
-                                if (flags.contains(Flag.DOUBLE_COLON) && itr.hasNext() && itr.peekNext() == ':') {
-                                    // TP 7
-                                    // OK actually the whole thing is really going to be part of the key
-                                    // Best approach is, rewind and do it over again, but without end-on-colon
-                                    itr.rewind(start);
-                                    keyNode = parseString(itr, !flags.contains(Flag.NO_RECURSE_KEY), true, false, flags);
-                                    list.add(new ExpressionNode(general, keyNode, Node.NULL));
+                                if (flags.contains(Flag.DOUBLE_COLON)) {
+                                    itr.next();
+                                    if (itr.hasNext() && itr.peekNext() == ':') {
+                                        // TP 7
+                                        // OK actually the whole thing is really going to be part of the key
+                                        // Best approach is, rewind and do it over again, but without end-on-colon
+                                        itr.rewind(start);
+                                        keyNode = parseString(itr, !flags.contains(Flag.NO_RECURSE_KEY), true, false, flags);
+                                        list.add(new ExpressionNode(general, keyNode, Node.NULL));
+                                    } else {
+                                        // TP 7.5
+                                        // A single colon was found, so it is a default
+                                        final Node defaultValueNode = parseString(itr, !flags.contains(Flag.NO_RECURSE_DEFAULT),
+                                                true, false, flags);
+                                        list.add(new ExpressionNode(general, keyNode, defaultValueNode));
+                                    }
                                 } else {
                                     // TP 8
                                     itr.next(); // consume it
