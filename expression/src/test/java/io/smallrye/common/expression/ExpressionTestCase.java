@@ -212,17 +212,56 @@ public class ExpressionTestCase {
 
     @Test
     public void testPoint7() {
-        final Expression expression = Expression.compile("${expr::baz}", Expression.Flag.DOUBLE_COLON);
+        Expression expression = Expression.compile("${expr::baz}", Expression.Flag.DOUBLE_COLON);
         assertEquals("result", expression.evaluate((c, b) -> {
             assertEquals("expr::baz", c.getKey());
+            b.append("result");
+        }));
+
+        expression = Expression.compile("${expr::baz::baz}", Expression.Flag.DOUBLE_COLON);
+        assertEquals("result", expression.evaluate((c, b) -> {
+            assertEquals("expr::baz::baz", c.getKey());
+            b.append("result");
+        }));
+
+        expression = Expression.compile("${foo.bar::baz:something}", Expression.Flag.DOUBLE_COLON);
+        assertEquals("result", expression.evaluate((c, b) -> {
+            assertEquals("foo.bar::baz:something", c.getKey());
             b.append("result");
         }));
     }
 
     @Test
+    void testPoint7_5() {
+        Expression expression = Expression.compile("${foo.bar:baz::something}", Expression.Flag.DOUBLE_COLON);
+        assertEquals("baz::something", expression.evaluate((c, b) -> {
+            assertEquals("foo.bar", c.getKey());
+            c.expandDefault();
+        }));
+    }
+
+    @Test
     public void testPoint8() {
-        final Expression expression = Expression.compile("${expr::baz}");
+        Expression expression = Expression.compile("${expr::baz}");
         assertEquals(":baz", expression.evaluate((c, b) -> {
+            assertEquals("expr", c.getKey());
+            c.expandDefault();
+        }));
+
+        expression = Expression.compile("${expr::baz:something}");
+        assertEquals(":baz:something", expression.evaluate((c, b) -> {
+            assertEquals("expr", c.getKey());
+            c.expandDefault();
+        }));
+
+        expression = Expression.compile("${expr:baz::something}");
+        assertEquals("baz::something", expression.evaluate((c, b) -> {
+            assertEquals("expr", c.getKey());
+            c.expandDefault();
+        }));
+
+        expression = Expression.compile("${expr:baz:something}");
+        assertEquals("baz:something", expression.evaluate((c, b) -> {
             assertEquals("expr", c.getKey());
             c.expandDefault();
         }));
@@ -404,10 +443,24 @@ public class ExpressionTestCase {
 
     @Test
     public void testPoint28() {
-        final Expression expression = Expression.compile("${foo:bar}");
+        Expression expression = Expression.compile("${foo:bar}");
         assertEquals("bar", expression.evaluate((c, b) -> {
             assertEquals("foo", c.getKey());
             assertEquals("bar", c.getExpandedDefault());
+            c.expandDefault();
+        }));
+
+        expression = Expression.compile("${foo:bar:baz}");
+        assertEquals("bar:baz", expression.evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+            assertEquals("bar:baz", c.getExpandedDefault());
+            c.expandDefault();
+        }));
+
+        expression = Expression.compile("${foo:bar::baz}");
+        assertEquals("bar::baz", expression.evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+            assertEquals("bar::baz", c.getExpandedDefault());
             c.expandDefault();
         }));
     }
