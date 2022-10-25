@@ -1,4 +1,4 @@
 name: SmallRye Common
 release:
-  current-version: 1.13.1
-  next-version: 1.13.2-SNAPSHOT
+  current-version: 1.13.2
+  next-version: 1.13.3-SNAPSHOT
