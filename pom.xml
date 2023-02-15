@@ -5,8 +5,8 @@
 
     <parent>
         <groupId>io.smallrye</groupId>
-        <artifactId>smallrye-jakarta-parent</artifactId>
-        <version>36</version>
+        <artifactId>smallrye-parent</artifactId>
+        <version>39</version>
     </parent>
 
     <groupId>io.smallrye.common</groupId>
@@ -20,17 +20,15 @@
     <properties>
         <!-- Plugins -->
         <version.module-info>1.2</version.module-info>
-        <version.sundrio>0.92.1</version.sundrio>
+        <version.sundrio>0.93.1</version.sundrio>
         <version.jandex-maven-plugin>1.2.3</version.jandex-maven-plugin>
-
-        <!-- Use newer surefire so that building with modules works -->
-        <version.surefire.plugin>3.0.0-M5</version.surefire.plugin>
 
         <!-- Dependencies -->
         <version.asm>9.3</version.asm>
-        <version.graalvm>22.2.0</version.graalvm>
-        <version.vertx>4.3.3</version.vertx>
+        <version.graalvm>22.3.0</version.graalvm>
+        <version.vertx>4.3.8</version.vertx>
         <version.maven>3.8.6</version.maven>
+        <version.shrinkwrap>1.2.6</version.shrinkwrap>
 
         <!-- Sonar settings -->
         <sonar.projectName>SmallRye Common</sonar.projectName>
@@ -102,7 +100,7 @@
             <dependency>
                 <groupId>org.jboss.shrinkwrap</groupId>
                 <artifactId>shrinkwrap-bom</artifactId>
-                <version>1.2.6</version>
+                <version>${version.shrinkwrap}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -187,24 +185,12 @@
         </pluginManagement>
         <plugins>
             <plugin>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>enforce-versions</id>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <configuration>
-                            <rules>
-                                <requireJavaVersion>
-                                    <version>11</version>
-                                    <message>This project must be built with Java 11 or later.</message>
-                                </requireJavaVersion>
-                            </rules>
-                        </configuration>
-                    </execution>
-                </executions>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <configuration>
+                    <!-- Workaround to https://github.com/sundrio/sundrio/blob/main/maven-plugin/src/main/java/io/sundr/maven/GenerateBomMojo.java#L376 -->
+                    <skip>${clean.skip}</skip>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>io.sundr</groupId>
@@ -227,21 +213,6 @@
                                     </properties>
                                 </bom>
                             </boms>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>default-compile</id>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
-                        <configuration>
-                            <!-- Use Java 11 release for the default compile -->
-                            <release>11</release>
                         </configuration>
                     </execution>
                 </executions>
