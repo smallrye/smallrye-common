@@ -87,7 +87,16 @@ public class VertxContext {
      * @return a new duplicated context if called from a Vert.x thread, {@code null} otherwise.
      */
     public static @Nullable Context createNewDuplicatedContext() {
-        Context context = Vertx.currentContext();
+        return createNewDuplicatedContext(Vertx.currentContext());
+    }
+
+    /**
+     * Creates a new duplicated context, even if the passed one is already a duplicated context.
+     * If the passed context is {@code null}, it returns {@code null}
+     *
+     * @return a new duplicated context created from the given context, {@code null} is the passed context is {@code null}
+     */
+    public static @Nullable Context createNewDuplicatedContext(Context context) {
         if (context == null) {
             return null;
         }
@@ -102,8 +111,12 @@ public class VertxContext {
      * @return {@code true} if the given context is a duplicated context, {@code false} otherwise.
      */
     public static boolean isDuplicatedContext(Context context) {
-        Context actual = Assert.checkNotNullParam("context", context);
-        return ((ContextInternal) actual).isDuplicate();
+        //Do not use Assert.checkNotNullParam with type io.vertx.core.Context as it is likely
+        //to trigger a performance issue via JDK-8180450.
+        //Identified via https://github.com/franz1981/type-pollution-agent
+        //So we cast to ContextInternal first:
+        ContextInternal actual = Assert.checkNotNullParam("context", (ContextInternal) context);
+        return actual.isDuplicate();
     }
 
     /**

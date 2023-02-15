@@ -128,4 +128,4 @@ jobs:
           SONAR_TOKEN: ${{secrets.SONAR_TOKEN}}
         run: |
           mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3
-          ./mvnw -B verify --file pom.xml -Pcoverage javadoc:javadoc sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.login=$SONAR_TOKEN
+          ./mvnw -B javadoc:javadoc verify --file pom.xml -Pcoverage sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.login=$SONAR_TOKEN
