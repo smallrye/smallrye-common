@@ -27,7 +27,7 @@
         <version.asm>9.3</version.asm>
         <version.graalvm>22.3.0</version.graalvm>
         <version.vertx>4.3.8</version.vertx>
-        <version.maven>3.8.6</version.maven>
+        <version.maven>3.9.0</version.maven>
         <version.shrinkwrap>1.2.6</version.shrinkwrap>
 
         <!-- Sonar settings -->
