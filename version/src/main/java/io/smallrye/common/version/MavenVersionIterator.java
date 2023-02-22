@@ -15,6 +15,14 @@ final class MavenVersionIterator extends AbstractVersionIterator {
         return super.isEmptySeparator() || super.isNonEmptySeparator();
     }
 
+    public boolean isNumberPart() {
+        return super.isNumberPart() || isReleaseString();
+    }
+
+    public boolean isAlphaPart() {
+        return super.isAlphaPart() && !isReleaseString();
+    }
+
     public int getSeparatorCodePoint() {
         return super.isEmptySeparator() ? '-' : super.getSeparatorCodePoint();
     }
@@ -24,6 +32,14 @@ final class MavenVersionIterator extends AbstractVersionIterator {
             return target.append('-');
         } else {
             return super.appendPartTo(target);
+        }
+    }
+
+    public StringBuilder appendNumberPartTo(final StringBuilder target) throws IllegalStateException {
+        if (isReleaseString()) {
+            return target.append('0');
+        } else {
+            return super.appendNumberPartTo(target);
         }
     }
 
@@ -56,7 +72,7 @@ final class MavenVersionIterator extends AbstractVersionIterator {
             if (t == TokenType.PART_ALPHA && !isReleaseString()) {
                 return true;
             }
-            if (t == TokenType.PART_NUMBER && !numberPartEquals(0)) {
+            if (t == TokenType.PART_NUMBER && !super.numberPartEquals(0)) {
                 return true;
             }
             // otherwise it depends on the next segment
@@ -112,7 +128,7 @@ final class MavenVersionIterator extends AbstractVersionIterator {
     }
 
     boolean isZeroSegment() {
-        return isNumberPart() && numberPartEquals(0) || isAlphaPart() && isReleaseString();
+        return super.isNumberPart() && super.numberPartEquals(0) || super.isAlphaPart() && isReleaseString();
     }
 
     boolean isDashSeparator() {
@@ -146,7 +162,7 @@ final class MavenVersionIterator extends AbstractVersionIterator {
     // Magnitude (pop pop)
 
     int getMilestoneMagnitude() {
-        if (isAlphaPart()) {
+        if (super.isAlphaPart()) {
             final boolean nextSeparatorIsEmpty = nextSeparatorIsEmpty();
 
             if (alphaPartEquals("alpha", true) || alphaPartEquals("a", true) && nextSeparatorIsEmpty) {
@@ -166,6 +182,8 @@ final class MavenVersionIterator extends AbstractVersionIterator {
             } else if (alphaPartEquals("sp", true)) {
                 return 6;
             }
+        } else if (isZeroSegment()) {
+            return 5;
         }
         return -1; // not a milestone
     }
