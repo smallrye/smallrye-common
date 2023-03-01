@@ -186,14 +186,6 @@
         </pluginManagement>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-clean-plugin</artifactId>
-                <configuration>
-                    <!-- Workaround to https://github.com/sundrio/sundrio/blob/main/maven-plugin/src/main/java/io/sundr/maven/GenerateBomMojo.java#L376 -->
-                    <skip>${clean.skip}</skip>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>io.sundr</groupId>
                 <artifactId>sundr-maven-plugin</artifactId>
                 <version>${version.sundrio}</version>
