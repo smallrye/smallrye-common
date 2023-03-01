@@ -1,0 +1,6 @@
+name: io.smallrye.common.expression
+
+requires:
+  - module: io.smallrye.common.constraint
+  - module: io.smallrye.common.function
+  - module: org.jboss.logging
