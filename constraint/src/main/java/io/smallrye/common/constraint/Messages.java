@@ -10,14 +10,14 @@ interface Messages {
     @Message(id = 0, value = "Parameter '%s' may not be null")
     IllegalArgumentException nullParam(String paramName);
 
-    @Message(id = 1, value = "Parameter '%s' may not be less than %d")
+    @Message(id = 1, value = "Parameter '%s' may not be less than %s")
     IllegalArgumentException paramLessThan(String name, long min);
 
     IllegalArgumentException paramLessThan(String name, double min);
 
     IllegalArgumentException paramLessThan(String name, Object min);
 
-    @Message(id = 2, value = "Parameter '%s' may not be greater than than %d")
+    @Message(id = 2, value = "Parameter '%s' may not be greater than than %s")
     IllegalArgumentException paramGreaterThan(String name, long max);
 
     IllegalArgumentException paramGreaterThan(String name, double max);

@@ -286,6 +286,20 @@ public final class Assert {
     }
 
     /**
+     * Check that the named parameter is greater than or equal to {@code min} using unsigned comparison.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
+     * @throws IllegalArgumentException if the actual value is less than the minimum value
+     */
+    public static void checkMinimumParameterUnsigned(String name, int min, int actual) throws IllegalArgumentException {
+        checkNotNullParamChecked("name", name);
+        if (Integer.compareUnsigned(actual, min) < 0)
+            throw Messages.log.paramLessThan(name, Integer.toUnsignedLong(min));
+    }
+
+    /**
      * Check that the named parameter is greater than or equal to {@code min}.
      *
      * @param name the parameter name
@@ -297,6 +311,20 @@ public final class Assert {
         checkNotNullParamChecked("name", name);
         if (actual < min)
             throw Messages.log.paramLessThan(name, min);
+    }
+
+    /**
+     * Check that the named parameter is greater than or equal to {@code min} using unsigned comparison.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
+     * @throws IllegalArgumentException if the actual value is less than the minimum value
+     */
+    public static void checkMinimumParameterUnsigned(String name, long min, long actual) throws IllegalArgumentException {
+        checkNotNullParamChecked("name", name);
+        if (Long.compareUnsigned(actual, min) < 0)
+            throw Messages.log.paramLessThan(name, Long.toUnsignedString(min));
     }
 
     /**
@@ -358,6 +386,20 @@ public final class Assert {
     }
 
     /**
+     * Check that the named parameter is less than or equal to {@code max} using unsigned comparison.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
+     * @throws IllegalArgumentException if the actual value is greater than the maximum value
+     */
+    public static void checkMaximumParameterUnsigned(String name, int max, int actual) throws IllegalArgumentException {
+        checkNotNullParamChecked("name", name);
+        if (Integer.compareUnsigned(actual, max) > 0)
+            throw Messages.log.paramGreaterThan(name, Integer.toUnsignedLong(max));
+    }
+
+    /**
      * Check that the named parameter is less than or equal to {@code max}.
      *
      * @param name the parameter name
@@ -369,6 +411,20 @@ public final class Assert {
         checkNotNullParamChecked("name", name);
         if (actual > max)
             throw Messages.log.paramGreaterThan(name, max);
+    }
+
+    /**
+     * Check that the named parameter is less than or equal to {@code max} using unsigned comparison.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
+     * @throws IllegalArgumentException if the actual value is greater than the maximum value
+     */
+    public static void checkMaximumParameterUnsigned(String name, long max, long actual) throws IllegalArgumentException {
+        checkNotNullParamChecked("name", name);
+        if (Long.compareUnsigned(actual, max) > 0)
+            throw Messages.log.paramGreaterThan(name, Long.toUnsignedString(max));
     }
 
     /**
