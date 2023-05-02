@@ -2,11 +2,23 @@ package io.smallrye.common.function;
 
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.DoubleFunction;
 import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.function.LongFunction;
+import java.util.function.ObjDoubleConsumer;
 import java.util.function.ObjIntConsumer;
 import java.util.function.ObjLongConsumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.ToDoubleBiFunction;
+import java.util.function.ToDoubleFunction;
+import java.util.function.ToIntBiFunction;
+import java.util.function.ToIntFunction;
+import java.util.function.ToLongBiFunction;
+import java.util.function.ToLongFunction;
 
 import org.jboss.logging.Logger;
 
@@ -354,7 +366,8 @@ public final class Functions {
      * @param wrapper a runtime exception wrapper
      * @return an exception consumer
      */
-    public static <E extends Exception, RE extends RuntimeException> Consumer<E> runtimeExceptionThrowingConsumer(Function<E, RE> wrapper) {
+    public static <E extends Exception, RE extends RuntimeException> Consumer<E> runtimeExceptionThrowingConsumer(
+            Function<E, RE> wrapper) {
         return new Consumer<>() {
             @Override
             public void accept(E exception) {
@@ -396,7 +409,8 @@ public final class Functions {
      * @param handler an exception handler
      * @return a standard binary consumer
      */
-    public static <T, U, E extends Exception> BiConsumer<T, U> quiet(ExceptionBiConsumer<T, U, E> consumer, Consumer<E> handler) {
+    public static <T, U, E extends Exception> BiConsumer<T, U> quiet(ExceptionBiConsumer<T, U, E> consumer,
+            Consumer<E> handler) {
         return new BiConsumer<>() {
             @SuppressWarnings("unchecked")
             @Override
@@ -419,7 +433,8 @@ public final class Functions {
      * @param handler an exception handler
      * @return a standard object/int consumer
      */
-    public static <T, E extends Exception> ObjIntConsumer<T> quiet(ExceptionObjIntConsumer<T, E> consumer, Consumer<E> handler) {
+    public static <T, E extends Exception> ObjIntConsumer<T> quiet(ExceptionObjIntConsumer<T, E> consumer,
+            Consumer<E> handler) {
         return new ObjIntConsumer<>() {
             @SuppressWarnings("unchecked")
             @Override
@@ -442,7 +457,8 @@ public final class Functions {
      * @param handler an exception handler
      * @return a standard object/long consumer
      */
-    public static <T, E extends Exception> ObjLongConsumer<T> quiet(ExceptionObjLongConsumer<T, E> consumer, Consumer<E> handler) {
+    public static <T, E extends Exception> ObjLongConsumer<T> quiet(ExceptionObjLongConsumer<T, E> consumer,
+            Consumer<E> handler) {
         return new ObjLongConsumer<>() {
             @SuppressWarnings("unchecked")
             @Override
@@ -454,6 +470,558 @@ public final class Functions {
                 }
             }
         };
+    }
+
+    /**
+     * Returns a {@link Consumer} with identical behavior to the specified {@link Consumer}
+     * but with restricted parameter type.
+     *
+     * @param <T> the parameter type
+     * @param <TT> the restricted parameter type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, TT extends T> Consumer<TT> cast(Consumer<T> consumer) {
+        return (Consumer<TT>) consumer;
+    }
+
+    /**
+     * Returns a {@link Predicate} with identical behavior to the specified {@link Predicate}
+     * but with restricted parameter type.
+     *
+     * @param <T> the parameter type
+     * @param <TT> the restricted parameter type
+     * @param predicate a predicate
+     * @return a functionally equivalent predicate
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, TT extends T> Predicate<TT> cast(Predicate<T> predicate) {
+        return (Predicate<TT>) predicate;
+    }
+
+    /**
+     * Returns a {@link Supplier} with identical behavior to the specified {@link Supplier}
+     * but with relaxed return type.
+     *
+     * @param <T> the return type
+     * @param <TT> the relaxed return type
+     * @param supplier a supplier
+     * @return a functionally equivalent supplier
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends TT, TT> Supplier<TT> cast(Supplier<T> supplier) {
+        return (Supplier<TT>) supplier;
+    }
+
+    /**
+     * Returns a {@link Function} with identical behavior to the specified {@link Function}
+     * but with restricted parameter type and relaxed return type.
+     *
+     * @param <T> the parameter type
+     * @param <R> the return type
+     * @param <TT> the restricted parameter type
+     * @param <RR> the relaxed return type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, R extends RR, TT extends T, RR> Function<TT, RR> cast(Function<T, R> function) {
+        return (Function<TT, RR>) function;
+    }
+
+    /**
+     * Returns a {@link DoubleFunction} with identical behavior to the specified {@link DoubleFunction}
+     * but with relaxed return type.
+     *
+     * @param <R> the return type
+     * @param <RR> the relaxed return type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <R extends RR, RR> DoubleFunction<RR> cast(DoubleFunction<R> function) {
+        return (DoubleFunction<RR>) function;
+    }
+
+    /**
+     * Returns a {@link IntFunction} with identical behavior to the specified {@link IntFunction}
+     * but with relaxed return type.
+     *
+     * @param <R> the return type
+     * @param <RR> the relaxed return type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <R extends RR, RR> IntFunction<RR> cast(IntFunction<R> function) {
+        return (IntFunction<RR>) function;
+    }
+
+    /**
+     * Returns a {@link LongFunction} with identical behavior to the specified {@link LongFunction}
+     * but with relaxed return type.
+     *
+     * @param <R> the return type
+     * @param <RR> the relaxed return type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <R extends RR, RR> LongFunction<RR> cast(LongFunction<R> function) {
+        return (LongFunction<RR>) function;
+    }
+
+    /**
+     * Returns a {@link ToDoubleFunction} with identical behavior to the specified {@link ToDoubleFunction}
+     * but with restricted parameter type.
+     *
+     * @param <T> the parameter type
+     * @param <TT> the restricted parameter type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, TT extends T> ToDoubleFunction<TT> cast(ToDoubleFunction<T> function) {
+        return (ToDoubleFunction<TT>) function;
+    }
+
+    /**
+     * Returns a {@link ToIntFunction} with identical behavior to the specified {@link ToIntFunction}
+     * but with restricted parameter type.
+     *
+     * @param <T> the parameter type
+     * @param <TT> the restricted parameter type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, TT extends T> ToIntFunction<TT> cast(ToIntFunction<T> function) {
+        return (ToIntFunction<TT>) function;
+    }
+
+    /**
+     * Returns a {@link ToLongFunction} with identical behavior to the specified {@link ToLongFunction}
+     * but with restricted parameter type.
+     *
+     * @param <T> the parameter type
+     * @param <TT> the restricted parameter type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, TT extends T> ToLongFunction<TT> cast(ToLongFunction<T> function) {
+        return (ToLongFunction<TT>) function;
+    }
+
+    /**
+     * Returns a {@link BiConsumer} with identical behavior to the specified {@link BiConsumer}
+     * but with restricted parameter types.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, TT extends T, UU extends U> BiConsumer<TT, UU> cast(BiConsumer<T, U> consumer) {
+        return (BiConsumer<TT, UU>) consumer;
+    }
+
+    /**
+     * Returns a {@link ObjDoubleConsumer} with identical behavior to the specified {@link ObjDoubleConsumer}
+     * but with restricted parameter type.
+     *
+     * @param <T> the parameter type
+     * @param <TT> the restricted parameter type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, TT extends T> ObjDoubleConsumer<TT> cast(ObjDoubleConsumer<T> consumer) {
+        return (ObjDoubleConsumer<TT>) consumer;
+    }
+
+    /**
+     * Returns a {@link ObjIntConsumer} with identical behavior to the specified {@link ObjIntConsumer}
+     * but with restricted parameter type.
+     *
+     * @param <T> the parameter type
+     * @param <TT> the restricted parameter type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, TT extends T> ObjIntConsumer<TT> cast(ObjIntConsumer<T> consumer) {
+        return (ObjIntConsumer<TT>) consumer;
+    }
+
+    /**
+     * Returns a {@link ObjLongConsumer} with identical behavior to the specified {@link ObjLongConsumer}
+     * but with restricted parameter type.
+     *
+     * @param <T> the parameter type
+     * @param <TT> the restricted parameter type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, TT extends T> ObjLongConsumer<TT> cast(ObjLongConsumer<T> consumer) {
+        return (ObjLongConsumer<TT>) consumer;
+    }
+
+    /**
+     * Returns a {@link BiPredicate} with identical behavior to the specified {@link BiPredicate}
+     * but with restricted parameter types.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param predicate a predicate
+     * @return a functionally equivalent predicate
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, TT extends T, UU extends U> BiPredicate<TT, UU> cast(BiPredicate<T, U> predicate) {
+        return (BiPredicate<TT, UU>) predicate;
+    }
+
+    /**
+     * Returns a {@link BiFunction} with identical behavior to the specified {@link BiFunction}
+     * but with restricted parameter types and relaxed return type.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <R> the return type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param <RR> the relaxed return type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, R extends RR, TT extends T, UU extends U, RR> BiFunction<TT, UU, RR> cast(
+            BiFunction<T, U, R> function) {
+        return (BiFunction<TT, UU, RR>) function;
+    }
+
+    /**
+     * Returns a {@link ToDoubleBiFunction} with identical behavior to the specified {@link ToDoubleBiFunction}
+     * but with restricted parameter types.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, TT extends T, UU extends U> ToDoubleBiFunction<TT, UU> cast(ToDoubleBiFunction<T, U> function) {
+        return (ToDoubleBiFunction<TT, UU>) function;
+    }
+
+    /**
+     * Returns a {@link ToIntBiFunction} with identical behavior to the specified {@link ToIntBiFunction}
+     * but with restricted parameter types.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, TT extends T, UU extends U> ToIntBiFunction<TT, UU> cast(ToIntBiFunction<T, U> function) {
+        return (ToIntBiFunction<TT, UU>) function;
+    }
+
+    /**
+     * Returns a {@link ToLongBiFunction} with identical behavior to the specified {@link ToLongBiFunction}
+     * but with restricted parameter types.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, TT extends T, UU extends U> ToLongBiFunction<TT, UU> cast(ToLongBiFunction<T, U> function) {
+        return (ToLongBiFunction<TT, UU>) function;
+    }
+
+    /**
+     * Returns a {@link ExceptionConsumer} with identical behavior to the specified {@link ExceptionConsumer}
+     * but with restricted parameter type and relaxed exception type.
+     *
+     * @param <T> the parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted parameter type
+     * @param <EE> the relaxed exception type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, E extends EE, TT extends T, EE extends Exception> ExceptionConsumer<TT, EE> cast(
+            ExceptionConsumer<T, E> consumer) {
+        return (ExceptionConsumer<TT, EE>) consumer;
+    }
+
+    /**
+     * Returns a {@link ExceptionPredicate} with identical behavior to the specified {@link ExceptionPredicate}
+     * but with restricted parameter type and relaxed exception type.
+     *
+     * @param <T> the parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted parameter type
+     * @param <EE> the relaxed exception type
+     * @param predicate a predicate
+     * @return a functionally equivalent predicate
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, E extends EE, TT extends T, EE extends Exception> ExceptionPredicate<TT, EE> cast(
+            ExceptionPredicate<T, E> consumer) {
+        return (ExceptionPredicate<TT, EE>) consumer;
+    }
+
+    /**
+     * Returns a {@link ExceptionSupplier} with identical behavior to the specified {@link ExceptionSupplier}
+     * but with relaxed return type and relaxed exception type.
+     *
+     * @param <T> the return type
+     * @param <E> the exception type
+     * @param <TT> the relaxed return type
+     * @param <EE> the relaxed exception type
+     * @param supplier a supplier
+     * @return a functionally equivalent supplier
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends TT, E extends EE, TT, EE extends Exception> ExceptionSupplier<TT, EE> cast(
+            ExceptionSupplier<T, E> supplier) {
+        return (ExceptionSupplier<TT, EE>) supplier;
+    }
+
+    /**
+     * Returns a {@link ExceptionFunction} with identical behavior to the specified {@link ExceptionFunction}
+     * but with restricted parameter type, relaxed return type, and relaxed exception type.
+     *
+     * @param <T> the parameter type
+     * @param <R> the return type
+     * @param <E> the exception type
+     * @param <TT> the restricted parameter type
+     * @param <RR> the relaxed return type
+     * @param <EE> the relaxed exception type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, R extends RR, E extends EE, TT extends T, RR, EE extends Exception> ExceptionFunction<TT, RR, EE> cast(
+            ExceptionFunction<T, R, E> function) {
+        return (ExceptionFunction<TT, RR, EE>) function;
+    }
+
+    /**
+     * Returns a {@link ExceptionIntFunction} with identical behavior to the specified {@link ExceptionFunction}
+     * but with relaxed return type and relaxed exception type.
+     *
+     * @param <R> the return type
+     * @param <E> the exception type
+     * @param <RR> the relaxed return type
+     * @param <EE> the relaxed exception type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <R extends RR, E extends EE, RR, EE extends Exception> ExceptionIntFunction<RR, EE> cast(
+            ExceptionIntFunction<R, E> function) {
+        return (ExceptionIntFunction<RR, EE>) function;
+    }
+
+    /**
+     * Returns a {@link ExceptionLongFunction} with identical behavior to the specified {@link ExceptionLongFunction}
+     * but with relaxed return type and relaxed exception type.
+     *
+     * @param <R> the return type
+     * @param <E> the exception type
+     * @param <RR> the relaxed return type
+     * @param <EE> the relaxed exception type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <R extends RR, E extends EE, RR, EE extends Exception> ExceptionLongFunction<RR, EE> cast(
+            ExceptionLongFunction<R, E> function) {
+        return (ExceptionLongFunction<RR, EE>) function;
+    }
+
+    /**
+     * Returns a {@link ExceptionToIntFunction} with identical behavior to the specified {@link ExceptionToIntFunction}
+     * but with restricted parameter type and relaxed exception type.
+     *
+     * @param <T> the parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted parameter type
+     * @param <EE> the relaxed exception type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, E extends EE, TT extends T, EE extends Exception> ExceptionToIntFunction<TT, EE> cast(
+            ExceptionToIntFunction<T, E> function) {
+        return (ExceptionToIntFunction<TT, EE>) function;
+    }
+
+    /**
+     * Returns a {@link ExceptionToLongFunction} with identical behavior to the specified {@link ExceptionToLongFunction}
+     * but with restricted parameter type and relaxed exception type.
+     *
+     * @param <T> the parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted parameter type
+     * @param <EE> the relaxed exception type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, E extends EE, TT extends T, EE extends Exception> ExceptionToLongFunction<TT, EE> cast(
+            ExceptionToLongFunction<T, E> function) {
+        return (ExceptionToLongFunction<TT, EE>) function;
+    }
+
+    /**
+     * Returns a {@link ExceptionBiConsumer} with identical behavior to the specified {@link ExceptionBiConsumer}
+     * but with restricted parameter types and relaxed exception type.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param <EE> the relaxed exception type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, E extends EE, TT extends T, U, UU extends U, EE extends Exception> ExceptionBiConsumer<TT, UU, EE> cast(
+            ExceptionBiConsumer<T, U, E> consumer) {
+        return (ExceptionBiConsumer<TT, UU, EE>) consumer;
+    }
+
+    /**
+     * Returns a {@link ExceptionObjIntConsumer} with identical behavior to the specified {@link ExceptionObjIntConsumer}
+     * but with restricted parameter type and relaxed exception type.
+     *
+     * @param <T> the parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted parameter type
+     * @param <EE> the relaxed exception type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, E extends EE, TT extends T, EE extends Exception> ExceptionObjIntConsumer<TT, EE> cast(
+            ExceptionObjIntConsumer<T, E> consumer) {
+        return (ExceptionObjIntConsumer<TT, EE>) consumer;
+    }
+
+    /**
+     * Returns a {@link ExceptionObjLongConsumer} with identical behavior to the specified {@link ExceptionObjLongConsumer}
+     * but with restricted parameter type and relaxed exception type.
+     *
+     * @param <T> the parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted parameter type
+     * @param <EE> the relaxed exception type
+     * @param consumer a consumer
+     * @return a functionally equivalent consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, E extends EE, TT extends T, EE extends Exception> ExceptionObjLongConsumer<TT, EE> cast(
+            ExceptionObjLongConsumer<T, E> consumer) {
+        return (ExceptionObjLongConsumer<TT, EE>) consumer;
+    }
+
+    /**
+     * Returns a {@link ExceptionBiPredicate} with identical behavior to the specified {@link ExceptionBiPredicate}
+     * but with restricted parameter types and relaxed exception type.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param <EE> the relaxed exception type
+     * @param predicate a predicate
+     * @return a functionally equivalent predicate
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, E extends EE, TT extends T, UU extends U, EE extends Exception> ExceptionBiPredicate<TT, UU, EE> cast(
+            ExceptionBiPredicate<T, U, E> predicate) {
+        return (ExceptionBiPredicate<TT, UU, EE>) predicate;
+    }
+
+    /**
+     * Returns a {@link ExceptionBiFunction} with identical behavior to the specified {@link ExceptionBiFunction}
+     * but with restricted parameter types, relaxed return type, and relaxed exception type.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <R> the return type
+     * @param <E> the exception type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param <RR> the relaxed return type
+     * @param <EE> the relaxed exception type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, R extends RR, E extends EE, TT extends T, UU extends U, RR, EE extends Exception> ExceptionBiFunction<TT, UU, RR, EE> cast(
+            ExceptionBiFunction<T, U, R, E> function) {
+        return (ExceptionBiFunction<TT, UU, RR, EE>) function;
+    }
+
+    /**
+     * Returns a {@link ExceptionToIntBiFunction} with identical behavior to the specified {@link ExceptionToIntBiFunction}
+     * but with restricted parameter types and relaxed exception type.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param <EE> the relaxed exception type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, E extends EE, TT extends T, UU extends U, EE extends Exception> ExceptionToIntBiFunction<TT, UU, EE> cast(
+            ExceptionToIntBiFunction<T, U, E> function) {
+        return (ExceptionToIntBiFunction<TT, UU, EE>) function;
+    }
+
+    /**
+     * Returns a {@link ExceptionToLongBiFunction} with identical behavior to the specified {@link ExceptionToLongBiFunction}
+     * but with restricted parameter types and relaxed exception type.
+     *
+     * @param <T> the first parameter type
+     * @param <U> the second parameter type
+     * @param <E> the exception type
+     * @param <TT> the restricted first parameter type
+     * @param <UU> the restricted second parameter type
+     * @param <EE> the relaxed exception type
+     * @param function a function
+     * @return a functionally equivalent function
+     */
+    @SuppressWarnings("unchecked")
+    public static <T, U, E extends EE, TT extends T, UU extends U, EE extends Exception> ExceptionToLongBiFunction<TT, UU, EE> cast(
+            ExceptionToLongBiFunction<T, U, E> function) {
+        return (ExceptionToLongBiFunction<TT, UU, EE>) function;
     }
 
     static class RunnableConsumer implements Consumer<Runnable> {
