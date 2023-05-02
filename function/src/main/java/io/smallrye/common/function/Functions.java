@@ -4,7 +4,11 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.ObjIntConsumer;
+import java.util.function.ObjLongConsumer;
 import java.util.function.Supplier;
+
+import org.jboss.logging.Logger;
 
 import io.smallrye.common.constraint.Assert;
 
@@ -12,6 +16,9 @@ import io.smallrye.common.constraint.Assert;
  * A set of utility methods which return common functions.
  */
 public final class Functions {
+
+    private static final Logger LOGGER = Logger.getLogger(Functions.class);
+
     private Functions() {
     }
 
@@ -308,6 +315,145 @@ public final class Functions {
     @SuppressWarnings("unchecked")
     public static <T, U, E extends Exception> ExceptionBiConsumer<T, U, E> discardingExceptionBiConsumer() {
         return DiscardingBiConsumer.INSTANCE;
+    }
+
+    private static final Consumer<AutoCloseable> CLOSING_CONSUMER = quiet(AutoCloseable::close, exceptionLoggingConsumer());
+
+    /**
+     * Returns a consumer that quietly closes its argument, logging any exceptions.
+     *
+     * @return a closing consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends AutoCloseable> Consumer<T> closingConsumer() {
+        return (Consumer<T>) CLOSING_CONSUMER;
+    }
+
+    private static final Consumer<Exception> EXCEPTION_LOGGER = new Consumer<>() {
+        @Override
+        public void accept(Exception e) {
+            LOGGER.warn(e.getLocalizedMessage(), e);
+        }
+    };
+
+    /**
+     * Returns a consumer that logs its exception parameter as a warning.
+     *
+     * @param <E> the exception type
+     * @return an exception consumer
+     */
+    @SuppressWarnings("unchecked")
+    public static <E extends Exception> Consumer<E> exceptionLoggingConsumer() {
+        return (Consumer<E>) EXCEPTION_LOGGER;
+    }
+
+    /**
+     * Returns a consumer that wraps and throws its exception parameter as a {@link RuntimeException}.
+     *
+     * @param <E> the exception type
+     * @param wrapper a runtime exception wrapper
+     * @return an exception consumer
+     */
+    public static <E extends Exception, RE extends RuntimeException> Consumer<E> runtimeExceptionThrowingConsumer(Function<E, RE> wrapper) {
+        return new Consumer<>() {
+            @Override
+            public void accept(E exception) {
+                throw wrapper.apply(exception);
+            }
+        };
+    }
+
+    /**
+     * Converts an {@link ExceptionConsumer} to a standard {@link Consumer} using the specified exception handler.
+     *
+     * @param <T> the parameter type of the consumer
+     * @param <E> the exception type
+     * @param consumer an exception consumer
+     * @param handler an exception handler
+     * @return a standard consumer
+     */
+    public static <T, E extends Exception> Consumer<T> quiet(ExceptionConsumer<T, E> consumer, Consumer<E> handler) {
+        return new Consumer<>() {
+            @SuppressWarnings("unchecked")
+            @Override
+            public void accept(T value) {
+                try {
+                    consumer.accept(value);
+                } catch (Exception e) {
+                    handler.accept((E) e);
+                }
+            }
+        };
+    }
+
+    /**
+     * Converts an {@link ExceptionBiConsumer} to a standard {@link BiConsumer} using the specified exception handler.
+     *
+     * @param <T> the first parameter type of the consumer
+     * @param <U> the second parameter type of the consumer
+     * @param <E> the exception type
+     * @param consumer a binary exception consumer
+     * @param handler an exception handler
+     * @return a standard binary consumer
+     */
+    public static <T, U, E extends Exception> BiConsumer<T, U> quiet(ExceptionBiConsumer<T, U, E> consumer, Consumer<E> handler) {
+        return new BiConsumer<>() {
+            @SuppressWarnings("unchecked")
+            @Override
+            public void accept(T value1, U value2) {
+                try {
+                    consumer.accept(value1, value2);
+                } catch (Exception e) {
+                    handler.accept((E) e);
+                }
+            }
+        };
+    }
+
+    /**
+     * Converts an {@link ExceptionObjIntConsumer} to a standard {@link ObjIntConsumer} using the specified exception handler.
+     *
+     * @param <T> the first parameter type of the consumer
+     * @param <E> the exception type
+     * @param consumer an object/int exception consumer
+     * @param handler an exception handler
+     * @return a standard object/int consumer
+     */
+    public static <T, E extends Exception> ObjIntConsumer<T> quiet(ExceptionObjIntConsumer<T, E> consumer, Consumer<E> handler) {
+        return new ObjIntConsumer<>() {
+            @SuppressWarnings("unchecked")
+            @Override
+            public void accept(T object, int i) {
+                try {
+                    consumer.accept(object, i);
+                } catch (Exception e) {
+                    handler.accept((E) e);
+                }
+            }
+        };
+    }
+
+    /**
+     * Converts an {@link ExceptionObjLongConsumer} to a standard {@link ObjLongConsumer} using the specified exception handler.
+     *
+     * @param <T> the first parameter type of the consumer
+     * @param <E> the exception type
+     * @param consumer an object/long exception consumer
+     * @param handler an exception handler
+     * @return a standard object/long consumer
+     */
+    public static <T, E extends Exception> ObjLongConsumer<T> quiet(ExceptionObjLongConsumer<T, E> consumer, Consumer<E> handler) {
+        return new ObjLongConsumer<>() {
+            @SuppressWarnings("unchecked")
+            @Override
+            public void accept(T object, long i) {
+                try {
+                    consumer.accept(object, i);
+                } catch (Exception e) {
+                    handler.accept((E) e);
+                }
+            }
+        };
     }
 
     static class RunnableConsumer implements Consumer<Runnable> {
