@@ -52,8 +52,10 @@ public class VertxContext {
      * @see #getOrCreateDuplicatedContext(Context)
      */
     public static Context getOrCreateDuplicatedContext(Vertx vertx) {
-        Vertx actual = Assert.checkNotNullParam("vertx", vertx);
-        Context context = actual.getOrCreateContext(); // Creates an event loop context if none
+        //Intentionally avoid to reassign the return from checkNotNullParam
+        //as it will trigger JDK-8180450
+        Assert.checkNotNullParam("vertx", vertx);
+        Context context = vertx.getOrCreateContext(); // Creates an event loop context if none
         if (isDuplicatedContext(context)) { // Also checks that the context is not null
             return context;
         } else {
