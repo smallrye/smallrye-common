@@ -780,7 +780,7 @@ public final class Functions {
      * @param <E> the exception type
      * @param <TT> the restricted parameter type
      * @param <EE> the relaxed exception type
-     * @param predicate a predicate
+     * @param consumer a consumer
      * @return a functionally equivalent predicate
      */
     @SuppressWarnings("unchecked")
