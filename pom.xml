@@ -27,7 +27,7 @@
         <version.asm>9.5</version.asm>
         <version.graalvm>22.3.2</version.graalvm>
         <version.vertx>4.4.4</version.vertx>
-        <version.maven>3.9.2</version.maven>
+        <version.maven>3.9.3</version.maven>
         <version.shrinkwrap>1.2.6</version.shrinkwrap>
         <version.org.jboss.logging>3.5.0.Final</version.org.jboss.logging>
 
