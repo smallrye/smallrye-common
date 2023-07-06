@@ -19,7 +19,7 @@
     <description>Common utilities for SmallRye</description>
     <properties>
         <!-- Plugins -->
-        <version.module-info>2.0</version.module-info>
+        <version.module-info>2.1</version.module-info>
         <version.sundrio>0.100.1</version.sundrio>
         <version.jandex-maven-plugin>1.2.3</version.jandex-maven-plugin>
 
