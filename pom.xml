@@ -25,7 +25,7 @@
 
         <!-- Dependencies -->
         <version.asm>9.5</version.asm>
-        <version.graalvm>22.3.2</version.graalvm>
+        <version.graalvm>23.0.1</version.graalvm>
         <version.vertx>4.4.4</version.vertx>
         <version.maven>3.9.3</version.maven>
         <version.shrinkwrap>1.2.6</version.shrinkwrap>
