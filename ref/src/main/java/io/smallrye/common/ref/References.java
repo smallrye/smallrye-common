@@ -6,6 +6,8 @@ import java.lang.ref.ReferenceQueue;
 import java.security.PrivilegedAction;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.graalvm.nativeimage.ImageInfo;
+
 import io.smallrye.common.constraint.Assert;
 
 /**
@@ -17,27 +19,47 @@ public final class References {
 
     private static final Reference<?, ?> NULL = new StrongReference<>(null);
 
-    static final class ReaperThread extends Thread {
+    static final class BuildTimeHolder {
         static final ReferenceQueue<Object> REAPER_QUEUE = new ReferenceQueue<Object>();
+    }
+
+    static final class ReaperThread extends Thread {
+        static ReferenceQueue<Object> getReaperQueue() {
+            return BuildTimeHolder.REAPER_QUEUE;
+        }
 
         static {
-            final AtomicInteger cnt = new AtomicInteger(1);
-            final PrivilegedAction<Void> action = () -> {
-                final ReaperThread thr = new ReaperThread();
-                thr.setName("Reference Reaper #" + cnt.getAndIncrement());
-                thr.setDaemon(true);
-                thr.start();
-                return null;
-            };
-            for (int i = 0; i < 3; i++) {
-                doPrivileged(action);
+            if (isBuildTime()) {
+                // do nothing (class should be reinitialized)
+            } else {
+                final AtomicInteger cnt = new AtomicInteger(1);
+                final PrivilegedAction<Void> action = () -> startThreadAction(cnt.getAndIncrement());
+                for (int i = 0; i < 3; i++) {
+                    doPrivileged(action);
+                }
             }
+        }
+
+        private static boolean isBuildTime() {
+            try {
+                return ImageInfo.inImageBuildtimeCode();
+            } catch (Throwable ignored) {
+                return false;
+            }
+        }
+
+        private static Void startThreadAction(int id) {
+            final ReaperThread thr = new ReaperThread();
+            thr.setName("Reference Reaper #" + id);
+            thr.setDaemon(true);
+            thr.start();
+            return null;
         }
 
         public void run() {
             for (;;)
                 try {
-                    final java.lang.ref.Reference<?> ref = REAPER_QUEUE.remove();
+                    final java.lang.ref.Reference<?> ref = ReaperThread.getReaperQueue().remove();
                     if (ref instanceof CleanerReference) {
                         ((CleanerReference<?, ?>) ref).clean();
                     }

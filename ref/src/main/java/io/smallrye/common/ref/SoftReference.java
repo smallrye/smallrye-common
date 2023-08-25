@@ -55,7 +55,7 @@ public class SoftReference<T, A> extends java.lang.ref.SoftReference<T> implemen
      * @param reaper the reaper to use
      */
     public SoftReference(final T referent, final A attachment, final Reaper<T, A> reaper) {
-        super(referent, References.ReaperThread.REAPER_QUEUE);
+        super(referent, References.ReaperThread.getReaperQueue());
         this.reaper = reaper;
         this.attachment = attachment;
     }
