@@ -55,7 +55,7 @@ public class WeakReference<T, A> extends java.lang.ref.WeakReference<T> implemen
      * @param reaper the reaper to use
      */
     public WeakReference(final T referent, final A attachment, final Reaper<T, A> reaper) {
-        super(referent, References.ReaperThread.REAPER_QUEUE);
+        super(referent, References.ReaperThread.getReaperQueue());
         this.attachment = attachment;
         this.reaper = reaper;
     }

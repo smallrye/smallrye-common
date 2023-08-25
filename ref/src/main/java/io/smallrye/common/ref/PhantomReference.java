@@ -36,7 +36,7 @@ public class PhantomReference<T, A> extends java.lang.ref.PhantomReference<T> im
      * @param reaper the reaper to use
      */
     public PhantomReference(final T referent, final A attachment, final Reaper<T, A> reaper) {
-        super(referent, References.ReaperThread.REAPER_QUEUE);
+        super(referent, References.ReaperThread.getReaperQueue());
         this.reaper = reaper;
         this.attachment = attachment;
     }
