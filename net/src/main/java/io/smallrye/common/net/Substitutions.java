@@ -4,6 +4,8 @@ import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.List;
 
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.Platforms;
 import org.graalvm.nativeimage.StackValue;
 import org.graalvm.nativeimage.c.CContext;
 import org.graalvm.nativeimage.c.function.CFunction;
@@ -17,6 +19,7 @@ import com.oracle.svm.core.annotate.TargetClass;
 
 final class Substitutions {
     @TargetClass(className = "io.smallrye.common.net.GetHostInfoAction")
+    @Platforms({ Platform.DARWIN.class, Platform.LINUX.class })
     static final class Target_io_smallrye_common_net_GetHostInfoAction {
         @Substitute
         public String[] run() {
@@ -31,7 +34,7 @@ final class Substitutions {
                     // query the operating system
                     CCharPointer nameBuf = StackValue.get(ProcessSubstitutions.SIZE); // should be more than enough
                     int res = NativeInfo.gethostname(nameBuf, WordFactory.unsigned(ProcessSubstitutions.SIZE));
-                    if (res != -1 && res > 0) {
+                    if (res > 0) {
                         if (res == ProcessSubstitutions.SIZE) {
                             // null-terminate a really long name
                             nameBuf.write(ProcessSubstitutions.SIZE - 1, (byte) 0);
@@ -83,6 +86,7 @@ final class Substitutions {
     }
 
     @CContext(NativeInfoDirectives.class)
+    @Platforms({ Platform.DARWIN.class, Platform.LINUX.class })
     static final class NativeInfo {
         @CFunction
         static native int gethostname(CCharPointer nameBuf, UnsignedWord /* size_t */ len);
