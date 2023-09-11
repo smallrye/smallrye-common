@@ -456,6 +456,34 @@ public final class Assert {
     }
 
     /**
+     * Check that the named parameter is zero or a power of two (unsigned).
+     * For a signed check, or to eliminate zero values, use {@link #checkMinimumParameter(String, int, int)}.
+     *
+     * @param name the parameter name
+     * @param actual the actual parameter value
+     * @throws IllegalArgumentException if the actual value is not zero or a power of two
+     */
+    public static void checkPow2Parameter(String name, int actual) throws IllegalArgumentException {
+        checkNotNullParamChecked("name", name);
+        if (actual != 0 && Integer.bitCount(actual) != 1)
+            throw Messages.log.paramNotPow2(name);
+    }
+
+    /**
+     * Check that the named parameter is zero or a power of two (unsigned).
+     * For a signed check, or to eliminate zero values, use {@link #checkMinimumParameter(String, long, long)}.
+     *
+     * @param name the parameter name
+     * @param actual the actual parameter value
+     * @throws IllegalArgumentException if the actual value is not zero or a power of two
+     */
+    public static void checkPow2Parameter(String name, long actual) throws IllegalArgumentException {
+        checkNotNullParamChecked("name", name);
+        if (actual != 0 && Long.bitCount(actual) != 1)
+            throw Messages.log.paramNotPow2(name);
+    }
+
+    /**
      * Check that the given offset and length fall completely within the bounds of the given array.
      *
      * @param array the array to check

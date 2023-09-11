@@ -56,4 +56,7 @@ interface Messages {
 
     @Message(id = 13, value = "Method \"%s\" of class \"%s\" is not supported")
     UnsupportedOperationException unsupported(String methodName, String className);
+
+    @Message(id = 14, value = "Parameter '%s' must be a power of two")
+    IllegalArgumentException paramNotPow2(String name);
 }
