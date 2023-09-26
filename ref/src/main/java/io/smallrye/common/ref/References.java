@@ -4,7 +4,6 @@ import static java.security.AccessController.doPrivileged;
 
 import java.lang.ref.ReferenceQueue;
 import java.security.PrivilegedAction;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.graalvm.nativeimage.ImageInfo;
 
@@ -32,11 +31,8 @@ public final class References {
             if (isBuildTime()) {
                 // do nothing (class should be reinitialized)
             } else {
-                final AtomicInteger cnt = new AtomicInteger(1);
-                final PrivilegedAction<Void> action = () -> startThreadAction(cnt.getAndIncrement());
-                for (int i = 0; i < 3; i++) {
-                    doPrivileged(action);
-                }
+                final PrivilegedAction<Void> action = () -> startThreadAction(1);
+                doPrivileged(action);
             }
         }
 
