@@ -20,17 +20,12 @@ import java.util.function.ToIntFunction;
 import java.util.function.ToLongBiFunction;
 import java.util.function.ToLongFunction;
 
-import org.jboss.logging.Logger;
-
 import io.smallrye.common.constraint.Assert;
 
 /**
  * A set of utility methods which return common functions.
  */
 public final class Functions {
-
-    private static final Logger LOGGER = Logger.getLogger(Functions.class);
-
     private Functions() {
     }
 
@@ -344,7 +339,7 @@ public final class Functions {
     private static final Consumer<Exception> EXCEPTION_LOGGER = new Consumer<>() {
         @Override
         public void accept(Exception e) {
-            LOGGER.warn(e.getLocalizedMessage(), e);
+            FunctionsLogging.log.exception(e);
         }
     };
 
