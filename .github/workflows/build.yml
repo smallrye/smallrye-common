@@ -28,7 +28,7 @@ jobs:
     name: build with JDK ${{matrix.java}} (Linux)
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         name: checkout
 
       - uses: AdoptOpenJDK/install-jdk@v1
@@ -37,7 +37,7 @@ jobs:
           version: ${{matrix.java}}
 
       - name: Cache local Maven repository
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -54,7 +54,7 @@ jobs:
     name: build with JDK 11 (Windows)
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         name: checkout
 
       - uses: AdoptOpenJDK/install-jdk@v1
@@ -63,7 +63,7 @@ jobs:
           version: 11
 
       - name: Cache local Maven repository
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -81,7 +81,7 @@ jobs:
     name: build with JDK 11 (Mac OS)
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         name: checkout
 
       - uses: AdoptOpenJDK/install-jdk@v1
@@ -90,7 +90,7 @@ jobs:
           version: 11
 
       - name: Cache local Maven repository
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -109,13 +109,13 @@ jobs:
     name: quality
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: AdoptOpenJDK/install-jdk@v1
         with:
           version: 11
 
       - name: Cache local Maven repository
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
