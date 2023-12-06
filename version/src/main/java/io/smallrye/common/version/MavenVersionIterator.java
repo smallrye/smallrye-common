@@ -100,7 +100,7 @@ final class MavenVersionIterator extends AbstractVersionIterator {
     ////
 
     protected boolean isSeparatorCodePoint(final int cp) {
-        return cp == '.' || cp == '-';
+        return cp == '.' || cp == '-' || cp == '_';
     }
 
     protected boolean isAlphaCodePoint(final int cp) {

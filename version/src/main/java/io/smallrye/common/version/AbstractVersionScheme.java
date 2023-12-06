@@ -20,6 +20,21 @@ public abstract class AbstractVersionScheme<I extends AbstractVersionIterator> i
     }
 
     /**
+     * Compare the given version iterator against zero.
+     * The default implementation assumes that any non-empty version comes after zero.
+     *
+     * @param i the version iterator (must not be {@code null})
+     * @return {@code -1}, {@code 0}, or {@code 1} if the first version is less than, equal to, or greater than zero
+     */
+    protected int compareZero(I i) {
+        if (i.hasNext()) {
+            return -1;
+        } else {
+            return 0;
+        }
+    }
+
+    /**
      * Compare the next elements of the given iterators. If one iterator is at the end of iteration (its iterator
      * reports no next element), the corresponding version is considered to come before the other version. If
      * both iterators are at the end of iteration, the versions are considered equal. Otherwise,
@@ -33,12 +48,9 @@ public abstract class AbstractVersionScheme<I extends AbstractVersionIterator> i
      */
     protected int compareNext(I i1, I i2) {
         if (!i1.hasNext()) {
-            // same length
-            // i2 is longer
-            return !i2.hasNext() ? 0 : -1;
+            return compareZero(i1);
         } else if (!i2.hasNext()) {
-            // i1 is longer
-            return 1;
+            return -compareZero(i2);
         }
         i1.next();
         i2.next();

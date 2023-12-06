@@ -10,6 +10,54 @@ final class MavenVersionScheme extends AbstractVersionScheme<MavenVersionIterato
         return new MavenVersionIterator(version);
     }
 
+    protected int compareNext(final MavenVersionIterator i1, final MavenVersionIterator i2) {
+        if (!i1.hasNext()) {
+            if (!i2.hasNext()) {
+                // same length
+                return 0;
+            }
+            i2.next();
+            return -compareZero(i2);
+        } else if (!i2.hasNext()) {
+            i1.next();
+            return compareZero(i1);
+        }
+        i1.next();
+        i2.next();
+        return compare(i1, i2);
+    }
+
+    // XXX this works, just need to check +/-
+
+    protected int compareZero(MavenVersionIterator i) {
+        if (!i.hasNext()) {
+            return 0;
+        }
+        i.next();
+        // pad separator
+        if (i.isSeparator()) {
+            i.insertEmptyAlpha();
+        }
+        int m = i.getMilestoneMagnitude();
+        if (m != -1) {
+            int res = Integer.compare(m, 5);
+            if (res != 0) {
+                return res;
+            }
+            // continue on
+            if (i.hasNext()) {
+                i.next();
+                return compareZero(i);
+            } else {
+                // equal
+                return 0;
+            }
+        } else {
+            // greater than zero
+            return 1;
+        }
+    }
+
     protected int compare(MavenVersionIterator i1, MavenVersionIterator i2) {
         // pad separators
         if (i1.isSeparator()) {
@@ -65,64 +113,24 @@ final class MavenVersionScheme extends AbstractVersionScheme<MavenVersionIterato
 
         assert p2 == p1;
 
-        if (!i1.hasNext()) {
-            if (!i2.hasNext()) {
-                // same length
-                return 0;
-            } else {
-                // i2 is longer
-                return -1;
-            }
-        } else {
-            if (!i2.hasNext()) {
-                // i1 is longer
-                return 1;
-            }
-        }
-
-        boolean z1 = i1.isZeroSegment();
-        boolean z2 = i2.isZeroSegment();
-
-        // next segment is a separator
-        i1.next();
-        i2.next();
-
-        int s1 = i1.getSeparatorCodePoint();
-        int s2 = i2.getSeparatorCodePoint();
-
-        assert s1 == '-' || s1 == '.';
-        assert s2 == '-' || s2 == '.';
-
-        // If we just matched a number, Maven seems to compare by length.  Otherwise we zero-pad.
-
-        if (s1 == s2) {
-            // then alpha comes before number (normal rules)
-            return compareNext(i1, i2);
-        }
-        if (s1 == '-') {
-            assert s2 == '.';
-            // no more segments in v1
-            i2.next();
-            if (p2 == TokenType.PART_ALPHA || !z2) {
-                // pad with a "real" zero for next compare
-                i1.insertEmptyNumber();
-            } else {
-                // i1 is shorter
-                return -1;
-            }
-        } else {
-            assert s1 == '.';
-            assert s2 == '-';
-            // no more segments in v2
+        // skip separators and proceed
+        if (i1.hasNext()) {
             i1.next();
-            if (p1 == TokenType.PART_ALPHA || !z1) {
-                // pad with zero for next compare
-                i2.insertEmptyNumber();
+            if (i2.hasNext()) {
+                i2.next();
+                return compareNext(i1, i2);
             } else {
-                // i2 is shorter
-                return 1;
+                // i2 is at end
+                return compareZero(i1);
+            }
+        } else {
+            if (i2.hasNext()) {
+                i2.next();
+                // i1 is at end
+                return -compareZero(i2);
+            } else {
+                return 0;
             }
         }
-        return compare(i1, i2);
     }
 }
