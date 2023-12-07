@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
         name: checkout
 
-      - uses: actions/setup-java@v3
+      - uses: actions/setup-java@v4
         name: set up JDKs
         with:
           distribution: temurin
@@ -63,7 +63,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v3
+      - uses: actions/setup-java@v4
         with:
           java-version: 11
 
