@@ -364,7 +364,6 @@ public final class Inet {
      * @return the address (not {@code null})
      */
     public static Inet4Address getInet4Address(int s1, int s2, int s3, int s4) {
-        byte[] bytes = new byte[4];
         Assert.checkMinimumParameter("s1", 0, s1);
         Assert.checkMaximumParameter("s1", 255, s1);
         Assert.checkMinimumParameter("s2", 0, s2);
@@ -373,16 +372,45 @@ public final class Inet {
         Assert.checkMaximumParameter("s3", 255, s3);
         Assert.checkMinimumParameter("s4", 0, s4);
         Assert.checkMaximumParameter("s4", 255, s4);
+        byte[] bytes = new byte[4];
         bytes[0] = (byte) s1;
         bytes[1] = (byte) s2;
         bytes[2] = (byte) s3;
         bytes[3] = (byte) s4;
+        // pre-compute the digits required
+        int digitsForS1 = s1 < 10 ? 1 : s1 < 100 ? 2 : 3;
+        int digitsForS2 = s2 < 10 ? 1 : s2 < 100 ? 2 : 3;
+        int digitsForS3 = s3 < 10 ? 1 : s3 < 100 ? 2 : 3;
+        int digitsForS4 = s4 < 10 ? 1 : s4 < 100 ? 2 : 3;
+        byte[] hostBytes = new byte[3 + digitsForS1 + digitsForS2 + digitsForS3 + digitsForS4];
+        // use encodeUnsignedByte to encode s1,s2,s3,s4 into hostBytes
+        encodeUnsignedByte(s1, hostBytes, 0, digitsForS1);
+        hostBytes[digitsForS1] = '.';
+        encodeUnsignedByte(s2, hostBytes, digitsForS1 + 1, digitsForS2);
+        hostBytes[digitsForS1 + digitsForS2 + 1] = '.';
+        encodeUnsignedByte(s3, hostBytes, digitsForS1 + digitsForS2 + 2, digitsForS3);
+        hostBytes[digitsForS1 + digitsForS2 + digitsForS3 + 2] = '.';
+        encodeUnsignedByte(s4, hostBytes, digitsForS1 + digitsForS2 + digitsForS3 + 3, digitsForS4);
+        String hostName = new String(hostBytes, 0);
         try {
-            return (Inet4Address) InetAddress.getByAddress(s1 + "." + s2 + "." + s3 + "." + s4, bytes);
+            return (Inet4Address) InetAddress.getByAddress(hostName, bytes);
         } catch (UnknownHostException e) {
             // not possible
             throw new IllegalStateException(e);
         }
+    }
+
+    private static void encodeUnsignedByte(int value, byte[] bytes, int offset, int digits) {
+        assert value >= 0 && value <= 255 && digits >= 1 && digits <= 3;
+        if (digits == 3) {
+            bytes[offset + 2] = (byte) ('0' + (value % 10));
+            value /= 10;
+        }
+        if (digits == 2) {
+            bytes[offset + 1] = (byte) ('0' + (value % 10));
+            value /= 10;
+        }
+        bytes[offset] = (byte) ('0' + (value % 10));
     }
 
     /**
