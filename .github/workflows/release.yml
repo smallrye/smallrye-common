@@ -28,6 +28,7 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: 11
 
       - name: maven release ${{steps.metadata.outputs.current-version}}
