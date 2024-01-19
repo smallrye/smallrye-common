@@ -12,11 +12,31 @@
 
     <name>SmallRye Common: CPU</name>
 
+    <properties>
+        <expected-cpu/>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>
                 <groupId>io.github.dmlloyd.module-info</groupId>
                 <artifactId>module-info</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <expected-cpu>${expected-cpu}</expected-cpu>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>
