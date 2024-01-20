@@ -47,7 +47,7 @@ jobs:
       - name: build with maven
         run: |
           mvn -q -N "io.takari:maven:${{env.IO_TAKARI_MAVEN_WRAPPER_VERSION}}:wrapper" "-Dmaven=${{env.MAVEN_VERSION}}"
-          ./mvnw -B -ntp formatter:validate verify --file pom.xml "-Djava11.home=${{env.JAVA_HOME_11_X64}}"
+          ./mvnw -B -ntp formatter:validate verify --file pom.xml "-Dexpected-cpu=x64" "-Djava11.home=${{env.JAVA_HOME_11_X64}}"
 
   quality:
     needs: [ build ]
