@@ -31,27 +31,27 @@ public final class Inet {
     /**
      * The "any" address for IPv4.
      */
-    public static final Inet4Address INET4_ANY = getInet4Address(0, 0, 0, 0);
+    public static final Inet4Address INET4_ANY = getInet4Address("0.0.0.0", 0, 0, 0, 0);
 
     /**
      * The traditional loopback address for IPv4.
      */
-    public static final Inet4Address INET4_LOOPBACK = getInet4Address(127, 0, 0, 1);
+    public static final Inet4Address INET4_LOOPBACK = getInet4Address("127.0.0.1", 127, 0, 0, 1);
 
     /**
      * The broadcast-all address for IPv4.
      */
-    public static final Inet4Address INET4_BROADCAST = getInet4Address(255, 255, 255, 255);
+    public static final Inet4Address INET4_BROADCAST = getInet4Address("255.255.255.255", 255, 255, 255, 255);
 
     /**
      * The "any" address for IPv6.
      */
-    public static final Inet6Address INET6_ANY = getInet6Address(0, 0, 0, 0, 0, 0, 0, 0);
+    public static final Inet6Address INET6_ANY = getInet6Address("::", 0, 0, 0, 0, 0, 0, 0, 0);
 
     /**
      * The loopback address for IPv6.
      */
-    public static final Inet6Address INET6_LOOPBACK = getInet6Address(0, 0, 0, 0, 0, 0, 0, 1);
+    public static final Inet6Address INET6_LOOPBACK = getInet6Address("::1", 0, 0, 0, 0, 0, 0, 0, 1);
 
     /**
      * Get the optimal string representation of an IP address. For IPv6 addresses, this representation will be
@@ -355,6 +355,26 @@ public final class Inet {
     }
 
     /**
+     * Get an IPv4 address from four integer segments and a host name. Each segment must be between 0 and 255.
+     *
+     * @param hostName the host name (must not be {@code null})
+     * @param s1 the first segment
+     * @param s2 the second segment
+     * @param s3 the third segment
+     * @param s4 the fourth segment
+     * @return the address (not {@code null})
+     */
+    public static Inet4Address getInet4Address(String hostName, int s1, int s2, int s3, int s4) {
+        byte[] bytes = getInet4AddressBytes(s1, s2, s3, s4);
+        try {
+            return (Inet4Address) InetAddress.getByAddress(hostName, bytes);
+        } catch (UnknownHostException e) {
+            // not possible
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
      * Get an IPv4 address from four integer segments. Each segment must be between 0 and 255.
      *
      * @param s1 the first segment
@@ -364,19 +384,7 @@ public final class Inet {
      * @return the address (not {@code null})
      */
     public static Inet4Address getInet4Address(int s1, int s2, int s3, int s4) {
-        Assert.checkMinimumParameter("s1", 0, s1);
-        Assert.checkMaximumParameter("s1", 255, s1);
-        Assert.checkMinimumParameter("s2", 0, s2);
-        Assert.checkMaximumParameter("s2", 255, s2);
-        Assert.checkMinimumParameter("s3", 0, s3);
-        Assert.checkMaximumParameter("s3", 255, s3);
-        Assert.checkMinimumParameter("s4", 0, s4);
-        Assert.checkMaximumParameter("s4", 255, s4);
-        byte[] bytes = new byte[4];
-        bytes[0] = (byte) s1;
-        bytes[1] = (byte) s2;
-        bytes[2] = (byte) s3;
-        bytes[3] = (byte) s4;
+        byte[] bytes = getInet4AddressBytes(s1, s2, s3, s4);
         // pre-compute the digits required
         int digitsForS1 = s1 < 10 ? 1 : s1 < 100 ? 2 : 3;
         int digitsForS2 = s2 < 10 ? 1 : s2 < 100 ? 2 : 3;
@@ -398,6 +406,23 @@ public final class Inet {
             // not possible
             throw new IllegalStateException(e);
         }
+    }
+
+    private static byte[] getInet4AddressBytes(final int s1, final int s2, final int s3, final int s4) {
+        Assert.checkMinimumParameter("s1", 0, s1);
+        Assert.checkMaximumParameter("s1", 255, s1);
+        Assert.checkMinimumParameter("s2", 0, s2);
+        Assert.checkMaximumParameter("s2", 255, s2);
+        Assert.checkMinimumParameter("s3", 0, s3);
+        Assert.checkMaximumParameter("s3", 255, s3);
+        Assert.checkMinimumParameter("s4", 0, s4);
+        Assert.checkMaximumParameter("s4", 255, s4);
+        byte[] bytes = new byte[4];
+        bytes[0] = (byte) s1;
+        bytes[1] = (byte) s2;
+        bytes[2] = (byte) s3;
+        bytes[3] = (byte) s4;
+        return bytes;
     }
 
     private static void encodeUnsignedByte(int value, byte[] bytes, int offset, int digits) {
@@ -427,7 +452,44 @@ public final class Inet {
      * @return the address (not {@code null})
      */
     public static Inet6Address getInet6Address(int s1, int s2, int s3, int s4, int s5, int s6, int s7, int s8) {
-        byte[] bytes = new byte[16];
+        byte[] bytes = getInet6AddressBytes(s1, s2, s3, s4, s5, s6, s7, s8);
+        try {
+            return Inet6Address.getByAddress(toOptimalStringV6(bytes), bytes, 0);
+        } catch (UnknownHostException e) {
+            // not possible
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Get an IPv6 address from eight integer segments and a host name. Each segment must be between 0 and 65535
+     * ({@code 0xffff}).
+     *
+     * @param hostName the host name (must not be {@code null})
+     * @param s1 the first segment
+     * @param s2 the second segment
+     * @param s3 the third segment
+     * @param s4 the fourth segment
+     * @param s5 the fifth segment
+     * @param s6 the sixth segment
+     * @param s7 the seventh segment
+     * @param s8 the eighth segment
+     * @return the address (not {@code null})
+     */
+    public static Inet6Address getInet6Address(String hostName, int s1, int s2, int s3, int s4, int s5, int s6, int s7,
+            int s8) {
+        Assert.checkNotNullParam("hostName", hostName);
+        byte[] bytes = getInet6AddressBytes(s1, s2, s3, s4, s5, s6, s7, s8);
+        try {
+            return Inet6Address.getByAddress(hostName, bytes, 0);
+        } catch (UnknownHostException e) {
+            // not possible
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static byte[] getInet6AddressBytes(final int s1, final int s2, final int s3, final int s4, final int s5,
+            final int s6, final int s7, final int s8) {
         Assert.checkMinimumParameter("s1", 0, s1);
         Assert.checkMaximumParameter("s1", 0xffff, s1);
         Assert.checkMinimumParameter("s2", 0, s2);
@@ -444,6 +506,7 @@ public final class Inet {
         Assert.checkMaximumParameter("s7", 0xffff, s7);
         Assert.checkMinimumParameter("s8", 0, s8);
         Assert.checkMaximumParameter("s8", 0xffff, s8);
+        byte[] bytes = new byte[16];
         bytes[0] = (byte) (s1 >> 8);
         bytes[1] = (byte) s1;
         bytes[2] = (byte) (s2 >> 8);
@@ -460,12 +523,7 @@ public final class Inet {
         bytes[13] = (byte) s7;
         bytes[14] = (byte) (s8 >> 8);
         bytes[15] = (byte) s8;
-        try {
-            return Inet6Address.getByAddress(toOptimalStringV6(bytes), bytes, 0);
-        } catch (UnknownHostException e) {
-            // not possible
-            throw new IllegalStateException(e);
-        }
+        return bytes;
     }
 
     /**
