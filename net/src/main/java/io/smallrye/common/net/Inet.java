@@ -31,17 +31,54 @@ public final class Inet {
     /**
      * The "any" address for IPv4.
      */
-    public static final Inet4Address INET4_ANY = getInet4Address(0, 0, 0, 0);
+    public static final Inet4Address INET4_ANY;
 
     /**
      * The traditional loopback address for IPv4.
      */
-    public static final Inet4Address INET4_LOOPBACK = getInet4Address(127, 0, 0, 1);
+    public static final Inet4Address INET4_LOOPBACK;
 
     /**
      * The broadcast-all address for IPv4.
      */
-    public static final Inet4Address INET4_BROADCAST = getInet4Address(255, 255, 255, 255);
+    public static final Inet4Address INET4_BROADCAST;
+
+    static {
+        byte[] bytes = new byte[4];
+        // 0.0.0.0
+        bytes[0] = 0;
+        bytes[1] = 0;
+        bytes[2] = 0;
+        bytes[3] = 0;
+        try {
+            INET4_ANY = (Inet4Address) InetAddress.getByAddress("0.0.0.0", bytes);
+        } catch (UnknownHostException e) {
+            // not possible
+            throw new IllegalStateException(e);
+        }
+        // 127.0.0.1
+        bytes[0] = 127;
+        bytes[1] = 0;
+        bytes[2] = 0;
+        bytes[3] = 1;
+        try {
+            INET4_LOOPBACK = (Inet4Address) InetAddress.getByAddress("127.0.0.1", bytes);
+        } catch (UnknownHostException e) {
+            // not possible
+            throw new IllegalStateException(e);
+        }
+        // 255.255.255.255
+        bytes[0] = (byte) 255;
+        bytes[1] = (byte) 255;
+        bytes[2] = (byte) 255;
+        bytes[3] = (byte) 255;
+        try {
+            INET4_BROADCAST = (Inet4Address) InetAddress.getByAddress("255.255.255.255", bytes);
+        } catch (UnknownHostException e) {
+            // not possible
+            throw new IllegalStateException(e);
+        }
+    }
 
     /**
      * The "any" address for IPv6.
