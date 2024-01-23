@@ -19,6 +19,7 @@
     <description>Common utilities for SmallRye</description>
     <properties>
         <!-- Plugins -->
+        <version.bridger>1.6.Final</version.bridger>
         <version.module-info>2.1</version.module-info>
         <version.sundrio>0.103.1</version.sundrio>
         <version.jandex-maven-plugin>1.2.3</version.jandex-maven-plugin>
@@ -178,6 +179,20 @@
                             <phase>process-classes</phase>
                             <goals>
                                 <goal>generate</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.jboss.bridger</groupId>
+                    <artifactId>bridger</artifactId>
+                    <version>${version.bridger}</version>
+                    <executions>
+                        <execution>
+                            <id>bridger</id>
+                            <phase>process-classes</phase>
+                            <goals>
+                                <goal>transform</goal>
                             </goals>
                         </execution>
                     </executions>
