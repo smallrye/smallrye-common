@@ -33,6 +33,10 @@
                 <groupId>io.github.dmlloyd.module-info</groupId>
                 <artifactId>module-info</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.jboss.bridger</groupId>
+                <artifactId>bridger</artifactId>
+            </plugin>
         </plugins>
     </build>
 

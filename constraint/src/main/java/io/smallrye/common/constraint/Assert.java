@@ -262,13 +262,23 @@ public final class Assert {
      * @param min the minimum value
      * @param actual the actual parameter value
      * @param <T> the parameter type
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is less than the minimum value
      */
-    public static <T extends Comparable<T>> void checkMinimumParameter(String name, T min, T actual)
+    public static <T extends Comparable<T>> T checkMinimumParameter(String name, T min, T actual)
             throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual.compareTo(min) < 0)
             throw Messages.log.paramLessThan(name, min);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static <T extends Comparable<T>> void checkMinimumParameter$$bridge(String name, T min, T actual)
+            throws IllegalArgumentException {
+        checkMinimumParameter(name, min, actual);
     }
 
     /**
@@ -277,12 +287,21 @@ public final class Assert {
      * @param name the parameter name
      * @param min the minimum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is less than the minimum value
      */
-    public static void checkMinimumParameter(String name, int min, int actual) throws IllegalArgumentException {
+    public static int checkMinimumParameter(String name, int min, int actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual < min)
             throw Messages.log.paramLessThan(name, min);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMinimumParameter$$bridge(String name, int min, int actual) throws IllegalArgumentException {
+        checkMinimumParameter(name, min, actual);
     }
 
     /**
@@ -291,12 +310,21 @@ public final class Assert {
      * @param name the parameter name
      * @param min the minimum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is less than the minimum value
      */
-    public static void checkMinimumParameterUnsigned(String name, int min, int actual) throws IllegalArgumentException {
+    public static int checkMinimumParameterUnsigned(String name, int min, int actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (Integer.compareUnsigned(actual, min) < 0)
             throw Messages.log.paramLessThan(name, Integer.toUnsignedLong(min));
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMinimumParameterUnsigned$$bridge(String name, int min, int actual) throws IllegalArgumentException {
+        checkMinimumParameterUnsigned(name, min, actual);
     }
 
     /**
@@ -305,12 +333,21 @@ public final class Assert {
      * @param name the parameter name
      * @param min the minimum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is less than the minimum value
      */
-    public static void checkMinimumParameter(String name, long min, long actual) throws IllegalArgumentException {
+    public static long checkMinimumParameter(String name, long min, long actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual < min)
             throw Messages.log.paramLessThan(name, min);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMinimumParameter$$bridge(String name, long min, long actual) throws IllegalArgumentException {
+        checkMinimumParameter(name, min, actual);
     }
 
     /**
@@ -319,12 +356,22 @@ public final class Assert {
      * @param name the parameter name
      * @param min the minimum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is less than the minimum value
      */
-    public static void checkMinimumParameterUnsigned(String name, long min, long actual) throws IllegalArgumentException {
+    public static long checkMinimumParameterUnsigned(String name, long min, long actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (Long.compareUnsigned(actual, min) < 0)
             throw Messages.log.paramLessThan(name, Long.toUnsignedString(min));
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMinimumParameterUnsigned$$bridge(String name, long min, long actual)
+            throws IllegalArgumentException {
+        checkMinimumParameterUnsigned(name, min, actual);
     }
 
     /**
@@ -333,12 +380,21 @@ public final class Assert {
      * @param name the parameter name
      * @param min the minimum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is less than the minimum value
      */
-    public static void checkMinimumParameter(String name, float min, float actual) throws IllegalArgumentException {
+    public static float checkMinimumParameter(String name, float min, float actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual < min)
             throw Messages.log.paramLessThan(name, min);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMinimumParameter$$bridge(String name, float min, float actual) throws IllegalArgumentException {
+        checkMinimumParameter(name, min, actual);
     }
 
     /**
@@ -347,12 +403,21 @@ public final class Assert {
      * @param name the parameter name
      * @param min the minimum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is less than the minimum value
      */
-    public static void checkMinimumParameter(String name, double min, double actual) throws IllegalArgumentException {
+    public static double checkMinimumParameter(String name, double min, double actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual < min)
             throw Messages.log.paramLessThan(name, min);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMinimumParameter$$bridge(String name, double min, double actual) throws IllegalArgumentException {
+        checkMinimumParameter(name, min, actual);
     }
 
     /**
@@ -362,13 +427,23 @@ public final class Assert {
      * @param max the maximum value
      * @param actual the actual parameter value
      * @param <T> the parameter type
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is greater than the maximum value
      */
-    public static <T extends Comparable<T>> void checkMaximumParameter(String name, T max, T actual)
+    public static <T extends Comparable<T>> T checkMaximumParameter(String name, T max, T actual)
             throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual.compareTo(max) > 0)
             throw Messages.log.paramGreaterThan(name, max);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static <T extends Comparable<T>> void checkMaximumParameter$$bridge(String name, T max, T actual)
+            throws IllegalArgumentException {
+        checkMaximumParameter(name, max, actual);
     }
 
     /**
@@ -377,12 +452,21 @@ public final class Assert {
      * @param name the parameter name
      * @param max the maximum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is greater than the maximum value
      */
-    public static void checkMaximumParameter(String name, int max, int actual) throws IllegalArgumentException {
+    public static int checkMaximumParameter(String name, int max, int actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual > max)
             throw Messages.log.paramGreaterThan(name, max);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMaximumParameter$$bridge(String name, int max, int actual) throws IllegalArgumentException {
+        checkMaximumParameter(name, max, actual);
     }
 
     /**
@@ -391,12 +475,21 @@ public final class Assert {
      * @param name the parameter name
      * @param max the maximum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is greater than the maximum value
      */
-    public static void checkMaximumParameterUnsigned(String name, int max, int actual) throws IllegalArgumentException {
+    public static int checkMaximumParameterUnsigned(String name, int max, int actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (Integer.compareUnsigned(actual, max) > 0)
             throw Messages.log.paramGreaterThan(name, Integer.toUnsignedLong(max));
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMaximumParameterUnsigned$$bridge(String name, int max, int actual) throws IllegalArgumentException {
+        checkMaximumParameterUnsigned(name, max, actual);
     }
 
     /**
@@ -405,12 +498,21 @@ public final class Assert {
      * @param name the parameter name
      * @param max the maximum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is greater than the maximum value
      */
-    public static void checkMaximumParameter(String name, long max, long actual) throws IllegalArgumentException {
+    public static long checkMaximumParameter(String name, long max, long actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual > max)
             throw Messages.log.paramGreaterThan(name, max);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMaximumParameter$$bridge(String name, long max, long actual) throws IllegalArgumentException {
+        checkMaximumParameter(name, max, actual);
     }
 
     /**
@@ -419,12 +521,22 @@ public final class Assert {
      * @param name the parameter name
      * @param max the maximum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is greater than the maximum value
      */
-    public static void checkMaximumParameterUnsigned(String name, long max, long actual) throws IllegalArgumentException {
+    public static long checkMaximumParameterUnsigned(String name, long max, long actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (Long.compareUnsigned(actual, max) > 0)
             throw Messages.log.paramGreaterThan(name, Long.toUnsignedString(max));
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMaximumParameterUnsigned$$bridge(String name, long max, long actual)
+            throws IllegalArgumentException {
+        checkMaximumParameterUnsigned(name, max, actual);
     }
 
     /**
@@ -433,12 +545,21 @@ public final class Assert {
      * @param name the parameter name
      * @param max the maximum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is greater than the maximum value
      */
-    public static void checkMaximumParameter(String name, float max, float actual) throws IllegalArgumentException {
+    public static float checkMaximumParameter(String name, float max, float actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual > max)
             throw Messages.log.paramGreaterThan(name, max);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMaximumParameter$$bridge(String name, float max, float actual) throws IllegalArgumentException {
+        checkMaximumParameter(name, max, actual);
     }
 
     /**
@@ -447,12 +568,21 @@ public final class Assert {
      * @param name the parameter name
      * @param max the maximum value
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is greater than the maximum value
      */
-    public static void checkMaximumParameter(String name, double max, double actual) throws IllegalArgumentException {
+    public static double checkMaximumParameter(String name, double max, double actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual > max)
             throw Messages.log.paramGreaterThan(name, max);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkMaximumParameter$$bridge(String name, double max, double actual) throws IllegalArgumentException {
+        checkMaximumParameter(name, max, actual);
     }
 
     /**
@@ -461,12 +591,21 @@ public final class Assert {
      *
      * @param name the parameter name
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is not zero or a power of two
      */
-    public static void checkPow2Parameter(String name, int actual) throws IllegalArgumentException {
+    public static int checkPow2Parameter(String name, int actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual != 0 && Integer.bitCount(actual) != 1)
             throw Messages.log.paramNotPow2(name);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkPow2Parameter$$bridge(String name, int actual) throws IllegalArgumentException {
+        checkPow2Parameter(name, actual);
     }
 
     /**
@@ -475,12 +614,21 @@ public final class Assert {
      *
      * @param name the parameter name
      * @param actual the actual parameter value
+     * @return the given actual value
      * @throws IllegalArgumentException if the actual value is not zero or a power of two
      */
-    public static void checkPow2Parameter(String name, long actual) throws IllegalArgumentException {
+    public static long checkPow2Parameter(String name, long actual) throws IllegalArgumentException {
         checkNotNullParamChecked("name", name);
         if (actual != 0 && Long.bitCount(actual) != 1)
             throw Messages.log.paramNotPow2(name);
+        return actual;
+    }
+
+    /**
+     * @hidden
+     */
+    public static void checkPow2Parameter$$bridge(String name, long actual) throws IllegalArgumentException {
+        checkPow2Parameter(name, actual);
     }
 
     /**
