@@ -85,44 +85,45 @@ public enum CPU {
     }
 
     /**
-     * {@return this CPU's pointer size, in bytes}
+     * @return this CPU's pointer size, in bytes
      */
     public int pointerSizeBytes() {
         return pointerSizeBytes;
     }
 
     /**
-     * {@return this CPU's pointer size, in bits}
+     * @return this CPU's pointer size, in bits
      */
     public int pointerSizeBits() {
         return pointerSizeBytes << 3;
     }
 
     /**
-     * {@return this CPU's native byte order}
+     * @return this CPU's native byte order
      */
     public ByteOrder nativeByteOrder() {
         return nativeByteOrder;
     }
 
     /**
-     * {@return other names that this CPU is known by}
+     * @return other names that this CPU is known by
      */
     public Set<String> aliases() {
         return aliases;
     }
 
     /**
-     * {@return <code>true</code> if this CPU is unknown}
+     * @return <code>true</code> if this CPU is unknown
      */
     public boolean isUnknown() {
         return unknown;
     }
 
     /**
-     * {@return the CPU for the given name}
      * Names are compared case-insensitively.
      *
+     * @param name a <code>String</code> for the CPU name
+     * @return the CPU for the given name
      * @throws NoSuchElementException if no such CPU is found
      */
     public static CPU forName(String name) throws NoSuchElementException {
@@ -134,8 +135,10 @@ public enum CPU {
     }
 
     /**
-     * {@return the CPU for the given name or <code>null</code> if it is not found}
      * Names are compared case-insensitively.
+     *
+     * @param name a <code>String</code> for the CPU name
+     * @return the CPU for the given name or <code>null</code> if it is not found
      */
     public static CPU forNameOrNull(String name) throws NoSuchElementException {
         Comparator<String> cmp = String::compareToIgnoreCase;
@@ -160,15 +163,17 @@ public enum CPU {
     }
 
     /**
-     * {@return the optional CPU for the given name}
      * Names are compared case-insensitively.
+     *
+     * @param name a <code>String</code> for the CPU name
+     * @return the optional CPU for the given name
      */
     public static Optional<CPU> forNameOpt(String name) throws NoSuchElementException {
         return Optional.ofNullable(forNameOrNull(name));
     }
 
     /**
-     * {@return the host CPU type}
+     * @return the host CPU type
      */
     public static CPU host() {
         return hostCpu;
