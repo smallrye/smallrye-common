@@ -41,6 +41,7 @@ jobs:
           java-version: |
             11
             17
+            21
           cache: 'maven'
           cache-dependency-path: '**/pom.xml'
 
