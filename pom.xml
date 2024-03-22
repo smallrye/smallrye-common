@@ -26,8 +26,8 @@
 
         <!-- Dependencies -->
         <version.asm>9.6</version.asm>
-        <version.graalvm>23.1.2</version.graalvm>
-        <version.vertx>4.5.5</version.vertx>
+        <version.graalvm>24.0.0</version.graalvm>
+        <version.vertx>4.5.6</version.vertx>
         <version.maven-resolver>1.9.18</version.maven-resolver>
         <version.shrinkwrap>1.2.6</version.shrinkwrap>
         <version.org.jboss.logging>3.5.0.Final</version.org.jboss.logging>
