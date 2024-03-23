@@ -48,7 +48,7 @@ public class ClassPathUtils {
      * @throws IOException in case of an IO failure
      */
     public static void consumeAsStreams(ClassLoader cl, String resource, Consumer<InputStream> consumer) throws IOException {
-        final Enumeration<URL> resources = cl.getResources(resource);
+        final Enumeration<URL> resources = cl == null ? ClassLoader.getSystemResources(resource) : cl.getResources(resource);
         while (resources.hasMoreElements()) {
             consumeStream(resources.nextElement(), consumer);
         }
@@ -81,7 +81,7 @@ public class ClassPathUtils {
      * @throws IOException in case of an IO failure
      */
     public static void consumeAsPaths(ClassLoader cl, String resource, Consumer<Path> consumer) throws IOException {
-        final Enumeration<URL> resources = cl.getResources(resource);
+        final Enumeration<URL> resources = cl == null ? ClassLoader.getSystemResources(resource) : cl.getResources(resource);
         while (resources.hasMoreElements()) {
             consumeAsPath(resources.nextElement(), consumer);
         }
