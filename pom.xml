@@ -25,7 +25,7 @@
         <version.jandex-maven-plugin>1.2.3</version.jandex-maven-plugin>
 
         <!-- Dependencies -->
-        <version.asm>9.6</version.asm>
+        <version.asm>9.7</version.asm>
         <version.graalvm>23.1.2</version.graalvm>
         <version.vertx>4.5.5</version.vertx>
         <version.maven-resolver>1.9.18</version.maven-resolver>
