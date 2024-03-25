@@ -8,12 +8,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.Enumeration;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -105,6 +105,19 @@ public class ClassPathUtils {
         });
     }
 
+    private static final FileSystemProvider JAR_PROVIDER;
+
+    static {
+        final ClassLoader ccl = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
+            JAR_PROVIDER = FileSystemProvider.installedProviders().stream().filter(p -> p.getScheme().equals("jar")).findFirst()
+                    .orElseThrow();
+        } finally {
+            Thread.currentThread().setContextClassLoader(ccl);
+        }
+    }
+
     /**
      * Attempts to represent a resource as a local file system path to be processed by a function.
      * If a resource appears to be an actual file or a directory, it is simply passed to the function as-is.
@@ -118,32 +131,25 @@ public class ClassPathUtils {
      */
     public static <R> R processAsPath(URL url, Function<Path, R> function) {
         if (JAR.equals(url.getProtocol())) {
-            final ClassLoader ccl = Thread.currentThread().getContextClassLoader();
-            try {
-                // We are loading "installed" FS providers that are loaded from the system classloader anyway
-                // To avoid potential ClassCastExceptions we are setting the context classloader to the system one
-                Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
-                FileSystemProvider.installedProviders();
-            } finally {
-                Thread.currentThread().setContextClassLoader(ccl);
-            }
-
             final String file = url.getFile();
-            final int exclam = file.lastIndexOf('!');
-            final Path jar;
+            final int exclam = file.indexOf('!');
             try {
-                jar = toLocalPath(exclam >= 0 ? new URL(file.substring(0, exclam)) : url);
+                URL fileUrl;
+                String subPath;
+                if (exclam == -1) {
+                    // assume the first element is a JAR file, not a plain file, since it was a `jar:` URL
+                    fileUrl = new URL(file);
+                    subPath = "/";
+                } else {
+                    fileUrl = new URL(file.substring(0, exclam));
+                    subPath = file.substring(exclam + 1);
+                }
+                if (!fileUrl.getProtocol().equals("file")) {
+                    throw new IllegalArgumentException("Sub-URL of JAR URL is expected to have a scheme of `file`");
+                }
+                return processAsJarPath(toLocalPath(fileUrl), subPath, function);
             } catch (MalformedURLException e) {
                 throw new RuntimeException("Failed to create a URL for '" + file.substring(0, exclam) + "'", e);
-            }
-            try (FileSystem jarFs = FileSystems.newFileSystem(jar, (ClassLoader) null)) {
-                Path localPath = jarFs.getPath("/");
-                if (exclam >= 0) {
-                    localPath = localPath.resolve(file.substring(exclam + 1));
-                }
-                return function.apply(localPath);
-            } catch (IOException e) {
-                throw new UncheckedIOException("Failed to read " + jar, e);
             }
         }
 
@@ -152,6 +158,35 @@ public class ClassPathUtils {
         }
 
         throw new IllegalArgumentException("Unexpected protocol " + url.getProtocol() + " for URL " + url);
+    }
+
+    private static <R> R processAsJarPath(Path jarPath, String path, Function<Path, R> function) {
+        try (FileSystem jarFs = JAR_PROVIDER.newFileSystem(jarPath, Map.of())) {
+            Path localPath = jarFs.getPath("/");
+            int start = 0;
+            for (;;) {
+                int idx = path.indexOf('!', start);
+                if (idx == -1) {
+                    return function.apply(localPath.resolve(path));
+                } else {
+                    // could be nested JAR?
+                    Path subPath = localPath.resolve(path.substring(0, idx));
+                    if (Files.isDirectory(subPath)) {
+                        // no, it's a plain directory and the `!` is superfluous
+                        localPath = subPath;
+                        start = idx + 1;
+                        if (start + 1 < path.length() && path.charAt(start + 1) == '/') {
+                            start++;
+                        }
+                    } else {
+                        // yes, it's a nested JAR file
+                        return processAsJarPath(subPath, path.substring(idx + 1), function);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read " + jarPath, e);
+        }
     }
 
     /**
@@ -204,7 +239,7 @@ public class ClassPathUtils {
 
     /**
      * Translates a URL to local file system path.
-     * In case the the URL couldn't be translated to a file system path,
+     * In case the URL couldn't be translated to a file system path,
      * an instance of {@link IllegalArgumentException} will be thrown.
      *
      * @param url URL
