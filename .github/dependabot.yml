@@ -4,15 +4,7 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
-    groups:
-      maven-dependencies:
-        patterns:
-          - "*" # batch them all at once
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
-    groups:
-      ci-dependencies:
-        patterns:
-          - "*" # batch them all at once
