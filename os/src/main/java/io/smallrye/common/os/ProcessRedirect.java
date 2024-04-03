@@ -18,6 +18,10 @@
 
 package io.smallrye.common.os;
 
+/**
+ * @deprecated Use {@link ProcessBuilder.Redirect#DISCARD} instead.
+ */
+@Deprecated(since = "2.4", forRemoval = true)
 public final class ProcessRedirect {
     private ProcessRedirect() {
     }

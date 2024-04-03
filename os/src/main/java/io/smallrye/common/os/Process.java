@@ -20,6 +20,7 @@ package io.smallrye.common.os;
 
 import static java.security.AccessController.doPrivileged;
 
+import java.security.PrivilegedAction;
 import java.util.List;
 
 /**
@@ -28,41 +29,56 @@ import java.util.List;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class Process {
-    private static final ProcessInfo currentProcess;
-
-    static {
-        currentProcess = doPrivileged(new GetProcessInfoAction());
-    }
-
     private Process() {
     }
 
     /**
      * Get the name of this process. If the process name is not known, then "&lt;unknown&gt;" is returned.
+     * The process name may be overridden by setting the {@code jboss.process.name} property.
      *
      * @return the process name (not {@code null})
      */
     public static String getProcessName() {
-        return currentProcess.getCommand();
+        return doPrivileged((PrivilegedAction<String>) Process::computeProcessName);
+    }
+
+    private static String computeProcessName() {
+        final ProcessHandle processHandle = ProcessHandle.current();
+        String processName = System.getProperty("jboss.process.name");
+        if (processName == null) {
+            processName = processHandle.info().command().orElse(null);
+        }
+        if (processName == null) {
+            processName = "<unknown>";
+        }
+        return processName;
     }
 
     /**
-     * Get the ID of this process. This is the operating system specific PID. If the PID cannot be determined,
-     * -1 is returned.
+     * Get the ID of this process. This is the operating system specific PID.
      *
-     * @return the ID of this process, or -1 if it cannot be determined
+     * @return the ID of this process
+     * @deprecated Use {@link ProcessHandle#pid()} instead.
      */
+    @Deprecated(since = "2.4", forRemoval = true)
     public static long getProcessId() {
-        return currentProcess.getId();
+        return currentProcess().pid();
     }
 
     /**
      * Returns information about the current process
      *
      * @return the current process
+     * @deprecated Use {@link ProcessHandle#current()} to get the current process information.
      */
+    @Deprecated(since = "2.4", forRemoval = true)
     public static ProcessInfo getCurrentProcess() {
-        return currentProcess;
+        return new ProcessInfo(currentProcess().pid(), getProcessName());
+    }
+
+    // do not make this public
+    private static ProcessHandle currentProcess() {
+        return doPrivileged((PrivilegedAction<ProcessHandle>) ProcessHandle::current);
     }
 
     /**
@@ -70,7 +86,9 @@ public final class Process {
      *
      * @return a list of all the running processes. May throw an exception if running on an unsupported JDK
      * @throws UnsupportedOperationException if running on JDK 8
+     * @deprecated Use {@link ProcessHandle#allProcesses()} instead.
      */
+    @Deprecated(since = "2.4", forRemoval = true)
     public static List<ProcessInfo> getAllProcesses() {
         return doPrivileged(new GetAllProcessesInfoAction());
     }
