@@ -1,5 +1,7 @@
 package io.smallrye.common.version;
 
+import static java.lang.invoke.MethodHandles.lookup;
+
 import java.util.NoSuchElementException;
 
 import org.jboss.logging.annotations.Message;
@@ -8,7 +10,7 @@ import org.jboss.logging.annotations.MessageBundle;
 // base 3000
 @MessageBundle(projectCode = "SRCOM", length = 5)
 interface Messages {
-    Messages msg = org.jboss.logging.Messages.getBundle(Messages.class);
+    Messages msg = org.jboss.logging.Messages.getBundle(lookup(), Messages.class);
 
     @Message(id = 3000, value = "Expected alpha part")
     IllegalStateException expectedAlpha();

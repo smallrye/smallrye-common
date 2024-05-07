@@ -30,7 +30,7 @@
         <version.vertx>4.5.7</version.vertx>
         <version.maven-resolver>1.9.20</version.maven-resolver>
         <version.shrinkwrap>1.2.6</version.shrinkwrap>
-        <version.org.jboss.logging>3.5.0.Final</version.org.jboss.logging>
+        <version.org.jboss.logging>3.6.0.Final</version.org.jboss.logging>
 
         <!-- Sonar settings -->
         <sonar.projectName>SmallRye Common</sonar.projectName>
