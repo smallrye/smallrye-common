@@ -19,7 +19,7 @@ interface Messages {
 
     IllegalArgumentException paramLessThan(String name, Object min);
 
-    @Message(id = 2, value = "Parameter '%s' may not be greater than than %s")
+    @Message(id = 2, value = "Parameter '%s' may not be greater than %s")
     IllegalArgumentException paramGreaterThan(String name, long max);
 
     IllegalArgumentException paramGreaterThan(String name, double max);
