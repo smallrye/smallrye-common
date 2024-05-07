@@ -1,11 +1,13 @@
 package io.smallrye.common.constraint;
 
+import static java.lang.invoke.MethodHandles.lookup;
+
 import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageBundle;
 
 @MessageBundle(projectCode = "SRCOM", length = 5)
 interface Messages {
-    Messages log = org.jboss.logging.Messages.getBundle(Messages.class);
+    Messages log = org.jboss.logging.Messages.getBundle(lookup(), Messages.class);
 
     @Message(id = 0, value = "Parameter '%s' may not be null")
     IllegalArgumentException nullParam(String paramName);
