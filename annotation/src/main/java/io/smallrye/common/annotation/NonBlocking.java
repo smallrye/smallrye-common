@@ -20,6 +20,7 @@ import java.lang.annotation.Target;
  * or overriding the method.
  *
  * @see Blocking
+ * @see RunOnVirtualThread
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.METHOD, ElementType.TYPE })
