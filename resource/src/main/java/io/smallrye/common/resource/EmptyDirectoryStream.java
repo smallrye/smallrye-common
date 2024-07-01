@@ -13,6 +13,9 @@ public final class EmptyDirectoryStream<T> implements DirectoryStream<T> {
     private EmptyDirectoryStream() {
     }
 
+    /**
+     * {@return the singleton instance}
+     */
     @SuppressWarnings("unchecked")
     public static <T> EmptyDirectoryStream<T> instance() {
         return (EmptyDirectoryStream<T>) INSTANCE;
