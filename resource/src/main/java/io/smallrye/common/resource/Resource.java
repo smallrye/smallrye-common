@@ -160,7 +160,7 @@ public abstract class Resource {
      * in this case the content and state of the destination are undefined.
      * The destination channel is not closed.
      *
-     * @param destination the destination channel (must not be {@code null} and must not be non-blocking)
+     * @param channel the destination channel (must not be {@code null} and must not be non-blocking)
      * @return the number of bytes copied
      * @throws IOException if the copy fails
      */

@@ -32,8 +32,8 @@ public final class MemoryResource extends Resource {
      * Accessing the resource will not affect the buffer's position or limit.
      * Modifying the buffer's position or limit will not affect the contents of the resource.
      *
-     * @param buffer the byte buffer containing the resource data (must not be {@code null})
      * @param pathName the resource path name (must not be {@code null})
+     * @param data the byte buffer containing the resource data (must not be {@code null})
      */
     public MemoryResource(final String pathName, final ByteBuffer data) {
         super(pathName);
@@ -44,8 +44,8 @@ public final class MemoryResource extends Resource {
      * Construct a new instance for a byte array.
      * The byte array is not copied.
      *
-     * @param bytes the byte array (must not be {@code null})
      * @param pathName the resource path name (must not be {@code null})
+     * @param data the byte array (must not be {@code null})
      */
     public MemoryResource(final String pathName, final byte[] data) {
         this(pathName, ByteBuffer.wrap(data));
