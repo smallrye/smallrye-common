@@ -29,22 +29,28 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 11
+          java-version: 17
+          server-id: 'oss.sonatype'
+          server-username: 'MAVEN_DEPLOY_USERNAME'
+          server-password: 'MAVEN_DEPLOY_TOKEN'
+          gpg-private-key: ${{secrets.MAVEN_GPG_PRIVATE_KEY}}
+          gpg-passphrase: 'MAVEN_GPG_PASSPHRASE'
 
       - name: maven release ${{steps.metadata.outputs.current-version}}
+        env:
+          MAVEN_DEPLOY_USERNAME: ${{secrets.MAVEN_DEPLOY_USERNAME}}
+          MAVEN_DEPLOY_TOKEN: ${{secrets.MAVEN_DEPLOY_TOKEN}}
+          MAVEN_GPG_PASSPHRASE: ${{secrets.MAVEN_GPG_PASSPHRASE}}
         run: |
           java -version
           mvn -q -N io.takari:maven:0.7.7:wrapper -Dmaven=3.8.3 && ./mvnw -v
-          gpg --quiet --batch --yes --decrypt --passphrase="${{secrets.SECRET_PASSPHRASE}}" --output smallrye-sign.asc .github/release/smallrye-sign.asc.gpg
-          gpg --quiet --batch --yes --decrypt --passphrase="${{secrets.SECRET_PASSPHRASE}}" --output maven-settings.xml .github/release/maven-settings.xml.gpg
-          gpg --fast-import --no-tty --batch --yes smallrye-sign.asc
           git config --global user.name "SmallRye CI"
           git config --global user.email "smallrye@googlegroups.com"
           git checkout -b release
-          ./mvnw -B release:prepare -Prelease -DreleaseVersion=${{steps.metadata.outputs.current-version}} -DdevelopmentVersion=${{steps.metadata.outputs.next-version}} -s maven-settings.xml
+          ./mvnw -B release:prepare -Prelease -DreleaseVersion=${{steps.metadata.outputs.current-version}} -DdevelopmentVersion=${{steps.metadata.outputs.next-version}}
           git checkout ${{github.base_ref}}
           git rebase release
-          ./mvnw -B release:perform -Prelease -s maven-settings.xml
+          ./mvnw -B release:perform -Prelease
           git push
           git push --tags
 
