@@ -8,7 +8,7 @@ class VersionRangeTest {
 
     @Test
     void testVersionRangeWithInclusive() {
-        VersionRange versionRange = new VersionRange(VersionScheme.MAVEN, "[1.0,2.0]");
+        VersionRange versionRange = VersionRange.createFromVersionSpec(VersionScheme.MAVEN, "[1.0,2.0]");
         assertTrue(versionRange.test("1.0.0"));
         assertTrue(versionRange.test("1.1.0"));
         assertTrue(versionRange.test("1.899.0"));
@@ -19,7 +19,7 @@ class VersionRangeTest {
 
     @Test
     void testVersionRangeWithExclusive() {
-        VersionRange versionRange = new VersionRange(VersionScheme.MAVEN, "(1.0,2.0)");
+        VersionRange versionRange = VersionRange.createFromVersionSpec(VersionScheme.MAVEN, "(1.0,2.0)");
         assertFalse(versionRange.test("1.0.0"));
         assertTrue(versionRange.test("1.1.0"));
         assertTrue(versionRange.test("1.899.0"));
@@ -30,7 +30,7 @@ class VersionRangeTest {
 
     @Test
     void testVersionRangeWithLowerBoundExclusive() {
-        VersionRange versionRange = new VersionRange(VersionScheme.MAVEN, "(1.0,2.0]");
+        VersionRange versionRange = VersionRange.createFromVersionSpec(VersionScheme.MAVEN, "(1.0,2.0]");
         assertFalse(versionRange.test("1.0.0"));
         assertTrue(versionRange.test("1.1.0"));
         assertTrue(versionRange.test("1.899.0"));
@@ -41,7 +41,7 @@ class VersionRangeTest {
 
     @Test
     void testVersionRangeWithUpperBoundExclusive() {
-        VersionRange versionRange = new VersionRange(VersionScheme.MAVEN, "[1.0,2.0)");
+        VersionRange versionRange = VersionRange.createFromVersionSpec(VersionScheme.MAVEN, "[1.0,2.0)");
         assertTrue(versionRange.test("1.0.0"));
         assertTrue(versionRange.test("1.1.0"));
         assertTrue(versionRange.test("1.899.0"));
@@ -51,8 +51,7 @@ class VersionRangeTest {
     }
 
     @Test
-    public void testVersionRangeWithInvalidRangePattern() {
-        assertThrows(IllegalArgumentException.class, () -> new VersionRange(VersionScheme.MAVEN, "1.0,2.0"),
-                "Invalid range pattern: 1.0,2.0");
+    public void testUnboundedRange() {
+        assertThrows(IllegalArgumentException.class, () -> VersionRange.createFromVersionSpec(VersionScheme.MAVEN, "[1.0,2.0"));
     }
 }

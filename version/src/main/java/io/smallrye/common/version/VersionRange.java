@@ -1,69 +1,113 @@
 package io.smallrye.common.version;
 
-import static io.smallrye.common.version.Messages.msg;
-
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * A {@link VersionRange} is a predicate that tests if a version string is within a specified range.
  */
 public class VersionRange implements Predicate<String> {
 
-    /**
-     * Range in format "[1.0,2.0)"
-     */
-    private static final Pattern RANGE_PATTERN = Pattern.compile("([\\[\\(])(.*),(.*)([\\]\\)])");
+    private static final Map<String, VersionRange> CACHE_SPEC = Collections.synchronizedMap(new WeakHashMap<>());
 
-    private final VersionScheme versionScheme;
-    private final Bound lowerBound;
-    private final Bound upperBound;
+    private final List<VersionRestriction> restrictions;
 
-    public VersionRange(VersionScheme versionScheme, String rangePattern) {
-        this.versionScheme = versionScheme;
-        // Range pattern is in format "[1.0,2.0)"
-        Matcher matcher = RANGE_PATTERN.matcher(rangePattern);
-        if (!matcher.matches()) {
-            throw msg.invalidRangePattern(rangePattern);
-        }
-        if (matcher.group(2).isBlank()) {
-            this.lowerBound = null;
-        } else {
-            this.lowerBound = new Bound(matcher.group(2), matcher.group(1).charAt(0) == '[');
-        }
-        if (matcher.group(3).isBlank()) {
-            this.upperBound = null;
-        } else {
-            this.upperBound = new Bound(matcher.group(3), matcher.group(4).charAt(0) == ']');
-        }
+    VersionRange(List<VersionRestriction> restrictions) {
+        this.restrictions = restrictions;
     }
 
     @Override
     public boolean test(String s) {
-        if (lowerBound != null) {
-            int comparison = versionScheme.compare(s, lowerBound.version);
-            if (comparison < 0 || (!lowerBound.inclusive && comparison == 0)) {
-                return false;
+        for (VersionRestriction restriction : restrictions) {
+            if (restriction.test(s)) {
+                return true;
             }
         }
-        if (upperBound != null) {
-            int comparison = versionScheme.compare(s, upperBound.version);
-            if (comparison > 0 || (!upperBound.inclusive && comparison == 0)) {
-                return false;
-            }
-        }
-        return true;
+        return false;
     }
 
-    private class Bound {
-
-        private final String version;
-        private final boolean inclusive;
-
-        public Bound(String version, boolean inclusive) {
-            this.version = version;
-            this.inclusive = inclusive;
+    /**
+     * <p>
+     * Create a version range from a string representation
+     * </p>
+     * Some spec examples are:
+     * <ul>
+     * <li><code>1.0</code> Version 1.0 as a recommended version</li>
+     * <li><code>[1.0]</code> Version 1.0 explicitly only</li>
+     * <li><code>[1.0,2.0)</code> Versions 1.0 (included) to 2.0 (not included)</li>
+     * <li><code>[1.0,2.0]</code> Versions 1.0 to 2.0 (both included)</li>
+     * <li><code>[1.5,)</code> Versions 1.5 and higher</li>
+     * <li><code>(,1.0],[1.2,)</code> Versions up to 1.0 (included) and 1.2 or higher</li>
+     * </ul>
+     *
+     * @param spec string representation of a version or version range
+     * @return a new {@link VersionRange} object that represents the spec
+     * @return null if the spec is null
+     */
+    public static VersionRange createFromVersionSpec(VersionScheme scheme, String spec) {
+        if (spec == null) {
+            return null;
         }
+        String cacheKey = scheme.getClass().getName() + "#" + spec;
+        VersionRange cached = CACHE_SPEC.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        List<VersionRestriction> restrictions = new ArrayList<>();
+        String process = spec;
+        String upperBound = null;
+        String lowerBound = null;
+
+        while (process.startsWith("[") || process.startsWith("(")) {
+            int index1 = process.indexOf(')');
+            int index2 = process.indexOf(']');
+
+            int index = index2;
+            if (index2 < 0 || index1 < index2) {
+                if (index1 >= 0) {
+                    index = index1;
+                }
+            }
+
+            if (index < 0) {
+                throw new IllegalArgumentException("Unbounded range: " + spec);
+            }
+
+            VersionRestriction restriction = VersionRestriction.parse(scheme, process.substring(0, index + 1));
+            if (lowerBound == null) {
+                lowerBound = restriction.getLowerBound();
+            }
+            if (upperBound != null) {
+                if (restriction.getLowerBound() == null
+                        || scheme.compare(restriction.getLowerBound(), upperBound) < 0) {
+                    throw new IllegalArgumentException("Ranges overlap: " + spec);
+                }
+            }
+            restrictions.add(restriction);
+            upperBound = restriction.getUpperBound();
+
+            process = process.substring(index + 1).trim();
+
+            if (process.startsWith(",")) {
+                process = process.substring(1).trim();
+            }
+        }
+
+        if (!process.isEmpty()) {
+            if (!restrictions.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Only fully-qualified sets allowed in multiple set scenario: " + spec);
+            } else {
+                restrictions.add(VersionRestriction.EVERYTHING);
+            }
+        }
+
+        cached = new VersionRange(restrictions);
+        CACHE_SPEC.put(cacheKey, cached);
+        return cached;
     }
 }
