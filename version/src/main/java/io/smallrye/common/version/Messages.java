@@ -44,4 +44,7 @@ interface Messages {
 
     @Message(id = 3010, value = "Build string may not be empty")
     VersionSyntaxException emptyBuild();
+
+    @Message(id = 3011, value = "Invalid range pattern: %s")
+    IllegalArgumentException invalidRangePattern(String pattern);
 }
