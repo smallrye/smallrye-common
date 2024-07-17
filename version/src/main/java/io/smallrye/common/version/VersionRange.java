@@ -1,18 +1,13 @@
 package io.smallrye.common.version;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.function.Predicate;
 
 /**
  * A {@link VersionRange} is a predicate that tests if a version string is within a specified range.
  */
 public class VersionRange implements Predicate<String> {
-
-    private static final Map<String, VersionRange> CACHE_SPEC = Collections.synchronizedMap(new WeakHashMap<>());
 
     private final List<VersionRestriction> restrictions;
 
@@ -52,11 +47,7 @@ public class VersionRange implements Predicate<String> {
         if (spec == null) {
             return null;
         }
-        String cacheKey = scheme.getClass().getName() + "#" + spec;
-        VersionRange cached = CACHE_SPEC.get(cacheKey);
-        if (cached != null) {
-            return cached;
-        }
+
         List<VersionRestriction> restrictions = new ArrayList<>();
         String process = spec;
         String upperBound = null;
@@ -106,8 +97,6 @@ public class VersionRange implements Predicate<String> {
             }
         }
 
-        cached = new VersionRange(restrictions);
-        CACHE_SPEC.put(cacheKey, cached);
-        return cached;
+        return new VersionRange(restrictions);
     }
 }
