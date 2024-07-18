@@ -2,6 +2,7 @@ package io.smallrye.common.version;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class VersionRangeTest {
@@ -93,6 +94,13 @@ class VersionRangeTest {
         assertTrue(versionRange.test("3.8.4.SP2-redhat-00001"));
         assertTrue(versionRange.test("3.8.4.redhat-00002"));
         assertFalse(versionRange.test("3.8.5.redhat-00003"));
+    }
+
+    @Test
+    @Disabled("This test is failing")
+    public void testRangeQualifier() {
+        VersionRange versionRange = VersionRange.createFromVersionSpec(VersionScheme.MAVEN, "[3.8.0.redhat-00001,)");
+        assertTrue(versionRange.test("3.8.0.SP1-redhat-00001"));
     }
 
 }

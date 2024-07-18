@@ -1,5 +1,7 @@
 package io.smallrye.common.version;
 
+import static io.smallrye.common.version.Messages.msg;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -65,7 +67,7 @@ public class VersionRange implements Predicate<String> {
             }
 
             if (index < 0) {
-                throw new IllegalArgumentException("Unbounded range: " + spec);
+                throw msg.unboundedRange(spec);
             }
 
             VersionRestriction restriction = VersionRestriction.parse(scheme, process.substring(0, index + 1));
@@ -75,7 +77,7 @@ public class VersionRange implements Predicate<String> {
             if (upperBound != null) {
                 if (restriction.getLowerBound() == null
                         || scheme.compare(restriction.getLowerBound(), upperBound) < 0) {
-                    throw new IllegalArgumentException("Ranges overlap: " + spec);
+                    throw msg.rangesOverlap(spec);
                 }
             }
             restrictions.add(restriction);
@@ -90,8 +92,7 @@ public class VersionRange implements Predicate<String> {
 
         if (!process.isEmpty()) {
             if (!restrictions.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Only fully-qualified sets allowed in multiple set scenario: " + spec);
+                throw msg.onlyFullyQualifiedSetsAllowed(spec);
             } else {
                 restrictions.add(VersionRestriction.EVERYTHING);
             }

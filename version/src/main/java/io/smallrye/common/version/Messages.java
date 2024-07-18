@@ -45,6 +45,18 @@ interface Messages {
     @Message(id = 3010, value = "Build string may not be empty")
     VersionSyntaxException emptyBuild();
 
-    @Message(id = 3011, value = "Invalid range pattern: %s")
-    IllegalArgumentException invalidRangePattern(String pattern);
+    @Message(id = 3011, value = "Unbounded range: %s")
+    IllegalArgumentException unboundedRange(String pattern);
+
+    @Message(id = 3012, value = "Ranges overlap: %s")
+    IllegalArgumentException rangesOverlap(String version);
+
+    @Message(id = 3013, value = "Only fully-qualified sets allowed in multiple set scenario: %s")
+    IllegalArgumentException onlyFullyQualifiedSetsAllowed(String version);
+
+    @Message(id = 3014, value = "Single version must be surrounded by []: %s")
+    IllegalArgumentException singleVersionMustBeSurroundedByBrackets(String version);
+
+    @Message(id = 3015, value = "Range defies version ordering: %s")
+    IllegalArgumentException rangeDefiesVersionOrdering(String version);
 }

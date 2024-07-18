@@ -1,5 +1,7 @@
 package io.smallrye.common.version;
 
+import static io.smallrye.common.version.Messages.msg;
+
 import java.util.function.Predicate;
 
 class VersionRestriction implements Predicate<String> {
@@ -58,7 +60,7 @@ class VersionRestriction implements Predicate<String> {
 
         if (index < 0) {
             if (!lowerBoundInclusive || !upperBoundInclusive) {
-                throw new IllegalArgumentException("Single version must be surrounded by []: " + spec);
+                throw msg.singleVersionMustBeSurroundedByBrackets(spec);
             }
             restriction = new VersionRestriction(versionScheme, process, true, process, true);
         } else {
@@ -78,7 +80,7 @@ class VersionRestriction implements Predicate<String> {
             if (upperVersion != null && lowerVersion != null) {
                 int result = versionScheme.compare(upperVersion, lowerVersion);
                 if (result < 0 || (result == 0 && (!lowerBoundInclusive || !upperBoundInclusive))) {
-                    throw new IllegalArgumentException("Range defies version ordering: " + spec);
+                    throw msg.rangeDefiesVersionOrdering(spec);
                 }
             }
             restriction = new VersionRestriction(versionScheme, lowerVersion, lowerBoundInclusive, upperVersion,
