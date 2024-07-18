@@ -88,13 +88,7 @@
             <!-- External build dependencies -->
             <dependency>
                 <groupId>org.graalvm.sdk</groupId>
-                <artifactId>graal-sdk</artifactId>
-                <version>${version.graalvm}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.graalvm.nativeimage</groupId>
-                <artifactId>svm</artifactId>
+                <artifactId>nativeimage</artifactId>
                 <version>${version.graalvm}</version>
                 <scope>provided</scope>
             </dependency>
