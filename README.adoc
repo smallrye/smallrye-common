@@ -2,15 +2,43 @@
 :sonar: https://sonarcloud.io/dashboard?id=smallrye_smallrye-common
 
 image:https://github.com/smallrye/smallrye-common/workflows/SmallRye%20Build/badge.svg?branch=main[link={ci}]
-image:https://sonarcloud.io/api/project_badges/measure?project=smallrye_smallrye-common&metric=alert_status["Quality Gate Status", link={sonar}]
-image:https://img.shields.io/github/license/smallrye/smallrye-common.svg["License", link="http://www.apache.org/licenses/LICENSE-2.0"]
+image:https://sonarcloud.io/api/project_badges/measure?project=smallrye_smallrye-common&metric=alert_status["Quality Gate Status",link={sonar}]
+image:https://img.shields.io/github/license/smallrye/smallrye-common.svg["License",link="http://www.apache.org/licenses/LICENSE-2.0"]
 image:https://img.shields.io/maven-central/v/io.smallrye.common/smallrye-common-parent?color=green[["Central", link="https://search.maven.org/search?q=g:io.smallrye.common"]
 
-= SmallRye Common
+== SmallRye Common
 
 Common utilities for SmallRye projects.
 
-== Instructions
+=== Usage
+
+Add the `io.smallrye.common:smallrye-common-bom` to your `<dependencyManagement>`:
+
+[source,xml]
+----
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-bom</artifactId>
+    <version>LATEST</version>
+    <type>pom</type>
+    <scope>import</scope>
+</dependency>
+----
+
+Now you can add the dependencies you need without worrying about the versions.
+
+For example:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common IO module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-io</artifactId>
+</dependency>
+----
+
+=== Development
 
 Compile and test the project:
 
