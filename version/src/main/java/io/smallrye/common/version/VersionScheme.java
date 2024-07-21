@@ -1,6 +1,7 @@
 package io.smallrye.common.version;
 
 import java.util.Comparator;
+import java.util.function.Predicate;
 
 /**
  * A versioning scheme, which has distinct sorting, iteration, and canonicalization rules.
@@ -16,6 +17,100 @@ public interface VersionScheme extends Comparator<String> {
      * @throws VersionSyntaxException if one or both of the versions have syntactic errors according to this scheme
      */
     int compare(String v1, String v2);
+
+    /**
+     * Determine if the first version is less than the second version according to this version scheme.
+     *
+     * @param base the base version
+     * @param other the other version
+     * @return {@code true} if the first version is less than the second version, or {@code false} otherwise
+     */
+    default boolean lt(String base, String other) {
+        return compare(base, other) < 0;
+    }
+
+    /**
+     * Determine if the first version is less than or equal to the second version according to this version scheme.
+     *
+     * @param base the base version
+     * @param other the other version
+     * @return {@code true} if the first version is less than or equal to the second version, or {@code false} otherwise
+     */
+    default boolean le(String base, String other) {
+        return compare(base, other) <= 0;
+    }
+
+    /**
+     * Determine if the first version is greater than or equal to the second version according to this version scheme.
+     *
+     * @param base the base version
+     * @param other the other version
+     * @return {@code true} if the first version is greater than or equal to the second version, or {@code false} otherwise
+     */
+    default boolean gt(String base, String other) {
+        return compare(base, other) > 0;
+    }
+
+    /**
+     * Determine if the first version is greater than the second version according to this version scheme.
+     *
+     * @param base the base version
+     * @param other the other version
+     * @return {@code true} if the first version is greater than the second version, or {@code false} otherwise
+     */
+    default boolean ge(String base, String other) {
+        return compare(base, other) >= 0;
+    }
+
+    /**
+     * Returns a predicate that tests if the version is equal to the base version.
+     *
+     * @param other the other version
+     * @return {@code true} if the first version is equal to the second version, or {@code false} otherwise
+     */
+    default Predicate<String> whenEquals(String other) {
+        return base -> equals(base, other);
+    }
+
+    /**
+     * Returns a predicate that tests if the version is greater than or equal to the base version.
+     *
+     * @param other the other version
+     * @return {@code true} if the first version is less than the second version, or {@code false} otherwise
+     */
+    default Predicate<String> whenGt(String other) {
+        return base -> gt(base, other);
+    }
+
+    /**
+     * Returns a predicate that tests if the version is greater than or equal to the base version.
+     *
+     * @param other the other version
+     * @return a predicate that tests if the version is greater than or equal to the base version
+     */
+    default Predicate<String> whenGe(String other) {
+        return base -> ge(base, other);
+    }
+
+    /**
+     * Returns a predicate that tests if the version is less than or equal to the base version.
+     *
+     * @param other the other version
+     * @return a predicate that tests if the version is less than or equal to the base version
+     */
+    default Predicate<String> whenLe(String other) {
+        return base -> le(base, other);
+    }
+
+    /**
+     * Returns a predicate that tests if the version is less than the base version.
+     *
+     * @param other the other version
+     * @return a predicate that tests if the version is less than the base version
+     */
+    default Predicate<String> whenLt(String other) {
+        return base -> lt(base, other);
+    }
 
     /**
      * Determine if two versions are equal according to this version scheme.

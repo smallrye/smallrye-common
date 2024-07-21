@@ -76,7 +76,7 @@ public class VersionRange implements Predicate<String> {
             }
             if (upperBound != null) {
                 if (restriction.getLowerBound() == null
-                        || scheme.compare(restriction.getLowerBound(), upperBound) < 0) {
+                        || scheme.lt(restriction.getLowerBound(), upperBound)) {
                     throw msg.rangesOverlap(spec);
                 }
             }

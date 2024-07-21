@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class VersionRangeTest {
 
@@ -89,6 +91,19 @@ class VersionRangeTest {
     public void testRangeQualifier() {
         VersionRange versionRange = VersionRange.createFromVersionSpec(VersionScheme.MAVEN, "[3.8.0.redhat-00001,)");
         assertThat(versionRange).accepts("3.8.0.SP1-redhat-00001");
+    }
+
+    @ParameterizedTest
+    @MethodSource("schemes")
+    public void testComposablePredicates(VersionScheme scheme) {
+        assertThat(scheme.whenGe("1.0.0").and(scheme.whenLt("2.0.0")))
+                .accepts("1.0.0", "1.1.0").rejects("2.0.0", "2.0.1", "2.1.0");
+        assertThat(scheme.whenGt("1.0.0").and(scheme.whenLe("2.0.0")))
+                .accepts("1.0.1", "2.0.0").rejects("1.0.0", "2.0.1", "2.1.0");
+    }
+
+    static VersionScheme[] schemes() {
+        return new VersionScheme[] { VersionScheme.BASIC, VersionScheme.MAVEN, VersionScheme.JPMS };
     }
 
 }
