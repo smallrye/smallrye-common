@@ -48,15 +48,22 @@ interface Messages {
     @Message(id = 3011, value = "Unbounded range: %s")
     IllegalArgumentException unboundedRange(String pattern);
 
-    @Message(id = 3012, value = "Ranges overlap: %s")
-    IllegalArgumentException rangesOverlap(String version);
+    // 3012
 
-    @Message(id = 3013, value = "Only fully-qualified sets allowed in multiple set scenario: %s")
-    IllegalArgumentException onlyFullyQualifiedSetsAllowed(String version);
+    // 3013
 
     @Message(id = 3014, value = "Single version must be surrounded by []: %s")
     IllegalArgumentException singleVersionMustBeSurroundedByBrackets(String version);
 
     @Message(id = 3015, value = "Range defies version ordering: %s")
     IllegalArgumentException rangeDefiesVersionOrdering(String version);
+
+    @Message(id = 3016, value = "Unexpected version range character: %s")
+    IllegalArgumentException rangeUnexpected(String version);
+
+    @Message(id = 3017, value = "Standalone version cannot have an upper bound")
+    IllegalArgumentException standaloneVersionCannotBeBound();
+
+    @Message(id = 3018, value = "Inclusive versions cannot be empty")
+    IllegalArgumentException inclusiveVersionCannotBeEmpty();
 }
