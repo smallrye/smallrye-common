@@ -145,6 +145,7 @@ public interface VersionScheme extends Comparator<String> {
         return fromRangeString(range, 0, range.length());
     }
 
+    // @formatter:off
     /**
      * Parse a range specification and return it as a predicate.
      * Version ranges are governed by the following general syntax:
@@ -187,6 +188,7 @@ max-version ::= version ']'
      * @throws IllegalArgumentException if there is a syntax error in the range or the range cannot match any version
      * @throws IndexOutOfBoundsException if the values for {@code start} or {@code end} are not valid
      */
+    // @formatter:on
     default Predicate<String> fromRangeString(String range, int start, int end) {
         Objects.checkFromToIndex(start, end, range.length());
         return parseRange(range, start, end);
@@ -418,7 +420,7 @@ letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
                 }
                 case ']': {
                     String high = range.substring(start, i);
-                    if (min != null && ! min.test(high)) {
+                    if (min != null && !min.test(high)) {
                         // low end must be higher than high end
                         throw Messages.msg.rangeDefiesVersionOrdering(range.substring(start, i + cnt));
                     }
