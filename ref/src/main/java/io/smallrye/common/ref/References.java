@@ -31,7 +31,16 @@ public final class References {
             if (isBuildTime()) {
                 // do nothing (class should be reinitialized)
             } else {
-                final PrivilegedAction<Void> action = () -> startThreadAction(1);
+                final PrivilegedAction<Void> action = new PrivilegedAction<>() {
+                    @Override
+                    public Void run() {
+                        final ReaperThread thr = new ReaperThread();
+                        thr.setName("Reference Reaper #1");
+                        thr.setDaemon(true);
+                        thr.start();
+                        return null;
+                    }
+                };
                 doPrivileged(action);
             }
         }
@@ -42,14 +51,6 @@ public final class References {
             } catch (Throwable ignored) {
                 return false;
             }
-        }
-
-        private static Void startThreadAction(int id) {
-            final ReaperThread thr = new ReaperThread();
-            thr.setName("Reference Reaper #" + id);
-            thr.setDaemon(true);
-            thr.start();
-            return null;
         }
 
         public void run() {
