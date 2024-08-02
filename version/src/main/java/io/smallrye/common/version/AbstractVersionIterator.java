@@ -11,6 +11,9 @@ import io.smallrye.common.constraint.Assert;
  * version strings which are greater than 4095 characters in length.
  */
 public abstract class AbstractVersionIterator implements VersionIterator {
+    /**
+     * The version string being iterated.
+     */
     protected final String string;
     long cookie;
 
@@ -18,13 +21,30 @@ public abstract class AbstractVersionIterator implements VersionIterator {
      * The current state of iteration.
      */
     protected enum TokenType {
+        /**
+         * The initial state.
+         */
         INITIAL,
+        /**
+         * A part of the version string which is an alpha part.
+         */
         PART_ALPHA,
+        /**
+         * A part of the version string which is a numeric part.
+         */
         PART_NUMBER,
+        /**
+         * A separator character.
+         */
         SEP_EMPTY,
+        /**
+         * A non-empty separator character.
+         */
         SEP,
-        INVALID,
-        ;
+        /**
+         * An invalid state.
+         */
+        INVALID;
 
         static TokenType[] values = values();
     }
