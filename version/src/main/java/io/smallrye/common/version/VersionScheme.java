@@ -149,7 +149,7 @@ public interface VersionScheme extends Comparator<String> {
     /**
      * Parse a range specification and return it as a predicate.
      * Version ranges are governed by the following general syntax:
-     * <code><pre>
+     * <code>
 range ::= range-spec ',' range
         | range-spec
 
@@ -163,7 +163,7 @@ min-version ::= '[' version
 max-version ::= version ']'
               | version ')'
               | ')'
-</pre></code>
+     </code>
      * This is aligned with the syntax used by Maven, however it can be applied to any
      * supported version scheme.
      * <p>
