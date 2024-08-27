@@ -132,7 +132,7 @@ public class ClassPathUtils {
     public static <R> R processAsPath(URL url, Function<Path, R> function) {
         if (JAR.equals(url.getProtocol())) {
             final String file = url.getFile();
-            final int exclam = file.indexOf('!');
+            final int exclam = file.indexOf("!/");
             try {
                 URL fileUrl;
                 String subPath;
@@ -147,6 +147,7 @@ public class ClassPathUtils {
                 if (!fileUrl.getProtocol().equals("file")) {
                     throw new IllegalArgumentException("Sub-URL of JAR URL is expected to have a scheme of `file`");
                 }
+
                 return processAsJarPath(toLocalPath(fileUrl), subPath, function);
             } catch (MalformedURLException e) {
                 throw new RuntimeException("Failed to create a URL for '" + file.substring(0, exclam) + "'", e);
@@ -165,19 +166,16 @@ public class ClassPathUtils {
             Path localPath = jarFs.getPath("/");
             int start = 0;
             for (;;) {
-                int idx = path.indexOf('!', start);
+                int idx = path.indexOf("!/", start);
                 if (idx == -1) {
                     return function.apply(localPath.resolve(path));
                 } else {
                     // could be nested JAR?
                     Path subPath = localPath.resolve(path.substring(0, idx));
                     if (Files.isDirectory(subPath)) {
-                        // no, it's a plain directory and the `!` is superfluous
+                        // no, it's a plain directory and the `!/` is superfluous
                         localPath = subPath;
-                        start = idx + 1;
-                        if (start + 1 < path.length() && path.charAt(start + 1) == '/') {
-                            start++;
-                        }
+                        start = idx + 2;
                     } else {
                         // yes, it's a nested JAR file
                         return processAsJarPath(subPath, path.substring(idx + 1), function);
