@@ -132,25 +132,34 @@ public class ClassPathUtils {
     public static <R> R processAsPath(URL url, Function<Path, R> function) {
         if (JAR.equals(url.getProtocol())) {
             final String file = url.getFile();
-            final int exclam = file.indexOf("!/");
-            try {
-                URL fileUrl;
-                String subPath;
-                if (exclam == -1) {
-                    // assume the first element is a JAR file, not a plain file, since it was a `jar:` URL
-                    fileUrl = new URL(file);
-                    subPath = "/";
-                } else {
-                    fileUrl = new URL(file.substring(0, exclam));
-                    subPath = file.substring(exclam + 1);
-                }
-                if (!fileUrl.getProtocol().equals("file")) {
-                    throw new IllegalArgumentException("Sub-URL of JAR URL is expected to have a scheme of `file`");
-                }
+            int exclam = file.indexOf("!/");
+            for (;;) {
+                try {
+                    URL fileUrl;
+                    String subPath;
+                    if (exclam == -1) {
+                        // assume the first element is a JAR file, not a plain file, since it was a `jar:` URL
+                        fileUrl = new URL(file);
+                        subPath = "/";
+                    } else {
+                        fileUrl = new URL(file.substring(0, exclam));
+                        subPath = file.substring(exclam + 1);
+                    }
+                    if (!fileUrl.getProtocol().equals("file")) {
+                        throw new IllegalArgumentException("Sub-URL of JAR URL is expected to have a scheme of `file`");
+                    }
 
-                return processAsJarPath(toLocalPath(fileUrl), subPath, function);
-            } catch (MalformedURLException e) {
-                throw new RuntimeException("Failed to create a URL for '" + file.substring(0, exclam) + "'", e);
+                    Path proposedPath = toLocalPath(fileUrl);
+                    if (Files.isRegularFile(proposedPath)) {
+                        return processAsJarPath(proposedPath, subPath, function);
+                    }
+                    if (exclam == -1) {
+                        throw new IllegalArgumentException("File not found: " + fileUrl);
+                    }
+                    exclam = file.indexOf("!/", exclam + 1);
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException("Failed to create a URL for '" + file.substring(0, exclam) + "'", e);
+                }
             }
         }
 
