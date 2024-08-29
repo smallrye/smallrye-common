@@ -29,6 +29,10 @@ import java.util.List;
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
 public final class Process {
+    private static final ProcessHandle current = doPrivileged((PrivilegedAction<ProcessHandle>) ProcessHandle::current);
+    private static final ProcessHandle.Info currentInfo = current.info();
+    private static final String name = doPrivileged((PrivilegedAction<String>) Process::computeProcessName);
+
     private Process() {
     }
 
@@ -39,14 +43,13 @@ public final class Process {
      * @return the process name (not {@code null})
      */
     public static String getProcessName() {
-        return doPrivileged((PrivilegedAction<String>) Process::computeProcessName);
+        return name;
     }
 
     private static String computeProcessName() {
-        final ProcessHandle processHandle = ProcessHandle.current();
         String processName = System.getProperty("jboss.process.name");
         if (processName == null) {
-            processName = processHandle.info().command().orElse(null);
+            processName = currentInfo.command().orElse(null);
         }
         if (processName == null) {
             processName = "<unknown>";
@@ -62,7 +65,7 @@ public final class Process {
      */
     @Deprecated(since = "2.4", forRemoval = true)
     public static long getProcessId() {
-        return currentProcess().pid();
+        return current.pid();
     }
 
     /**
@@ -73,12 +76,7 @@ public final class Process {
      */
     @Deprecated(since = "2.4", forRemoval = true)
     public static ProcessInfo getCurrentProcess() {
-        return new ProcessInfo(currentProcess().pid(), getProcessName());
-    }
-
-    // do not make this public
-    private static ProcessHandle currentProcess() {
-        return doPrivileged((PrivilegedAction<ProcessHandle>) ProcessHandle::current);
+        return new ProcessInfo(current.pid(), getProcessName());
     }
 
     /**
