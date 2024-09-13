@@ -674,8 +674,8 @@ public class ExpressionTestCase {
         }), "SRCOM01000: Invalid expression syntax at position 0");
         assertThrows(IllegalArgumentException.class, () -> Expression.compile("a\\", ESCAPES).evaluate((c, b) -> {
         }), "SRCOM01000: Invalid expression syntax at position 0");
-        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\${foo}", ESCAPES).evaluate((c, b) -> {
-        }), "SRCOM01000: Invalid expression syntax at position 0");
+        assertEquals("${foo}", Expression.compile("\\${foo}", ESCAPES).evaluate((c, b) -> {
+        }));
 
         // NO_SMART_BRACES
         assertEquals("", Expression.compile("${foo}", NO_SMART_BRACES).evaluate((c, b) -> {
@@ -691,6 +691,122 @@ public class ExpressionTestCase {
         }));
         assertEquals("{d}", Expression.compile("${foo:{d}}", NO_SMART_BRACES).evaluate((c, b) -> {
             b.append(c.getExpandedDefault());
+        }));
+    }
+
+    @Test
+    void no$$() {
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("$", NO_$$).evaluate((c, b) -> {
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("$$", NO_$$).evaluate((c, b) -> {
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\$", NO_$$).evaluate((c, b) -> {
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\$$", NO_$$).evaluate((c, b) -> {
+        }));
+        assertEquals("$$foo", Expression.compile("$$foo", NO_$$).evaluate((c, b) -> {
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("foo$$", NO_$$).evaluate((c, b) -> {
+        }));
+        assertEquals("foo$$bar", Expression.compile("foo$$bar", NO_$$).evaluate((c, b) -> {
+        }));
+        assertEquals("$", Expression.compile("$${foo}", NO_$$).evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+        }));
+        assertEquals("$$", Expression.compile("$$${foo}", NO_$$).evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+        }));
+        assertEquals("foo$", Expression.compile("foo$${bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo$$", Expression.compile("foo$$${bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo$$$$", Expression.compile("foo$$$$${bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo$$$$$$$baz", Expression.compile("foo$$$$${bar}$$$baz", NO_$$).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+        assertEquals("$", Expression.compile("$${foo:bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+        }));
+        assertEquals("$$", Expression.compile("$$${foo:bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+        }));
+        assertEquals("$", Expression.compile("$${foo:${bar}}", NO_$$).evaluate((c, b) -> {
+            assertTrue(c.getKey().equals("foo") || c.getKey().equals("bar"));
+        }));
+        assertEquals("$", Expression.compile("$${foo:$${bar}}", NO_$$).evaluate((c, b) -> {
+            assertTrue(c.getKey().equals("foo") || c.getKey().equals("bar"));
+        }));
+
+        assertEquals("", Expression.compile("${foo}", NO_$$).evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+        }));
+        assertEquals("", Expression.compile("${foo}${bar}", NO_$$).evaluate((c, b) -> {
+            assertTrue(c.getKey().equals("foo") || c.getKey().equals("bar"));
+        }));
+        assertEquals("foobar", Expression.compile("foo${foo}${bar}bar", NO_$$).evaluate((c, b) -> {
+            assertTrue(c.getKey().equals("foo") || c.getKey().equals("bar"));
+        }));
+        assertEquals("foo$bar", Expression.compile("foo$${foo}${bar}bar", NO_$$).evaluate((c, b) -> {
+            assertTrue(c.getKey().equals("foo") || c.getKey().equals("bar"));
+        }));
+        assertEquals("foo$bar", Expression.compile("foo$${foo${bar}}bar", NO_$$).evaluate((c, b) -> {
+            assertTrue(c.getKey().equals("foo") || c.getKey().equals("bar"));
+        }));
+        assertEquals("", Expression.compile("${}", NO_$$).evaluate((c, b) -> {
+            assertEquals("", c.getKey());
+        }));
+        assertEquals("", Expression.compile("${:}", NO_$$).evaluate((c, b) -> {
+            assertEquals("", c.getKey());
+        }));
+
+        assertEquals("\\", Expression.compile("\\${foo}", NO_$$).evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+        }));
+        assertEquals("\\bar", Expression.compile("\\${foo}bar", NO_$$).evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+        }));
+        assertEquals("\\$\\{%s}", Expression.compile("\\$\\{%s}", NO_$$).evaluate((c, b) -> {
+        }));
+        assertEquals("foo\\", Expression.compile("foo\\${bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo\\\\", Expression.compile("foo\\\\${bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+
+        assertEquals("foo\\$", Expression.compile("foo\\$${bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo$\\", Expression.compile("foo$\\${bar}", NO_$$).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo$$\\{bar}", Expression.compile("foo$$\\{bar}", NO_$$).evaluate((c, b) -> {
+        }));
+    }
+
+    @Test
+    void no$$Escapes() {
+        assertEquals("$", Expression.compile("\\$", NO_$$, ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("${foo}", Expression.compile("\\${foo}", NO_$$, ESCAPES).evaluate((c, b) -> {
+        }));
+
+        assertEquals("${foo}bar", Expression.compile("\\${foo}bar", NO_$$, ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("foo${bar}", Expression.compile("foo\\${bar}", NO_$$, ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("foo\\", Expression.compile("foo\\\\${bar}", NO_$$, ESCAPES).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+
+        assertEquals("foo$${bar}", Expression.compile("foo$\\${bar}", NO_$$, ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("foo$${bar}", Expression.compile("foo$\\${bar}", NO_$$, ESCAPES).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
         }));
     }
 }
