@@ -1,8 +1,8 @@
 package io.smallrye.common.expression;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static io.smallrye.common.expression.Expression.Flag.*;
+import static io.smallrye.common.expression.Expression.Flag.NO_SMART_BRACES;
+import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
@@ -306,7 +306,7 @@ public class ExpressionTestCase {
 
     @Test
     public void testPoint13() {
-        final Expression expression = Expression.compile("foo$$bar", Expression.Flag.MINI_EXPRS);
+        final Expression expression = Expression.compile("foo$$bar", MINI_EXPRS);
         assertEquals("foorizbar", expression.evaluate((c, b) -> {
             assertEquals("$", c.getKey());
             b.append("riz");
@@ -323,7 +323,7 @@ public class ExpressionTestCase {
 
     @Test
     public void testPoint15() {
-        final Expression expression = Expression.compile("foo$}bar", Expression.Flag.MINI_EXPRS);
+        final Expression expression = Expression.compile("foo$}bar", MINI_EXPRS);
         assertEquals("foorizbar", expression.evaluate((c, b) -> {
             assertEquals("}", c.getKey());
             b.append("riz");
@@ -369,7 +369,7 @@ public class ExpressionTestCase {
 
     @Test
     public void testPoint20() {
-        final Expression expression = Expression.compile("foo$:baz", Expression.Flag.MINI_EXPRS);
+        final Expression expression = Expression.compile("foo$:baz", MINI_EXPRS);
         assertEquals("foobarbaz", expression.evaluate((c, b) -> {
             assertEquals(":", c.getKey());
             b.append("bar");
@@ -416,7 +416,7 @@ public class ExpressionTestCase {
 
     @Test
     public void testPoint25() {
-        final Expression expression = Expression.compile("foo$xbar", Expression.Flag.MINI_EXPRS);
+        final Expression expression = Expression.compile("foo$xbar", MINI_EXPRS);
         assertEquals("foobazbar", expression.evaluate((c, b) -> {
             assertEquals("x", c.getKey());
             b.append("baz");
@@ -603,5 +603,94 @@ public class ExpressionTestCase {
             assertTrue(c.hasDefault());
             assertEquals("", c.getExpandedDefault());
         }), "Should expand to empty string");
+    }
+
+    @Test
+    void expressions() {
+        // No Flags
+        assertEquals("a", Expression.compile("a").evaluate((c, b) -> {
+        }));
+        assertEquals("a", Expression.compile("a").evaluate((c, b) -> {
+            assertNull(c.getKey());
+        }));
+        assertEquals("$", Expression.compile("$$").evaluate((c, b) -> {
+        }));
+        assertEquals("$", Expression.compile("$$").evaluate((c, b) -> {
+            assertNull(c.getKey());
+        }));
+        assertEquals("", Expression.compile("${foo}").evaluate((c, b) -> {
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("${{foo}").evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 7");
+        assertEquals("d", Expression.compile("${{foo}:d}").evaluate((c, b) -> {
+            assertEquals("{foo}", c.getKey());
+            b.append(c.getExpandedDefault());
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("${{foo}:d{}").evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 7");
+        assertEquals("d}", Expression.compile("${{foo}:d}}").evaluate((c, b) -> {
+            assertEquals("{foo}", c.getKey());
+            b.append(c.getExpandedDefault());
+        }));
+        assertEquals("d{}", Expression.compile("${{foo}:d{}}").evaluate((c, b) -> {
+            assertEquals("{foo}", c.getKey());
+            b.append(c.getExpandedDefault());
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("$").evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 0");
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("$foo").evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 1");
+        assertEquals("\\a", Expression.compile("\\a").evaluate((c, b) -> {
+        }));
+        assertEquals("\\$", Expression.compile("\\$$").evaluate((c, b) -> {
+        }));
+        assertEquals("\\", Expression.compile("\\${foo}").evaluate((c, b) -> {
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\${{foo}").evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 8");
+        assertEquals("\\", Expression.compile("\\${{foo}}").evaluate((c, b) -> {
+        }));
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\$").evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 0");
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\$foo").evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 1");
+
+        // MINI_EXPR
+        assertEquals("a", Expression.compile("a", MINI_EXPRS).evaluate((c, b) -> {
+        }));
+        assertEquals("a", Expression.compile("a", MINI_EXPRS).evaluate((c, b) -> {
+            assertEquals("a", c.getKey());
+        }));
+        assertEquals("", Expression.compile("$$", MINI_EXPRS).evaluate((c, b) -> {
+            assertEquals("$", c.getKey());
+        }));
+        assertEquals("", Expression.compile("${foo}", MINI_EXPRS).evaluate((c, b) -> {
+        }));
+        assertEquals("", Expression.compile("${{foo}}", MINI_EXPRS).evaluate((c, b) -> {
+        }));
+
+        // ESCAPES
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\a", ESCAPES).evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 0");
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("a\\", ESCAPES).evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 0");
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\${foo}", ESCAPES).evaluate((c, b) -> {
+        }), "SRCOM01000: Invalid expression syntax at position 0");
+
+        // NO_SMART_BRACES
+        assertEquals("", Expression.compile("${foo}", NO_SMART_BRACES).evaluate((c, b) -> {
+        }));
+        assertEquals("}", Expression.compile("${{foo}}", NO_SMART_BRACES).evaluate((c, b) -> {
+            assertEquals("{foo", c.getKey());
+        }));
+        assertEquals("d{", Expression.compile("${foo:d{}", NO_SMART_BRACES).evaluate((c, b) -> {
+            b.append(c.getExpandedDefault());
+        }));
+        assertEquals("{d", Expression.compile("${foo:{d}", NO_SMART_BRACES).evaluate((c, b) -> {
+            b.append(c.getExpandedDefault());
+        }));
+        assertEquals("{d}", Expression.compile("${foo:{d}}", NO_SMART_BRACES).evaluate((c, b) -> {
+            b.append(c.getExpandedDefault());
+        }));
     }
 }
