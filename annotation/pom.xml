@@ -17,17 +17,6 @@
       <groupId>jakarta.enterprise</groupId>
       <artifactId>jakarta.enterprise.cdi-api</artifactId>
       <scope>provided</scope>
-      <exclusions>
-        <!-- keep the dependency tree of this module as small as possible -->
-        <exclusion>
-          <groupId>jakarta.el</groupId>
-          <artifactId>jakarta.el-api</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>jakarta.interceptor</groupId>
-          <artifactId>jakarta.interceptor-api</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
   </dependencies>
 
@@ -36,10 +25,6 @@
       <plugin>
         <groupId>org.jboss.jandex</groupId>
         <artifactId>jandex-maven-plugin</artifactId>
-      </plugin>
-      <plugin>
-        <groupId>io.github.dmlloyd.module-info</groupId>
-        <artifactId>module-info</artifactId>
       </plugin>
     </plugins>
   </build>

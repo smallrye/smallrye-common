@@ -1,4 +1,0 @@
-name: io.smallrye.common.function
-
-requires:
-  - module: io.smallrye.common.constraint

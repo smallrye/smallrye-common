@@ -1,6 +1,0 @@
-name: io.smallrye.common.vertx
-
-requires:
-  - module: io.smallrye.common.constraint
-  - module: io.vertx.core
-  - module: org.jboss.logging

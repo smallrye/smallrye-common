@@ -27,10 +27,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>io.github.dmlloyd.module-info</groupId>
-                <artifactId>module-info</artifactId>
-            </plugin>
-            <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <systemPropertyVariables>
