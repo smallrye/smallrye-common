@@ -1,6 +1,5 @@
 package io.smallrye.common.net;
 
-import static java.lang.Integer.signum;
 import static java.lang.Math.min;
 
 import java.io.Serializable;
@@ -271,10 +270,10 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
         }
         // IPv4 before IPv6
         final byte[] cachedBytes = this.cachedBytes;
-        int res = signum(cachedBytes.length - otherLength);
+        int res = Integer.compare(cachedBytes.length, otherLength);
         if (res != 0)
             return res;
-        res = signum(scopeId - getScopeId());
+        res = Integer.compare(scopeId, getScopeId());
         if (res != 0)
             return res;
         // sorted numerically with long matches coming later
@@ -283,7 +282,7 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
         // compare byte-wise as far as we can
         int i = 0;
         while (commonPrefix >= 8) {
-            res = signum((cachedBytes[i] & 0xff) - (otherBytes[i] & 0xff));
+            res = Integer.compare(Byte.toUnsignedInt(cachedBytes[i]), Byte.toUnsignedInt(otherBytes[i]));
             if (res != 0)
                 return res;
             i++;
@@ -291,13 +290,13 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
         }
         while (commonPrefix > 0) {
             final int bit = 1 << commonPrefix;
-            res = signum((cachedBytes[i] & bit) - (otherBytes[i] & bit));
+            res = Integer.compare(cachedBytes[i] & bit, otherBytes[i] & bit);
             if (res != 0)
                 return res;
             commonPrefix--;
         }
         // common prefix is a match; now the shortest mask wins
-        return signum(netmaskBits - otherNetmaskBits);
+        return Integer.compare(netmaskBits, otherNetmaskBits);
     }
 
     public boolean equals(final Object obj) {
