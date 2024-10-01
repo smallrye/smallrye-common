@@ -410,6 +410,9 @@ public final class Expression {
                             if (flags.contains(Flag.MINI_EXPRS)) {
                                 // TP 13
                                 list.add(new ExpressionNode(false, LiteralNode.DOLLAR, Node.NULL));
+                            } else if (flags.contains(Flag.NO_$$)) {
+                                list.add(LiteralNode.DOLLAR);
+                                itr.prev();
                             } else {
                                 // just resolve $$ to $
                                 // TP 14
@@ -493,10 +496,12 @@ public final class Expression {
                                         Node.NULL));
                                 start = itr.getNextIdx();
                                 continue;
-                            } else if (flags.contains(Flag.LENIENT_SYNTAX)) {
+                            } else if (flags.contains(Flag.LENIENT_SYNTAX) || flags.contains(Flag.NO_$$)) {
                                 // TP 26
                                 // just treat it as literal
-                                start = itr.getPrevIdx() - 1; // we can use 1 here because unicode '$' is one char in size
+                                list.add(LiteralNode.DOLLAR);
+                                itr.prev();
+                                start = itr.getNextIdx();
                                 continue;
                             } else {
                                 // TP 27
@@ -592,6 +597,10 @@ public final class Expression {
                                 case 'f': {
                                     // TP 39
                                     node = LiteralNode.FORM_FEED;
+                                    break;
+                                }
+                                case '$': {
+                                    node = LiteralNode.DOLLAR;
                                     break;
                                 }
                                 case '\\': {
@@ -694,6 +703,11 @@ public final class Expression {
          * character.
          */
         ESCAPES,
+        /**
+         * Escaping <code>$</code> with <code>$$</code> or <code>/$</code> only applies when <code>{</code> follows
+         * the initial escaped <code>$</code>.
+         */
+        NO_$$,
         /**
          * Treat expressions containing a double-colon delimiter as special, encoding the entire content into the key.
          */
