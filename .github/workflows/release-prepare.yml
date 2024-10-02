@@ -1,4 +1,4 @@
-name: SmallRye Release
+name: SmallRye Prepare Release
 
 on:
   pull_request:
@@ -16,12 +16,3 @@ jobs:
     if: ${{ github.event.pull_request.merged == true}}
     uses: smallrye/.github/.github/workflows/prepare-release.yml@main
     secrets: inherit
-
-  perform-release:
-    name: Perform Release
-    needs: prepare-release
-    uses: smallrye/.github/.github/workflows/perform-release.yml@main
-    secrets: inherit
-    with:
-      version: ${{needs.prepare-release.outputs.release-version}}
-      dry_run: ${{ vars.CI_DRY_RUN_RELEASE }}
