@@ -26,4 +26,3 @@ jobs:
     secrets: inherit
     with:
       version: ${{github.event.inputs.tag || github.ref_name}}
-      dry_run: ${{ vars.CI_DRY_RUN_RELEASE }}
