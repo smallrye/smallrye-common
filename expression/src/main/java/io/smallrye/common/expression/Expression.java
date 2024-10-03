@@ -413,6 +413,11 @@ public final class Expression {
                             } else if (flags.contains(Flag.NO_$$)) {
                                 list.add(LiteralNode.DOLLAR);
                                 itr.prev();
+                            } else if (flags.contains(Flag.MP)) {
+                                list.add(LiteralNode.DOLLAR);
+                                if (!itr.hasNext() || itr.peekNext() != '{') {
+                                    itr.prev();
+                                }
                             } else {
                                 // just resolve $$ to $
                                 // TP 14
@@ -556,7 +561,7 @@ public final class Expression {
                     //throw Assert.unreachableCode();
                 }
                 case '\\': {
-                    if (flags.contains(Flag.ESCAPES)) {
+                    if (flags.contains(Flag.ESCAPES) || flags.contains(Flag.MP)) {
                         if (idx > start) {
                             list.add(new LiteralNode(itr.getStr(), start, idx));
                             start = idx;
@@ -570,7 +575,7 @@ public final class Expression {
                                 // TP 34
                                 throw invalidExpressionSyntax(itr.getStr(), idx);
                             }
-                        } else {
+                        } else if (flags.contains(Flag.ESCAPES)) {
                             ch = itr.next();
                             final LiteralNode node;
                             switch (ch) {
@@ -621,6 +626,17 @@ public final class Expression {
                             }
                             list.add(node);
                             start = itr.getNextIdx();
+                            continue;
+                        } else if (flags.contains(Flag.MP)) {
+                            ch = itr.next();
+                            if (ch == '$') {
+                                if (!itr.hasNext() || itr.peekNext() != '{') {
+                                    list.add(LiteralNode.BACKSLASH);
+                                }
+                            } else {
+                                list.add(LiteralNode.BACKSLASH);
+                            }
+                            start = itr.getPrevIdx();
                             continue;
                         }
                     }
@@ -699,15 +715,19 @@ public final class Expression {
          */
         GENERAL_EXPANSION,
         /**
-         * Support standard escape sequences in plain text and default value fields, which begin with a backslash ("{@code \}")
-         * character.
+         * Support standard escape sequences in plain text and default value fields, which begin with a backslash
+         * {@code \} character.
          */
         ESCAPES,
         /**
-         * Escaping <code>$</code> with <code>$$</code> or <code>/$</code> only applies when <code>{</code> follows
-         * the initial escaped <code>$</code>.
+         * No escape sequence for {@code $} which begin with a dollar {@code $}.
          */
         NO_$$,
+        /**
+         * Supports escape sequences for expressions {@code ${}}, which begin with a backslash {@code \} or dollar
+         * {@code $}.
+         */
+        MP,
         /**
          * Treat expressions containing a double-colon delimiter as special, encoding the entire content into the key.
          */
