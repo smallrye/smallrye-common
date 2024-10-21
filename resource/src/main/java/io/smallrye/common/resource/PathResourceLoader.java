@@ -2,6 +2,8 @@ package io.smallrye.common.resource;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 
@@ -40,6 +42,15 @@ public final class PathResourceLoader implements ResourceLoader {
     public Resource findResource(final String path) {
         String canon = ResourceUtils.canonicalizeRelativePath(path);
         return new PathResource(canon, base.resolve(canon));
+    }
+
+    public URL baseUrl() {
+        try {
+            return base.toUri().toURL();
+        } catch (MalformedURLException e) {
+            throw new UnsupportedOperationException(
+                    "Base URL is not supported for this loader because the path does not have a valid URL", e);
+        }
     }
 
     public void close() {
