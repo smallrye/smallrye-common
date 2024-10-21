@@ -75,6 +75,10 @@ public final class JarFileResourceLoader implements ResourceLoader {
         }
     }
 
+    public URL baseUrl() {
+        return base;
+    }
+
     public void close() {
         try {
             jarFile.close();

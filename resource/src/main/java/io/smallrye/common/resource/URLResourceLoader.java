@@ -26,4 +26,8 @@ public final class URLResourceLoader implements ResourceLoader {
         String canon = ResourceUtils.canonicalizeRelativePath(path);
         return new URLResource(canon, new URL(base, canon));
     }
+
+    public URL baseUrl() {
+        return base;
+    }
 }

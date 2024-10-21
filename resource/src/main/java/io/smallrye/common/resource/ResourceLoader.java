@@ -2,6 +2,7 @@ package io.smallrye.common.resource;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.URL;
 
 /**
  * A loader which can find resources by their path.
@@ -21,6 +22,13 @@ public interface ResourceLoader extends Closeable {
      * @throws IOException if the resource could not be loaded
      */
     Resource findResource(String path) throws IOException;
+
+    /**
+     * {@return the base URL for this loader}
+     */
+    default URL baseUrl() {
+        throw new UnsupportedOperationException("Base URL is not supported by this resource loader");
+    }
 
     /**
      * Get a child resource loader for the given child path.
