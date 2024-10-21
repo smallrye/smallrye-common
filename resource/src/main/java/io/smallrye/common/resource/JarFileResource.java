@@ -8,10 +8,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.DirectoryStream;
 import java.nio.file.attribute.FileTime;
+import java.security.CodeSigner;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -114,6 +116,11 @@ public final class JarFileResource extends Resource {
     public Instant modifiedTime() {
         FileTime fileTime = jarEntry.getLastModifiedTime();
         return fileTime == null ? null : fileTime.toInstant();
+    }
+
+    public List<CodeSigner> codeSigners() {
+        CodeSigner[] array = jarEntry.getCodeSigners();
+        return array == null ? List.of() : List.of(array);
     }
 
     public InputStream openStream() throws IOException {
