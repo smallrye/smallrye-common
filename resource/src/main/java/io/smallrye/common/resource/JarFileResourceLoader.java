@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 /**
  * A resource loader which corresponds to a JAR file.
@@ -77,6 +78,10 @@ public final class JarFileResourceLoader implements ResourceLoader {
 
     public URL baseUrl() {
         return base;
+    }
+
+    public Manifest manifest() throws IOException {
+        return jarFile.getManifest();
     }
 
     public void close() {
