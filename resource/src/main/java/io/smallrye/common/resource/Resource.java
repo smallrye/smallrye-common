@@ -14,8 +14,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.security.CodeSigner;
 import java.security.ProtectionDomain;
 import java.time.Instant;
+import java.util.List;
 import java.util.function.Function;
 
 import io.smallrye.common.constraint.Assert;
@@ -191,6 +193,15 @@ public abstract class Resource {
      */
     public Instant modifiedTime() {
         return null;
+    }
+
+    /**
+     * {@return the list of code signers for this resource}
+     * The resource must have been fully read, or else consumed {@linkplain #asBuffer() as a buffer}.
+     * By default, the base implementation returns an empty list.
+     */
+    public List<CodeSigner> codeSigners() {
+        return List.of();
     }
 
     /**
