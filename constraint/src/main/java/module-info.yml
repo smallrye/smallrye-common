@@ -1,4 +1,0 @@
-name: io.smallrye.common.constraint
-
-requires:
-  - module: org.jboss.logging
