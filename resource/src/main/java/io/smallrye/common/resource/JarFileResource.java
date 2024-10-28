@@ -40,7 +40,7 @@ public final class JarFileResource extends Resource {
                 // todo: Java 20+: URL.of(new URI("jar", null, base.toURI().toASCIIString() + "!/" + pathName()),
                 //                        new ResourceURLStreamHandler(this));
                 url = this.url = new URL(null,
-                        new URI("jar", null, base.toURI().toASCIIString() + "!/" + pathName()).toASCIIString(),
+                        new URI("jar", base.toURI().toASCIIString() + "!/" + pathName(), null).toASCIIString(),
                         new ResourceURLStreamHandler(this));
             } catch (MalformedURLException | URISyntaxException e) {
                 throw new IllegalArgumentException(e);

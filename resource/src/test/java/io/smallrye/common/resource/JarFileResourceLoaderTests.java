@@ -36,6 +36,7 @@ public class JarFileResourceLoaderTests {
             assertNull(rl.findResource("missing"));
             Resource dir1_file_stored_txt = rl.findResource("dir1/file-stored.txt");
             assertNotNull(dir1_file_stored_txt);
+            assertEquals("jar:memory:test.jar!/dir1/file-stored.txt", dir1_file_stored_txt.url().toString());
             assertEquals(FILE_TXT, dir1_file_stored_txt.asString(StandardCharsets.UTF_8));
             Resource dir1_file_deflated_txt = rl.findResource("dir1/file-deflated.txt");
             assertNotNull(dir1_file_deflated_txt);
@@ -43,6 +44,7 @@ public class JarFileResourceLoaderTests {
             Resource dir1 = rl.findResource("dir1");
             assertNotNull(dir1);
             assertEquals(0, dir1.size());
+            assertEquals("jar:memory:test.jar!/dir1", dir1.url().toString());
             try (DirectoryStream<Resource> ds = dir1.openDirectoryStream()) {
                 Iterator<Resource> iterator = ds.iterator();
                 assertTrue(iterator.hasNext());
