@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.FileSystem;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import io.smallrye.common.constraint.Assert;
@@ -41,7 +42,11 @@ public final class PathResourceLoader implements ResourceLoader {
 
     public Resource findResource(final String path) {
         String canon = ResourceUtils.canonicalizeRelativePath(path);
-        return new PathResource(canon, base.resolve(canon));
+        Path filePath = base.resolve(canon);
+        if (!Files.exists(filePath)) {
+            return null;
+        }
+        return new PathResource(canon, filePath);
     }
 
     public URL baseUrl() {
