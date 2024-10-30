@@ -3,6 +3,7 @@ package io.smallrye.common.resource;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -51,7 +52,9 @@ public final class PathResource extends Resource {
         URL url = this.url;
         if (url == null) {
             try {
-                url = this.url = path.toUri().toURL();
+                URI pathUri = path.toUri();
+                // todo Java 20+: URL.of(pathUri, new ResourceURLStreamHandler(this))
+                url = this.url = new URL(null, pathUri.toASCIIString(), new ResourceURLStreamHandler(this));
             } catch (MalformedURLException e) {
                 throw new IllegalStateException("Unexpected URL problem", e);
             }
