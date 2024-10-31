@@ -31,6 +31,11 @@ public class JarFileResourceLoaderTests {
                 dir("dir1"),
                 store("dir1/file-stored.txt", FILE_TXT),
                 deflate("dir1/file-deflated.txt", FILE_TXT),
+                // hidden directory
+                store("dir2/hidden-file.txt", FILE_TXT),
+                dir("dir2/dir3"),
+                dir("dir2/dir3/dir4"),
+                store("dir2/dir3/blah.txt", FILE_TXT),
                 // keep this as last entry
                 dir("end"))) {
             assertNull(rl.findResource("missing"));
@@ -51,6 +56,43 @@ public class JarFileResourceLoaderTests {
                 assertEquals("dir1/file-stored.txt", iterator.next().pathName());
                 assertTrue(iterator.hasNext());
                 assertEquals("dir1/file-deflated.txt", iterator.next().pathName());
+                assertFalse(iterator.hasNext());
+            }
+            Resource dir2_hidden_file_txt = rl.findResource("dir2/hidden-file.txt");
+            assertNotNull(dir2_hidden_file_txt);
+            assertEquals(FILE_TXT, dir2_hidden_file_txt.asString(StandardCharsets.UTF_8));
+            Resource dir2 = rl.findResource("dir2");
+            assertNotNull(dir2);
+            assertEquals(0, dir2.size());
+            assertEquals("jar:memory:test.jar!/dir2", dir2.url().toString());
+            try (DirectoryStream<Resource> ds = dir2.openDirectoryStream()) {
+                Iterator<Resource> iterator = ds.iterator();
+                assertTrue(iterator.hasNext());
+                assertEquals("dir2/hidden-file.txt", iterator.next().pathName());
+                assertTrue(iterator.hasNext());
+                Resource dir3 = iterator.next();
+                assertEquals("dir2/dir3", dir3.pathName());
+                assertFalse(iterator.hasNext());
+                try (DirectoryStream<Resource> ds3 = dir3.openDirectoryStream()) {
+                    Iterator<Resource> iter3 = ds3.iterator();
+                    assertTrue(iter3.hasNext());
+                    assertEquals("dir2/dir3/dir4", iter3.next().pathName());
+                    assertTrue(iter3.hasNext());
+                    assertEquals("dir2/dir3/blah.txt", iter3.next().pathName());
+                    assertFalse(iter3.hasNext());
+                }
+            }
+            Resource rootDir = rl.findResource("/");
+            assertNotNull(rootDir);
+            assertEquals(0, rootDir.size());
+            assertEquals("jar:memory:test.jar!/", rootDir.url().toString());
+            try (DirectoryStream<Resource> ds = rootDir.openDirectoryStream()) {
+                Iterator<Resource> iterator = ds.iterator();
+                assertTrue(iterator.hasNext());
+                assertEquals("META-INF", iterator.next().pathName());
+                assertTrue(iterator.hasNext());
+                assertEquals("dir1", iterator.next().pathName());
+                assertEquals("end", iterator.next().pathName());
                 assertFalse(iterator.hasNext());
             }
         }

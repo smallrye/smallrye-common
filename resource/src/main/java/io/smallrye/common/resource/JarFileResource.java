@@ -10,11 +10,8 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.attribute.FileTime;
 import java.security.CodeSigner;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -51,12 +48,6 @@ public final class JarFileResource extends Resource {
         return url;
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * @implNote This implementation does not recognize directories that do not have an explicit entry.
-     *           This restriction may be lifted in future versions.
-     */
     public boolean isDirectory() {
         return jarEntry.isDirectory();
     }
@@ -66,49 +57,30 @@ public final class JarFileResource extends Resource {
             return super.openDirectoryStream();
         }
         return new DirectoryStream<Resource>() {
-            Enumeration<JarEntry> entries;
-
             public Iterator<Resource> iterator() {
-                if (entries == null) {
-                    entries = jarFile.entries();
-                    return new Iterator<Resource>() {
-                        Resource next;
-
-                        public boolean hasNext() {
-                            String ourName = jarEntry.getName();
-                            while (next == null) {
-                                if (!entries.hasMoreElements()) {
-                                    return false;
-                                }
-                                JarEntry e = entries.nextElement();
-                                String name = e.getName();
-                                int ourLen = ourName.length();
-                                if (name.startsWith(ourName) && !name.equals(ourName)) {
-                                    int idx = name.indexOf('/', ourLen);
-                                    if (idx == -1 || name.length() == idx + 1) {
-                                        next = new JarFileResource(base, jarFile, e);
-                                    }
-                                    break;
-                                }
+                String ourName = pathName();
+                return jarFile.versionedStream()
+                        .filter(e -> {
+                            String name = ResourceUtils.canonicalizeRelativePath(e.getName());
+                            if (ourName.isEmpty()) {
+                                // find root entries
+                                return name.indexOf('/') == -1;
+                            } else {
+                                // find subdirectory entries
+                                int si;
+                                return name.startsWith(ourName)
+                                        && name.length() > ourName.length()
+                                        && name.charAt(ourName.length()) == '/'
+                                        && ((si = name.indexOf('/', ourName.length() + 1)) == -1 || si == name.length() - 1);
                             }
-                            return true;
-                        }
-
-                        public Resource next() {
-                            if (!hasNext()) {
-                                throw new NoSuchElementException();
-                            }
-                            Resource next = this.next;
-                            this.next = null;
-                            return next;
-                        }
-                    };
-                }
-                throw new IllegalStateException();
+                        })
+                        .map(e -> new JarFileResource(base, jarFile, e))
+                        // appease the generics demons
+                        .map(r -> (Resource) r)
+                        .iterator();
             }
 
             public void close() {
-                entries = Collections.emptyEnumeration();
             }
         };
     }
@@ -124,7 +96,7 @@ public final class JarFileResource extends Resource {
     }
 
     public InputStream openStream() throws IOException {
-        return jarFile.getInputStream(jarEntry);
+        return isDirectory() ? InputStream.nullInputStream() : jarFile.getInputStream(jarEntry);
     }
 
     public long size() {

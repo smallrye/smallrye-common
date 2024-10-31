@@ -63,6 +63,13 @@ public final class JarFileResourceLoader implements ResourceLoader {
 
     public Resource findResource(final String path) {
         String canonPath = ResourceUtils.canonicalizeRelativePath(path);
+        if (canonPath.isEmpty()) {
+            // root directory
+            JarEntry entry = new JarEntry("/");
+            entry.setSize(0);
+            entry.setCompressedSize(0);
+            return new JarFileResource(base, jarFile, entry);
+        }
         JarEntry jarEntry = jarFile.getJarEntry(canonPath);
         if (jarEntry != null) {
             return new JarFileResource(base, jarFile, jarEntry);
@@ -71,6 +78,16 @@ public final class JarFileResourceLoader implements ResourceLoader {
             if (jarEntry != null) {
                 return new JarFileResource(base, jarFile, jarEntry);
             } else {
+                // search for a directory with the given name (todo: may be slow)
+                String dirName = canonPath + "/";
+                boolean found = jarFile.versionedStream().map(JarEntry::getName).map(ResourceUtils::canonicalizeRelativePath)
+                        .anyMatch(n -> n.startsWith(dirName));
+                if (found) {
+                    JarEntry entry = new JarEntry(dirName);
+                    entry.setSize(0);
+                    entry.setCompressedSize(0);
+                    return new JarFileResource(base, jarFile, entry);
+                }
                 return null;
             }
         }
