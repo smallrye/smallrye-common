@@ -3,7 +3,7 @@ package io.smallrye.common.resource;
 /**
  * Miscellaneous resource-related utilities.
  */
-final class ResourceUtils {
+public final class ResourceUtils {
     private ResourceUtils() {
     }
 
@@ -39,7 +39,7 @@ final class ResourceUtils {
      * @param path the path name (must not be {@code null})
      * @return the canonical equivalent path (not {@code null})
      */
-    static String canonicalizeRelativePath(String path) {
+    public static String canonicalizeRelativePath(String path) {
         final int length = path.length();
         if (length == 0) {
             return path;
