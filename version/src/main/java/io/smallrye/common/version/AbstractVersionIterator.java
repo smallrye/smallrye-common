@@ -585,4 +585,12 @@ public abstract class AbstractVersionIterator implements VersionIterator {
         assert end >= start;
         this.cookie = makeCookie(start, end, token, bits);
     }
+
+    public String toString() {
+        StringBuilder b = new StringBuilder(string);
+        b.insert(getEndIndex(), ">");
+        b.insert(getStartIndex(), "<");
+        b.append(' ').append(currentType());
+        return b.toString();
+    }
 }
