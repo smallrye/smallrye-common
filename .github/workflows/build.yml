@@ -48,7 +48,7 @@ jobs:
       - name: build with maven
         run: |
           mvn -q -N "io.takari:maven:${{env.IO_TAKARI_MAVEN_WRAPPER_VERSION}}:wrapper" "-Dmaven=${{env.MAVEN_VERSION}}"
-          ./mvnw -B -ntp formatter:validate verify --file pom.xml "-Dexpected-cpu=x64,aarch64" "-Djava17.home=${{env.JAVA_HOME_17_X64}}${{env.JAVA_HOME_17_ARM64}}"
+          ./mvnw -B -ntp formatter:validate verify javadoc:javadoc --file pom.xml "-Dexpected-cpu=x64,aarch64" "-Djava17.home=${{env.JAVA_HOME_17_X64}}${{env.JAVA_HOME_17_ARM64}}"
 
   quality:
     needs: [ build ]
@@ -66,10 +66,10 @@ jobs:
           cache: 'maven'
           cache-dependency-path: '**/pom.xml'
 
-      - name: build with docs and coverage
+      - name: build with coverage
         run: |
           mvn -q -N "io.takari:maven:${{env.IO_TAKARI_MAVEN_WRAPPER_VERSION}}:wrapper" "-Dmaven=${{env.MAVEN_VERSION}}"
-          ./mvnw javadoc:javadoc verify -Pcoverage
+          ./mvnw -B -ntp verify -Pcoverage
 
       - uses: actions/setup-java@v4
         with:
@@ -77,4 +77,4 @@ jobs:
           java-version: 17
 
       - name: sonar
-        run: ./mvnw sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.token=${{secrets.SONAR_TOKEN}}
+        run: ./mvnw -B -ntp sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.token=${{secrets.SONAR_TOKEN}}
