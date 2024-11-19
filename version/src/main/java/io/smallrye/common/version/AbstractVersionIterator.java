@@ -573,6 +573,10 @@ public abstract class AbstractVersionIterator implements VersionIterator {
                     i += Character.charCount(cp);
                 }
             }
+            if (end == start) {
+                // capture the zero string (last digit only)
+                start = end - 1;
+            }
         } else if (isSeparatorCodePoint(cp)) {
             token = TokenType.SEP;
             end = start + Character.charCount(cp);

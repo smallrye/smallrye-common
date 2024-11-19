@@ -59,6 +59,28 @@ public class MavenVersionTest {
         checkMavenConsistency("3.6.0.SP1", "3.6.0");
     }
 
+    @Test
+    public void testMavenCompare2() throws Exception {
+        checkMavenConsistency("3.6.0-CR1", "3.6.0");
+        checkMavenConsistency("3.6.0-FINAL", "3.6.0");
+        checkMavenConsistency("3.6.0-SP1", "3.6.0");
+        checkMavenConsistency("2.13.5.SP1.redhat-00002", "2.13.5.0.redhat-00002");
+        checkMavenConsistency("2.13.5.SP1.redhat-00002", "2.13.5.Final.redhat-00002");
+        checkMavenConsistency("2.13.5.SP1-redhat-00002", "2.13.5.Final-redhat-00002");
+        checkMavenConsistency("2.13.5-redhat-00002", "2.13.5.Final-redhat-00002");
+        checkMavenConsistency("2.1", "2.0.0.0.0.1");
+        checkMavenConsistency("2.0.0.0.0.1", "2.final.0.0.0.1");
+        checkMavenConsistency("2.1", "2.0.0.final.0.1");
+        checkMavenConsistency("2.sp", "2.0.0.0.0.sp");
+        checkMavenConsistency("2.beta", "2.0.0.0.0.beta");
+        checkMavenConsistency("2.0.0.foo", "2.0.foo");
+        checkMavenConsistency("4.0.4", "4.final.4");
+        checkMavenConsistency("4.0.4", "4..4");
+        checkMavenConsistency("4.final.4", "4..4");
+        checkMavenConsistency("4.final.4", "4.0.4");
+        checkMavenConsistency("0.4.final.4", "0.4.0.4");
+    }
+
     private static final org.eclipse.aether.version.VersionScheme MR_SCHEME = new GenericVersionScheme();
 
     private static void checkMavenConsistency(String v1, String v2) throws InvalidVersionSpecificationException {

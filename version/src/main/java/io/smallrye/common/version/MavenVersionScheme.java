@@ -61,10 +61,10 @@ final class MavenVersionScheme extends AbstractVersionScheme<MavenVersionIterato
     protected int compare(MavenVersionIterator i1, MavenVersionIterator i2) {
         // pad separators
         if (i1.isSeparator()) {
-            i1.insertEmptyAlpha();
+            i1.insertEmptyNumber();
         }
         if (i2.isSeparator()) {
-            i2.insertEmptyAlpha();
+            i2.insertEmptyNumber();
         }
 
         // there is a current element
