@@ -20,7 +20,6 @@
     <properties>
         <!-- Plugins -->
         <version.bridger>1.6.Final</version.bridger>
-        <version.module-info>2.1</version.module-info>
         <version.sundrio>0.200.0</version.sundrio>
         <version.jandex-maven-plugin>1.2.3</version.jandex-maven-plugin>
 
@@ -149,31 +148,6 @@
                             <id>make-index</id>
                             <goals>
                                 <goal>jandex</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-                <!-- TODO - Workaround for javadoc / module-info generation -->
-                <!-- The javadoc plugin expects a module-info.java (because it finds the .class generated one), and
-                     because we don't have one, it fails. Forcing to legacy mode removes any module configuration for the
-                     javadoc command
-                -->
-                <plugin>
-                    <artifactId>maven-javadoc-plugin</artifactId>
-                    <configuration>
-                        <legacyMode>true</legacyMode>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>io.github.dmlloyd.module-info</groupId>
-                    <artifactId>module-info</artifactId>
-                    <version>${version.module-info}</version>
-                    <executions>
-                        <execution>
-                            <id>module-info</id>
-                            <phase>process-classes</phase>
-                            <goals>
-                                <goal>generate</goal>
                             </goals>
                         </execution>
                     </executions>
