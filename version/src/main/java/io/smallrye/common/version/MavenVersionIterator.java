@@ -16,11 +16,11 @@ final class MavenVersionIterator extends AbstractVersionIterator {
     }
 
     public boolean isNumberPart() {
-        return super.isNumberPart() || isReleaseString();
+        return super.isNumberPart() || super.isAlphaPart() && super.alphaPartEquals("", true);
     }
 
     public boolean isAlphaPart() {
-        return super.isAlphaPart() && !isReleaseString();
+        return super.isAlphaPart() && !isReleaseString() && !super.alphaPartEquals("", true);
     }
 
     public int getSeparatorCodePoint() {
@@ -85,7 +85,7 @@ final class MavenVersionIterator extends AbstractVersionIterator {
     public void next() throws NoSuchElementException, VersionSyntaxException {
         super.next();
         // skip trailing 0. segments until next - or EOS
-        if (isDotSeparator()) {
+        if (isSeparator()) {
             final long mark = mark();
             try {
                 skipTrailer(mark);
@@ -123,35 +123,31 @@ final class MavenVersionIterator extends AbstractVersionIterator {
     }
 
     boolean isReleaseString() {
-        return alphaPartEquals("", true) || alphaPartEquals("ga", true) || alphaPartEquals("final", true)
-                || alphaPartEquals("release", true);
+        return alphaPartEquals("ga", true) || alphaPartEquals("final", true) || alphaPartEquals("release", true);
     }
 
     boolean isZeroSegment() {
         return super.isNumberPart() && super.numberPartEquals(0) || super.isAlphaPart() && isReleaseString();
     }
 
-    boolean isDashSeparator() {
-        return isSeparator() && getSeparatorCodePoint() == '-';
-    }
-
-    boolean isDotSeparator() {
-        return isSeparator() && getSeparatorCodePoint() == '.';
-    }
-
     void skipTrailer(long mark) {
-        assert isDotSeparator();
+        assert isSeparator();
         assert hasNext();
-        next();
-        if (isZeroSegment()) {
+        long sep = mark();
+        super.next();
+        if (isNumberPart() && numberPartEquals(0)) {
             // could be more zeros
-            assert hasNext();
-            next();
-            if (!isDashSeparator()) {
-                assert isDotSeparator();
+            if (hasNext()) {
+                super.next();
+                assert isSeparator();
                 skipTrailer(mark);
+            } else {
+                // done! it was all trailing junk
+                return;
             }
-            // return the dash separator
+        } else if (isAlphaPart() || getMilestoneMagnitude() != -1) {
+            // qualifier!
+            reset(sep);
         } else {
             // can't skip
             reset(mark);
@@ -182,8 +178,6 @@ final class MavenVersionIterator extends AbstractVersionIterator {
             } else if (alphaPartEquals("sp", true)) {
                 return 6;
             }
-        } else if (isZeroSegment()) {
-            return 5;
         }
         return -1; // not a milestone
     }
@@ -194,7 +188,6 @@ final class MavenVersionIterator extends AbstractVersionIterator {
             "milestone",
             "rc",
             "snapshot",
-            "", // this is really lame but it's how Maven does it
             "sp",
     };
 }
