@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.zip.ZipFile;
 
 /**
  * A resource loader which corresponds to a JAR file.
@@ -25,7 +24,7 @@ public final class JarFileResourceLoader implements ResourceLoader {
      */
     public JarFileResourceLoader(final Path jarPath) throws IOException {
         this.base = jarPath.toUri().toURL();
-        jarFile = new JarFile(jarPath.toFile(), true, ZipFile.OPEN_READ, JarFile.runtimeVersion());
+        jarFile = new JarFile(jarPath.toFile(), true, JarFile.OPEN_READ, JarFile.runtimeVersion());
     }
 
     /**
