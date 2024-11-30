@@ -1,4 +1,4 @@
-module smallrye.common.cpu.main {
+module smallrye.common.cpu {
     requires jdk.unsupported;
 
     exports io.smallrye.common.cpu;
