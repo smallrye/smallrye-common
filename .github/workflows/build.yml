@@ -1,6 +1,6 @@
 name: SmallRye Build
 env:
-  MAVEN_VERSION: 3.8.3
+  MAVEN_VERSION: 3.9.9
   IO_TAKARI_MAVEN_WRAPPER_VERSION: 0.7.7
 
 on:
@@ -42,13 +42,14 @@ jobs:
           java-version: |
             17
             21
+            23
           cache: 'maven'
           cache-dependency-path: '**/pom.xml'
 
       - name: build with maven
         run: |
           mvn -q -N "io.takari:maven:${{env.IO_TAKARI_MAVEN_WRAPPER_VERSION}}:wrapper" "-Dmaven=${{env.MAVEN_VERSION}}"
-          ./mvnw -B -ntp formatter:validate verify javadoc:javadoc --file pom.xml "-Dexpected-cpu=x64,aarch64" "-Djava17.home=${{env.JAVA_HOME_17_X64}}${{env.JAVA_HOME_17_ARM64}}"
+          ./mvnw -B -ntp formatter:validate verify javadoc:javadoc --file pom.xml "-Dexpected-cpu=x64,aarch64" "-Djava17.home=${{env.JAVA_HOME_17_X64}}${{env.JAVA_HOME_17_ARM64}}" "-Djava21.home=${{env.JAVA_HOME_21_X64}}${{env.JAVA_HOME_21_ARM64}}"
 
   quality:
     needs: [ build ]
@@ -62,7 +63,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
           cache: 'maven'
           cache-dependency-path: '**/pom.xml'
 
@@ -74,7 +75,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: 21
 
       - name: sonar
         run: ./mvnw -B -ntp sonar:sonar -Dsonar.projectKey=smallrye_smallrye-common -Dsonar.token=${{secrets.SONAR_TOKEN}}

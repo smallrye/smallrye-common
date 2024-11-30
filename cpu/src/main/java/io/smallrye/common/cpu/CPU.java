@@ -10,8 +10,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import sun.misc.Unsafe;
-
 /**
  * Enumerated type for CPU types.
  */
@@ -185,8 +183,7 @@ public enum CPU {
 
     private static CPU check(CPU cpu) {
         ByteOrder no = ByteOrder.nativeOrder();
-        // todo: in 22+, bytes = (int) ValueLayout.ADDRESS.byteSize();
-        int bytes = Unsafe.ADDRESS_SIZE;
+        int bytes = JDK22Specific.ADDRESS_SIZE;
         if (cpu.pointerSizeBytes() == bytes && cpu.nativeByteOrder() == no) {
             // OK
             return cpu;
