@@ -68,6 +68,7 @@
     <modules>
         <!-- implementations -->
         <module>annotation</module>
+        <module>binary-search</module>
         <module>classloader</module>
         <module>constraint</module>
         <module>cpu</module>
