@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.Enumeration;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -109,10 +110,19 @@ public class ClassPathUtils {
 
     static {
         final ClassLoader ccl = Thread.currentThread().getContextClassLoader();
+        FileSystemProvider provider = null;
         try {
             Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
-            JAR_PROVIDER = FileSystemProvider.installedProviders().stream().filter(p -> p.getScheme().equals("jar")).findFirst()
-                    .orElseThrow();
+            for (FileSystemProvider p : FileSystemProvider.installedProviders()) {
+                if (p.getScheme().equals("jar")) {
+                    provider = p;
+                    break;
+                }
+            }
+            if (provider == null) {
+                throw new NoSuchElementException("Unable to find provider supporting jar scheme");
+            }
+            JAR_PROVIDER = provider;
         } finally {
             Thread.currentThread().setContextClassLoader(ccl);
         }
