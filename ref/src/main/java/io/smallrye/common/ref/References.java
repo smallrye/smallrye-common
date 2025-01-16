@@ -31,8 +31,12 @@ public final class References {
             if (isBuildTime()) {
                 // do nothing (class should be reinitialized)
             } else {
-                final PrivilegedAction<Void> action = () -> startThreadAction(1);
-                doPrivileged(action);
+                doPrivileged(new PrivilegedAction<Void>() {
+                    @Override
+                    public Void run() {
+                        return startThreadAction(1);
+                    }
+                });
             }
         }
 
@@ -46,7 +50,8 @@ public final class References {
 
         private static Void startThreadAction(int id) {
             final ReaperThread thr = new ReaperThread();
-            thr.setName("Reference Reaper #" + id);
+            // avoid + because of startup cost of StringConcatFactory
+            thr.setName("Reference Reaper #".concat(String.valueOf(id)));
             thr.setDaemon(true);
             thr.start();
             return null;
