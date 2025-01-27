@@ -330,6 +330,7 @@ public final class Functions {
      * Returns a consumer that quietly closes its argument, logging any exceptions.
      *
      * @return a closing consumer
+     * @param <T> the closeable type
      */
     @SuppressWarnings("unchecked")
     public static <T extends AutoCloseable> Consumer<T> closingConsumer() {
@@ -358,6 +359,7 @@ public final class Functions {
      * Returns a consumer that wraps and throws its exception parameter as a {@link RuntimeException}.
      *
      * @param <E> the exception type
+     * @param <RE> the runtime exception type
      * @param wrapper a runtime exception wrapper
      * @return an exception consumer
      */

@@ -14,6 +14,8 @@ import io.smallrye.common.constraint.Assert;
 
 /**
  * A table for mapping IP addresses to objects using {@link CidrAddress} instances for matching.
+ *
+ * @param <T> the value type
  */
 public final class CidrAddressTable<T> implements Iterable<CidrAddressTable.Mapping<T>> {
 
@@ -22,6 +24,9 @@ public final class CidrAddressTable<T> implements Iterable<CidrAddressTable.Mapp
 
     private final AtomicReference<Mapping<T>[]> mappingsRef;
 
+    /**
+     * Construct a new instance.
+     */
     public CidrAddressTable() {
         mappingsRef = new AtomicReference<>(empty());
     }
@@ -30,6 +35,12 @@ public final class CidrAddressTable<T> implements Iterable<CidrAddressTable.Mapp
         mappingsRef = new AtomicReference<>(mappings);
     }
 
+    /**
+     * {@return the value which best matches the given address, or {@code defVal} if none match}
+     *
+     * @param address the address to match (must not be {@code null})
+     * @param defVal the default value to return
+     */
     public T getOrDefault(InetAddress address, T defVal) {
         Assert.checkNotNullParam("address", address);
         final Mapping<T> mapping = doGet(mappingsRef.get(), address.getAddress(), address instanceof Inet4Address ? 32 : 128,
@@ -37,28 +48,62 @@ public final class CidrAddressTable<T> implements Iterable<CidrAddressTable.Mapp
         return mapping == null ? defVal : mapping.value;
     }
 
+    /**
+     * {@return the value which best matches the given address, or {@code null} if none match}
+     *
+     * @param address the address to match (must not be {@code null})
+     */
     public T get(InetAddress address) {
         return getOrDefault(address, null);
     }
 
+    /**
+     * Add a mapping for the given block.
+     *
+     * @param block the address block (must not be {@code null})
+     * @param value the value for the mapping (must not be {@code null})
+     * @return the previous mapping, if any, or else {@code null}
+     */
     public T put(CidrAddress block, T value) {
         Assert.checkNotNullParam("block", block);
         Assert.checkNotNullParam("value", value);
         return doPut(block, null, value, true, true);
     }
 
+    /**
+     * Add a mapping for the given block if one is not already present.
+     *
+     * @param block the address block (must not be {@code null})
+     * @param value the value for the mapping (must not be {@code null})
+     * @return the existing mapping, if any, or else {@code null} if the addition succeeded
+     */
     public T putIfAbsent(CidrAddress block, T value) {
         Assert.checkNotNullParam("block", block);
         Assert.checkNotNullParam("value", value);
         return doPut(block, null, value, true, false);
     }
 
+    /**
+     * Replace a mapping for the given block if one is already present.
+     *
+     * @param block the address block (must not be {@code null})
+     * @param value the new value for the mapping (must not be {@code null})
+     * @return the previous mapping, if any, or else {@code null} if the value was not replaced
+     */
     public T replaceExact(CidrAddress block, T value) {
         Assert.checkNotNullParam("block", block);
         Assert.checkNotNullParam("value", value);
         return doPut(block, null, value, false, true);
     }
 
+    /**
+     * Replace a mapping for the given block if one is already present with the given expected value.
+     *
+     * @param block the address block (must not be {@code null})
+     * @param expect the expected value for the mapping (must not be {@code null})
+     * @param update the new value for the mapping (must not be {@code null})
+     * @return {@code true} if the mapping was replaced, or {@code false} if it was not replaced
+     */
     public boolean replaceExact(CidrAddress block, T expect, T update) {
         Assert.checkNotNullParam("block", block);
         Assert.checkNotNullParam("expect", expect);
@@ -66,11 +111,24 @@ public final class CidrAddressTable<T> implements Iterable<CidrAddressTable.Mapp
         return doPut(block, expect, update, false, true) == expect;
     }
 
+    /**
+     * Remove a mapping for a specific address block.
+     *
+     * @param block the address block (must not be {@code null})
+     * @return the removed mapping value, if any, or else {@code null} if the value was not removed
+     */
     public T removeExact(CidrAddress block) {
         Assert.checkNotNullParam("block", block);
         return doPut(block, null, null, false, true);
     }
 
+    /**
+     * Remove a mapping for a specific address block if its value is the expected value.
+     *
+     * @param block the address block (must not be {@code null})
+     * @param expect the expected value
+     * @return {@code true} if the mapping was removed, or {@code false} if it was not removed
+     */
     public boolean removeExact(CidrAddress block, T expect) {
         Assert.checkNotNullParam("block", block);
         return doPut(block, expect, null, false, true) == expect;
@@ -160,18 +218,30 @@ public final class CidrAddressTable<T> implements Iterable<CidrAddressTable.Mapp
         return NO_MAPPINGS;
     }
 
+    /**
+     * Remove all mappings from this table.
+     */
     public void clear() {
         mappingsRef.set(empty());
     }
 
+    /**
+     * {@return the number of mappings in this table}
+     */
     public int size() {
         return mappingsRef.get().length;
     }
 
+    /**
+     * {@return {@code true} if the table is empty, or {@code false} otherwise}
+     */
     public boolean isEmpty() {
         return size() == 0;
     }
 
+    /**
+     * {@return an atomic clone of this table}
+     */
     public CidrAddressTable<T> clone() {
         return new CidrAddressTable<>(mappingsRef.get());
     }

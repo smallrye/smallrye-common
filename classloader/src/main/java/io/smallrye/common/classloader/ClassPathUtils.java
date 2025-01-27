@@ -18,9 +18,15 @@ import java.util.NoSuchElementException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * Miscellaneous class path related utilities.
+ */
 public class ClassPathUtils {
     private static final String FILE = "file";
     private static final String JAR = "jar";
+
+    private ClassPathUtils() {
+    }
 
     /**
      * Invokes {@link #consumeAsStreams(ClassLoader, String, Consumer)} passing in
@@ -138,6 +144,8 @@ public class ClassPathUtils {
      *
      * @param url resource url
      * @param function resource path function
+     * @param <R> the result type
+     * @return the result of the function
      */
     public static <R> R processAsPath(URL url, Function<Path, R> function) {
         if (JAR.equals(url.getProtocol())) {
@@ -233,6 +241,8 @@ public class ClassPathUtils {
      *
      * @param url URL
      * @param function input stream processing function
+     * @param <R> the result type
+     * @return the result of the function
      * @throws IOException in case of an IO failure
      */
     public static <R> R readStream(URL url, Function<InputStream, R> function) throws IOException {

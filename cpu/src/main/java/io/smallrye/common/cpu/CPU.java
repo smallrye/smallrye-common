@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -34,26 +33,68 @@ public enum CPU {
      */
     unknown64be(8, ByteOrder.BIG_ENDIAN, Set.of(), true),
 
+    /**
+     * Intel/AMD 64-bit {@code x64} architecture.
+     */
     x64(8, ByteOrder.LITTLE_ENDIAN, Set.of("x86_64", "amd64"), false),
+    /**
+     * Intel 32-bit {@code x86} architecture.
+     */
     x86(4, ByteOrder.LITTLE_ENDIAN, Set.of("i386", "i486", "i586", "i686"), false),
 
+    /**
+     * {@code aarch64}, also known as {@code arm64}.
+     */
     aarch64(8, ByteOrder.LITTLE_ENDIAN, Set.of("arm64"), false),
+    /**
+     * {@code arm}, also known as {@code armv7}, etc.
+     */
     arm(4, ByteOrder.LITTLE_ENDIAN, Set.of("armv7", "armv7hl", "aarch32"), false),
 
+    /**
+     * {@code riscv}.
+     */
     riscv(8, ByteOrder.LITTLE_ENDIAN, Set.of("riscv64"), false),
 
+    /**
+     * PowerPC 32-bit (big-endian).
+     */
     ppc32(4, ByteOrder.BIG_ENDIAN, Set.of("ppc32be"), false),
+    /**
+     * PowerPC 32-bit (little-endian).
+     */
     ppc32le(4, ByteOrder.LITTLE_ENDIAN, Set.of(), false),
+    /**
+     * PowerPC 64-bit (big-endian).
+     */
     ppc(8, ByteOrder.BIG_ENDIAN, Set.of("ppc64", "ppcbe", "ppc64be"), false),
+    /**
+     * PowerPC 64-bit (little-endian).
+     */
     ppcle(8, ByteOrder.LITTLE_ENDIAN, Set.of("ppc64le"), false),
 
+    /**
+     * WebAssembly 32-bit.
+     */
     wasm32(4, ByteOrder.LITTLE_ENDIAN, Set.of("wasm"), false),
 
     // todo: s390
 
+    /**
+     * MIPS 32-bit (big-endian).
+     */
     mips(4, ByteOrder.BIG_ENDIAN, Set.of("mips32, mipsbe, mips32be"), false),
+    /**
+     * MIPS 32-bit (little-endian).
+     */
     mipsel(4, ByteOrder.LITTLE_ENDIAN, Set.of("mips32el"), false),
+    /**
+     * MIPS 64-bit (big-endian).
+     */
     mips64(4, ByteOrder.BIG_ENDIAN, Set.of("mips64be"), false),
+    /**
+     * MIPS 64-bit (little-endian).
+     */
     mips64el(4, ByteOrder.LITTLE_ENDIAN, Set.of(), false),
     ;
 
@@ -68,7 +109,7 @@ public enum CPU {
     private static final List<Map.Entry<String, CPU>> index = values.stream()
             .flatMap(cpu -> Stream.concat(Stream.of(cpu.name()), cpu.aliases().stream()).map(v -> Map.entry(v, cpu)))
             .sorted(Map.Entry.comparingByKey(String::compareToIgnoreCase))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
     private final int pointerSizeBytes;
     private final ByteOrder nativeByteOrder;
@@ -83,35 +124,35 @@ public enum CPU {
     }
 
     /**
-     * @return this CPU's pointer size, in bytes
+     * {@return this CPU's pointer size, in bytes}
      */
     public int pointerSizeBytes() {
         return pointerSizeBytes;
     }
 
     /**
-     * @return this CPU's pointer size, in bits
+     * {@return this CPU's pointer size, in bits}
      */
     public int pointerSizeBits() {
         return pointerSizeBytes << 3;
     }
 
     /**
-     * @return this CPU's native byte order
+     * {@return this CPU's native byte order}
      */
     public ByteOrder nativeByteOrder() {
         return nativeByteOrder;
     }
 
     /**
-     * @return other names that this CPU is known by
+     * {@return other names that this CPU is known by}
      */
     public Set<String> aliases() {
         return aliases;
     }
 
     /**
-     * @return <code>true</code> if this CPU is unknown
+     * {@return <code>true</code> if this CPU is unknown}
      */
     public boolean isUnknown() {
         return unknown;
@@ -171,7 +212,7 @@ public enum CPU {
     }
 
     /**
-     * @return the host CPU type
+     * {@return the host CPU type}
      */
     public static CPU host() {
         return hostCpu;

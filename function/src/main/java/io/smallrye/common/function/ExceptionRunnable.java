@@ -4,6 +4,8 @@ import io.smallrye.common.constraint.Assert;
 
 /**
  * An operation that can throw an exception.
+ *
+ * @param <E> the exception type
  */
 public interface ExceptionRunnable<E extends Exception> {
     /**
@@ -13,6 +15,11 @@ public interface ExceptionRunnable<E extends Exception> {
      */
     void run() throws E;
 
+    /**
+     * {@return a runnable which runs this task and then the given task}
+     *
+     * @param after the other task
+     */
     default ExceptionRunnable<E> andThen(ExceptionRunnable<? extends E> after) {
         Assert.checkNotNullParam("after", after);
         return () -> {
@@ -21,6 +28,11 @@ public interface ExceptionRunnable<E extends Exception> {
         };
     }
 
+    /**
+     * {@return a runnable which runs the given task and then this task}
+     *
+     * @param before the other task
+     */
     default ExceptionRunnable<E> compose(ExceptionRunnable<? extends E> before) {
         Assert.checkNotNullParam("before", before);
         return () -> {

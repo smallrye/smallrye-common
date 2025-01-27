@@ -6,6 +6,8 @@ import java.util.Iterator;
 
 /**
  * An empty directory stream.
+ *
+ * @param <T> the entry type
  */
 public final class EmptyDirectoryStream<T> implements DirectoryStream<T> {
     private static final EmptyDirectoryStream<Object> INSTANCE = new EmptyDirectoryStream<>();
@@ -15,6 +17,8 @@ public final class EmptyDirectoryStream<T> implements DirectoryStream<T> {
 
     /**
      * {@return the singleton instance}
+     *
+     * @param <T> the entry type
      */
     @SuppressWarnings("unchecked")
     public static <T> EmptyDirectoryStream<T> instance() {

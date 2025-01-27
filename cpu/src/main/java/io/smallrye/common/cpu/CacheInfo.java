@@ -1,7 +1,5 @@
 package io.smallrye.common.cpu;
 
-import static java.security.AccessController.doPrivileged;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -9,6 +7,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -16,7 +15,11 @@ import java.util.Locale;
 /**
  * A class which exposes any available cache line information for the current CPU.
  */
+@SuppressWarnings("removal")
 public final class CacheInfo {
+    private CacheInfo() {
+    }
+
     private static final CacheLevelInfo[] cacheLevels;
 
     /**
@@ -78,7 +81,7 @@ public final class CacheInfo {
     }
 
     static {
-        cacheLevels = doPrivileged(new PrivilegedAction<>() {
+        cacheLevels = AccessController.doPrivileged(new PrivilegedAction<>() {
             @Override
             public CacheLevelInfo[] run() {
                 if (determineCacheLevel()) {
@@ -279,6 +282,11 @@ public final class CacheInfo {
         }
     }
 
+    /**
+     * A simple main method which prints cache info when called.
+     *
+     * @param args ignored
+     */
     public static void main(String[] args) {
         System.out.println("Detected cache info:");
         for (CacheLevelInfo levelInfo : cacheLevels) {

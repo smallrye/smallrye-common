@@ -1,3 +1,6 @@
+/**
+ * Utilities for interpreting and manipulating version strings.
+ */
 module io.smallrye.common.version {
     requires io.smallrye.common.constraint;
     requires org.jboss.logging;

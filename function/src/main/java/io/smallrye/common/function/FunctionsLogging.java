@@ -7,7 +7,7 @@ import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
 
 @MessageLogger(projectCode = "SRCFG", length = 5)
-public interface FunctionsLogging {
+interface FunctionsLogging {
     FunctionsLogging log = Logger.getMessageLogger(FunctionsLogging.class, FunctionsLogging.class.getPackage().getName());
 
     @LogMessage(level = Logger.Level.WARN)

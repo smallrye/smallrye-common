@@ -1,3 +1,6 @@
+/**
+ * Utilities for managing network addresses and information.
+ */
 module io.smallrye.common.net {
     requires io.smallrye.common.constraint;
     requires org.jboss.logging;

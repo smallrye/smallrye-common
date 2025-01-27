@@ -6,6 +6,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A special version of {@link PhantomReference} that is strongly retained until it is reaped by the collection thread.
+ *
+ * @param <T> the referent type
+ * @param <A> the attachment type
  */
 public class CleanerReference<T, A> extends PhantomReference<T, A> {
     private static final Set<CleanerReference<?, ?>> set = Collections

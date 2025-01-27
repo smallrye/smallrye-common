@@ -166,6 +166,20 @@
                         </execution>
                     </executions>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <configuration>
+                        <failOnWarnings>true</failOnWarnings>
+                        <doclint>all</doclint>
+                        <sourceFileExcludes>
+                            <sourceFileExclude>**/*_$$logger.java</sourceFileExclude>
+                            <sourceFileExclude>**/*_$$bundle.java</sourceFileExclude>
+                        </sourceFileExcludes>
+                        <!-- work around problem when the generated sources are included -->
+                        <sourcepath>${project.build.sourceDirectory}</sourcepath>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>

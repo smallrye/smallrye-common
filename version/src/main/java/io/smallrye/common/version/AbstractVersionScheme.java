@@ -2,8 +2,16 @@ package io.smallrye.common.version;
 
 /**
  * A version scheme base class that provides basic comparison functionality.
+ *
+ * @param <I> the iterator type
  */
 public abstract class AbstractVersionScheme<I extends AbstractVersionIterator> implements VersionScheme {
+    /**
+     * Construct a new instance.
+     */
+    protected AbstractVersionScheme() {
+    }
+
     public int compare(final String v1, final String v2) {
         return compareNext(iterate(v1), iterate(v2));
     }

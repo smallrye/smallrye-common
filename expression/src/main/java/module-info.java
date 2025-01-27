@@ -1,3 +1,6 @@
+/**
+ * Utilities for expanding string expressions.
+ */
 module io.smallrye.common.expression {
     requires io.smallrye.common.constraint;
     requires io.smallrye.common.function;

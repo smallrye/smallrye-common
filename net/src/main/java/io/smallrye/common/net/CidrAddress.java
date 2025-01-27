@@ -27,11 +27,29 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
      */
     public static final CidrAddress INET6_ANY_CIDR = new CidrAddress(Inet.INET6_ANY, 0);
 
+    /**
+     * The base network address of this CIDR address.
+     */
     private final InetAddress networkAddress;
+    /**
+     * The cached bytes of this address.
+     */
     private final byte[] cachedBytes;
+    /**
+     * The number of netmask bits.
+     */
     private final int netmaskBits;
+    /**
+     * The cached broadcast address.
+     */
     private Inet4Address broadcast;
+    /**
+     * The cached to-string value of this object.
+     */
     private String toString;
+    /**
+     * The cached hash code of this object.
+     */
     private int hashCode;
 
     private CidrAddress(final InetAddress networkAddress, final int netmaskBits) {
@@ -262,6 +280,14 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
         return compareAddressBytesTo(other.cachedBytes, other.netmaskBits, other.getScopeId());
     }
 
+    /**
+     * Compare the bytes of this address to the bytes in the given array.
+     *
+     * @param otherBytes the bytes to compare to (must not be {@code null})
+     * @param otherNetmaskBits the netmask bits for the byte array
+     * @param scopeId the IPv6 scope ID, if any, or else zero
+     * @return {@code -1}, {@code 0}, or {@code 1} if this address is less than, equal to, or greater than the given address
+     */
     public int compareAddressBytesTo(final byte[] otherBytes, final int otherNetmaskBits, final int scopeId) {
         Assert.checkNotNullParam("bytes", otherBytes);
         final int otherLength = otherBytes.length;
@@ -299,10 +325,20 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
         return Integer.compare(netmaskBits, otherNetmaskBits);
     }
 
+    /**
+     * {@return {@code true} if this address is equal to the given object, or {@code false} if it is not}
+     *
+     * @param obj the other address
+     */
     public boolean equals(final Object obj) {
         return obj instanceof CidrAddress && equals((CidrAddress) obj);
     }
 
+    /**
+     * {@return {@code true} if this address is equal to the given address, or {@code false} if it is not}
+     *
+     * @param obj the other address
+     */
     public boolean equals(final CidrAddress obj) {
         return obj == this || obj != null && netmaskBits == obj.netmaskBits && Arrays.equals(cachedBytes, obj.cachedBytes);
     }
@@ -333,6 +369,9 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
         return toString;
     }
 
+    /**
+     * {@return the serialization replacement for this object}
+     */
     Object writeReplace() {
         return new Ser(cachedBytes, netmaskBits);
     }
