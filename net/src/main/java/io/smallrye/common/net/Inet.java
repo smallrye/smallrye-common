@@ -1,7 +1,5 @@
 package io.smallrye.common.net;
 
-import static java.security.AccessController.doPrivileged;
-
 import java.lang.reflect.Array;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -15,6 +13,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Enumeration;
 import java.util.regex.Pattern;
@@ -24,6 +23,7 @@ import io.smallrye.common.constraint.Assert;
 /**
  * Utilities relating to Internet protocol (a.k.a. "INET" or "IP") address manipulation.
  */
+@SuppressWarnings("removal")
 public final class Inet {
     private Inet() {
     }
@@ -223,6 +223,7 @@ public final class Inet {
      * Get an Internet address for a URI destination, resolving the host name if necessary.
      *
      * @param uri the destination URI
+     * @param addressType the class of the {@code InetAddress} to search for (must not be {@code null})
      * @param <T> the type of the {@code InetAddress} to search for
      * @return the address, or {@code null} if no authority is present in the URI
      * @throws UnknownHostException if the URI host was existent but could not be resolved to a valid address
@@ -951,6 +952,7 @@ public final class Inet {
     /**
      * Get the scope ID of the given address (if it is an IPv6 address).
      *
+     * @param address the address
      * @return the scope ID, or 0 if there is none or the address is an IPv4 address
      */
     public static int getScopeId(InetAddress address) {
@@ -993,6 +995,11 @@ public final class Inet {
         return getScopeId(ni, compareWith);
     }
 
+    /**
+     * {@return the interface whose scope name matches the given name}
+     *
+     * @param scopeName the scope name
+     */
     public static NetworkInterface findInterfaceWithScopeId(String scopeName) {
         final Enumeration<NetworkInterface> enumeration;
         try {
@@ -1009,14 +1016,25 @@ public final class Inet {
         return null;
     }
 
+    /**
+     * {@return the scope ID of the given interface}
+     *
+     * @param networkInterface the interface (must not be {@code null})
+     */
     public static int getScopeId(NetworkInterface networkInterface) {
         return getScopeId(networkInterface, null);
     }
 
+    /**
+     * {@return the scope ID of the given interface which has the same link-local and site-local attribute as the given address}
+     *
+     * @param networkInterface the interface (must not be {@code null})
+     * @param compareWith the address to compare with
+     */
     public static int getScopeId(NetworkInterface networkInterface, InetAddress compareWith) {
         Assert.checkNotNullParam("networkInterface", networkInterface);
         Inet6Address cw6 = compareWith instanceof Inet6Address ? (Inet6Address) compareWith : null;
-        Inet6Address address = doPrivileged((PrivilegedAction<Inet6Address>) () -> {
+        Inet6Address address = AccessController.doPrivileged((PrivilegedAction<Inet6Address>) () -> {
             final Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
             while (addresses.hasMoreElements()) {
                 final InetAddress a = addresses.nextElement();

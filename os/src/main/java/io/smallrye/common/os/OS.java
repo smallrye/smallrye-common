@@ -65,15 +65,15 @@ public enum OS {
     }
 
     /**
-     * @return {@code true} if <em>this</em> {@code OS} is known to be the
-     *         operating system on which the current JVM is executing
+     * {@return {@code true} if <em>this</em> {@code OS} is known to be the
+     * operating system on which the current JVM is executing}
      */
     public boolean isCurrent() {
         return this == CURRENT_OS;
     }
 
     /**
-     * @return the current OS
+     * {@return the current OS}
      */
     public static OS current() {
         return CURRENT_OS;

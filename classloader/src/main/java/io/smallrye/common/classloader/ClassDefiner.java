@@ -4,7 +4,23 @@ import java.lang.invoke.MethodHandles;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
+/**
+ * A utility to define classes within a target lookup.
+ */
+@SuppressWarnings("removal")
 public class ClassDefiner {
+    private ClassDefiner() {
+    }
+
+    /**
+     * Define a class.
+     *
+     * @param lookup the lookup of the class (must not be {@code null})
+     * @param parent the host class to define the new class to (must not be {@code null})
+     * @param className the name of the new class (must not be {@code null})
+     * @param classBytes the bytes of the new class (must not be {@code null})
+     * @return the defined class (not {@code null})
+     */
     public static Class<?> defineClass(MethodHandles.Lookup lookup, Class<?> parent, String className, byte[] classBytes) {
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {

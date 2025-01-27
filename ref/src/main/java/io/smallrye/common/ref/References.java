@@ -1,8 +1,7 @@
 package io.smallrye.common.ref;
 
-import static java.security.AccessController.doPrivileged;
-
 import java.lang.ref.ReferenceQueue;
+import java.security.AccessController;
 import java.security.PrivilegedAction;
 
 import org.graalvm.nativeimage.ImageInfo;
@@ -12,6 +11,7 @@ import io.smallrye.common.constraint.Assert;
 /**
  * A set of utility methods for reference types.
  */
+@SuppressWarnings("removal")
 public final class References {
     private References() {
     }
@@ -31,7 +31,7 @@ public final class References {
             if (isBuildTime()) {
                 // do nothing (class should be reinitialized)
             } else {
-                doPrivileged(new PrivilegedAction<Void>() {
+                AccessController.doPrivileged(new PrivilegedAction<Void>() {
                     @Override
                     public Void run() {
                         return startThreadAction(1);

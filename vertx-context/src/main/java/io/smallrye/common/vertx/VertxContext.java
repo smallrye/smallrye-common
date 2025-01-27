@@ -96,6 +96,7 @@ public class VertxContext {
      * Creates a new duplicated context, even if the passed one is already a duplicated context.
      * If the passed context is {@code null}, it returns {@code null}
      *
+     * @param context the context
      * @return a new duplicated context created from the given context, {@code null} is the passed context is {@code null}
      */
     public static @Nullable Context createNewDuplicatedContext(Context context) {

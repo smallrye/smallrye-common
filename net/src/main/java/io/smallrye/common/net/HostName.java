@@ -1,9 +1,8 @@
 package io.smallrye.common.net;
 
-import static java.security.AccessController.doPrivileged;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.AccessController;
 
 import io.smallrye.common.constraint.Assert;
 
@@ -11,6 +10,7 @@ import io.smallrye.common.constraint.Assert;
  * Methods for getting the system host name. The host name is detected from the environment, but may be overridden by
  * use of the {@code jboss.host.name} and/or {@code jboss.qualified.host.name} system properties.
  */
+@SuppressWarnings("removal")
 public final class HostName {
 
     private static final Object lock = new Object();
@@ -19,7 +19,7 @@ public final class HostName {
     private static volatile String nodeName;
 
     static {
-        String[] names = doPrivileged(new GetHostInfoAction());
+        String[] names = AccessController.doPrivileged(new GetHostInfoAction());
         hostName = names[0];
         qualifiedHostName = names[1];
         nodeName = names[2];

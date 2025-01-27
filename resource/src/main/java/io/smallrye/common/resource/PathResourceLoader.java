@@ -11,7 +11,7 @@ import java.nio.file.Path;
 import io.smallrye.common.constraint.Assert;
 
 /**
- *
+ * A resource loader which loads resources from a base path.
  */
 public final class PathResourceLoader implements ResourceLoader {
     private final Path base;

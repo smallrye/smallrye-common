@@ -9,6 +9,9 @@ import io.smallrye.common.constraint.Assert;
 
 /**
  * A directory stream to map one kind of entry to another.
+ *
+ * @param <T> the input entry type
+ * @param <R> the output entry type
  */
 public final class MappedDirectoryStream<T, R> implements DirectoryStream<R> {
     private final DirectoryStream<T> delegate;

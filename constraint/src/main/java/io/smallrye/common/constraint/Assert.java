@@ -90,6 +90,8 @@ public final class Assert {
      *
      * @param name the parameter name
      * @param value the parameter value
+     * @param <E> the element type
+     * @param <T> the collection type
      * @return the value that was passed in
      * @throws IllegalArgumentException if the value is empty
      */
@@ -107,6 +109,9 @@ public final class Assert {
      *
      * @param name the parameter name
      * @param value the parameter value
+     * @param <K> the map key type
+     * @param <V> the map value type
+     * @param <T> the map type
      * @return the value that was passed in
      * @throws IllegalArgumentException if the value is empty
      */
@@ -125,6 +130,7 @@ public final class Assert {
      * @param name the parameter name
      * @param value the parameter value
      * @return the value that was passed in
+     * @param <T> the element type
      * @throws IllegalArgumentException if the value is empty
      */
     @NotNull
@@ -274,6 +280,12 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
+     * @param <T> the parameter type
      * @hidden
      */
     public static <T extends Comparable<T>> void checkMinimumParameter$$bridge(String name, T min, T actual)
@@ -298,6 +310,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMinimumParameter$$bridge(String name, int min, int actual) throws IllegalArgumentException {
@@ -321,6 +338,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMinimumParameterUnsigned$$bridge(String name, int min, int actual) throws IllegalArgumentException {
@@ -344,6 +366,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMinimumParameter$$bridge(String name, long min, long actual) throws IllegalArgumentException {
@@ -367,6 +394,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMinimumParameterUnsigned$$bridge(String name, long min, long actual)
@@ -391,6 +423,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMinimumParameter$$bridge(String name, float min, float actual) throws IllegalArgumentException {
@@ -414,6 +451,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param min the minimum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMinimumParameter$$bridge(String name, double min, double actual) throws IllegalArgumentException {
@@ -439,6 +481,12 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
+     * @param <T> the parameter type
      * @hidden
      */
     public static <T extends Comparable<T>> void checkMaximumParameter$$bridge(String name, T max, T actual)
@@ -463,6 +511,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMaximumParameter$$bridge(String name, int max, int actual) throws IllegalArgumentException {
@@ -486,6 +539,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMaximumParameterUnsigned$$bridge(String name, int max, int actual) throws IllegalArgumentException {
@@ -509,6 +567,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMaximumParameter$$bridge(String name, long max, long actual) throws IllegalArgumentException {
@@ -532,6 +595,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMaximumParameterUnsigned$$bridge(String name, long max, long actual)
@@ -556,6 +624,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMaximumParameter$$bridge(String name, float max, float actual) throws IllegalArgumentException {
@@ -579,6 +652,11 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param max the maximum value
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkMaximumParameter$$bridge(String name, double max, double actual) throws IllegalArgumentException {
@@ -602,6 +680,10 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkPow2Parameter$$bridge(String name, int actual) throws IllegalArgumentException {
@@ -625,6 +707,10 @@ public final class Assert {
     }
 
     /**
+     * Bridge method.
+     *
+     * @param name the parameter name
+     * @param actual the actual parameter value
      * @hidden
      */
     public static void checkPow2Parameter$$bridge(String name, long actual) throws IllegalArgumentException {

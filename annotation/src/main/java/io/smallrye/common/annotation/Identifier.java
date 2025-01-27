@@ -34,8 +34,17 @@ public @interface Identifier {
     final class Literal extends AnnotationLiteral<Identifier> implements Identifier {
         private static final long serialVersionUID = 1L;
 
+        /**
+         * The identifier value.
+         */
         private final String value;
 
+        /**
+         * Construct a new instance.
+         *
+         * @param value the identifier value (must not be {@code null})
+         * @return the annotation literal
+         */
         public static Literal of(String value) {
             return new Literal(value);
         }

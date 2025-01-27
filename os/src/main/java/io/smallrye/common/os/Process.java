@@ -18,8 +18,7 @@
 
 package io.smallrye.common.os;
 
-import static java.security.AccessController.doPrivileged;
-
+import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.List;
 
@@ -28,10 +27,12 @@ import java.util.List;
  *
  * @author <a href="mailto:david.lloyd@redhat.com">David M. Lloyd</a>
  */
+@SuppressWarnings("removal")
 public final class Process {
-    private static final ProcessHandle current = doPrivileged((PrivilegedAction<ProcessHandle>) ProcessHandle::current);
+    private static final ProcessHandle current = AccessController
+            .doPrivileged((PrivilegedAction<ProcessHandle>) ProcessHandle::current);
     private static final ProcessHandle.Info currentInfo = current.info();
-    private static final String name = doPrivileged((PrivilegedAction<String>) Process::computeProcessName);
+    private static final String name = AccessController.doPrivileged((PrivilegedAction<String>) Process::computeProcessName);
 
     private Process() {
     }
@@ -88,6 +89,6 @@ public final class Process {
      */
     @Deprecated(since = "2.4", forRemoval = true)
     public static List<ProcessInfo> getAllProcesses() {
-        return doPrivileged(new GetAllProcessesInfoAction());
+        return AccessController.doPrivileged(new GetAllProcessesInfoAction());
     }
 }

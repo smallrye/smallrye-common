@@ -1,3 +1,6 @@
+/**
+ * Function types and utilities for SmallRye projects and their consumers.
+ */
 module io.smallrye.common.function {
     requires io.smallrye.common.constraint;
     requires org.jboss.logging;

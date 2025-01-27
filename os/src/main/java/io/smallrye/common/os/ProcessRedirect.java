@@ -19,6 +19,8 @@
 package io.smallrye.common.os;
 
 /**
+ * Extra process redirections.
+ *
  * @deprecated Use {@link ProcessBuilder.Redirect#DISCARD} instead.
  */
 @Deprecated(since = "2.4", forRemoval = true)
@@ -26,6 +28,9 @@ public final class ProcessRedirect {
     private ProcessRedirect() {
     }
 
+    /**
+     * {@return the discarding process redirection}
+     */
     public static ProcessBuilder.Redirect discard() {
         return ProcessBuilder.Redirect.DISCARD;
     }
