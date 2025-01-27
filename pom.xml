@@ -78,6 +78,7 @@
         <module>os</module>
         <module>ref</module>
         <module>resource</module>
+        <module>search</module>
         <module>version</module>
         <module>vertx-context</module>
     </modules>
