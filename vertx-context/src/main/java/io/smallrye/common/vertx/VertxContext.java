@@ -1,6 +1,7 @@
 package io.smallrye.common.vertx;
 
-import io.smallrye.common.constraint.Assert;
+import static io.smallrye.common.constraint.Assert.checkNotNullParam;
+
 import io.smallrye.common.constraint.Nullable;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
@@ -54,7 +55,7 @@ public class VertxContext {
     public static Context getOrCreateDuplicatedContext(Vertx vertx) {
         //Intentionally avoid to reassign the return from checkNotNullParam
         //as it will trigger JDK-8180450
-        Assert.checkNotNullParam("vertx", vertx);
+        checkNotNullParam("vertx", vertx);
         Context context = vertx.getOrCreateContext(); // Creates an event loop context if none
         if (isDuplicatedContext(context)) { // Also checks that the context is not null
             return context;
@@ -118,7 +119,7 @@ public class VertxContext {
         //to trigger a performance issue via JDK-8180450.
         //Identified via https://github.com/franz1981/type-pollution-agent
         //So we cast to ContextInternal first:
-        ContextInternal actual = Assert.checkNotNullParam("context", (ContextInternal) context);
+        ContextInternal actual = checkNotNullParam("context", (ContextInternal) context);
         return actual.isDuplicate();
     }
 
@@ -144,5 +145,37 @@ public class VertxContext {
      */
     public static Context getRootContext(Context context) {
         return isDuplicatedContext(context) ? ((ContextInternal) context).unwrap() : context;
+    }
+
+    /**
+     * Derive a duplicated context from a parent context.
+     * <p>
+     * When the parent is a root context, it is simply duplicated and starts with a fresh set of locat data entries.
+     * When the parent is a duplicated context, the local data from the parent are copied to the returned context.
+     *
+     * @param context the parent context, must not be {@code null}
+     * @return a duplicated context
+     * @throws IllegalArgumentException when {@code context} is {@code null}
+     */
+    public static Context duplicate(Context context) {
+        checkNotNullParam("context", context);
+        ContextInternal actual = (ContextInternal) context;
+        if (!actual.isDuplicate()) {
+            return actual.duplicate();
+        }
+        ContextInternal result = (ContextInternal) createNewDuplicatedContext(actual);
+        result.contextData().putAll(actual.contextData());
+        return result;
+    }
+
+    /**
+     * Derive a duplicated context from the current context.
+     *
+     * @return a duplicated context
+     * @see #duplicate(Context)
+     * @see Vertx#currentContext()
+     */
+    public static Context duplicate() {
+        return duplicate(Vertx.currentContext());
     }
 }
