@@ -156,33 +156,47 @@ public class VertxContextTest {
 
     @Test
     public void createParentChild(Vertx vertx, VertxTestContext tc) {
-        Context parent = vertx.getOrCreateContext();
-        parent.putLocal("foo", "bar");
+        vertx.runOnContext(v -> {
+            try {
+                Context parent = vertx.getOrCreateContext();
+                parent.putLocal("foo", "bar");
 
-        Context level_1 = VertxContext.duplicate(parent);
-        level_1.putLocal("abc", "123");
-        assertThat(level_1.<String> getLocal("foo")).isNull();
-        assertThat(level_1.<String> getLocal("abc")).isEqualTo("123");
+                Context level_1 = VertxContext.duplicate(parent);
+                level_1.putLocal("abc", "123");
+                assertThat(level_1.<String> getLocal("foo")).isNull();
+                level_1.putLocal("foo", "bar");
+                assertThat(level_1.<String> getLocal("foo")).isEqualTo("bar");
+                assertThat(level_1.<String> getLocal("abc")).isEqualTo("123");
 
-        Context level_2_1 = VertxContext.duplicate(level_1);
-        assertThat(level_2_1.<String> getLocal("foo")).isNull();
-        assertThat(level_2_1.<String> getLocal("abc")).isEqualTo("123");
+                Context level_2_1 = VertxContext.duplicate(level_1);
+                assertThat(level_2_1.<String> getLocal("foo")).isEqualTo("bar");
+                assertThat(level_2_1.<String> getLocal("abc")).isEqualTo("123");
 
-        Context level_2_2 = VertxContext.duplicate(level_1);
-        level_2_2.putLocal("abc", "456");
-        assertThat(level_2_2.<String> getLocal("foo")).isNull();
-        assertThat(level_2_2.<String> getLocal("abc")).isEqualTo("456");
-        assertThat(level_1.<String> getLocal("abc")).isEqualTo("123");
+                Context level_2_2 = VertxContext.duplicate(level_1);
+                level_2_2.putLocal("abc", "456");
+                assertThat(level_2_2.<String> getLocal("foo")).isEqualTo("bar");
+                assertThat(level_2_2.<String> getLocal("abc")).isEqualTo("456");
+                assertThat(level_1.<String> getLocal("abc")).isEqualTo("123");
 
-        Context level_3a_1 = VertxContext.duplicate(level_2_2);
-        assertThat(level_3a_1.<String> getLocal("foo")).isNull();
-        assertThat(level_3a_1.<String> getLocal("abc")).isEqualTo("456");
+                Context level_3a_1 = VertxContext.duplicate(level_2_2);
+                assertThat(level_3a_1.<String> getLocal("foo")).isEqualTo("bar");
+                assertThat(level_3a_1.<String> getLocal("abc")).isEqualTo("456");
 
-        Context level_3b_1 = VertxContext.duplicate(level_2_1);
-        assertThat(level_3b_1.<String> getLocal("foo")).isNull();
-        assertThat(level_3b_1.<String> getLocal("abc")).isEqualTo("123");
+                Context level_3b_1 = VertxContext.duplicate(level_2_1);
+                assertThat(level_3b_1.<String> getLocal("foo")).isEqualTo("bar");
+                assertThat(level_3b_1.<String> getLocal("abc")).isEqualTo("123");
 
-        tc.completeNow();
+                assertThat(parent.<Object> getLocal(VertxContext.PARENT_KEY)).isNull();
+                assertThat(level_1.<Object> getLocal(VertxContext.PARENT_KEY)).isNull();
+                assertThat(level_2_1.<Object> getLocal(VertxContext.PARENT_KEY)).isSameAs(level_1);
+                assertThat(level_2_2.<Object> getLocal(VertxContext.PARENT_KEY)).isSameAs(level_1);
+                assertThat(level_3a_1.<Object> getLocal(VertxContext.PARENT_KEY)).isSameAs(level_2_2);
+                assertThat(level_3b_1.<Object> getLocal(VertxContext.PARENT_KEY)).isSameAs(level_2_1);
+            } catch (Throwable t) {
+                tc.failNow(t);
+            }
+            tc.completeNow();
+        });
     }
 
     @Test

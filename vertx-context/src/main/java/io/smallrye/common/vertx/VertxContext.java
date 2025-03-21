@@ -147,6 +147,8 @@ public class VertxContext {
         return isDuplicatedContext(context) ? ((ContextInternal) context).unwrap() : context;
     }
 
+    public static final String PARENT_KEY = "__parent__ctx__";
+
     /**
      * Derive a duplicated context from a parent context.
      * <p>
@@ -159,13 +161,13 @@ public class VertxContext {
      */
     public static Context duplicate(Context context) {
         checkNotNullParam("context", context);
-        ContextInternal actual = (ContextInternal) context;
-        if (!actual.isDuplicate()) {
-            return actual.duplicate();
+        ContextInternal parent = (ContextInternal) context;
+        ContextInternal child = parent.duplicate();
+        if (!parent.isDuplicate()) {
+            return child;
         }
-        ContextInternal result = (ContextInternal) createNewDuplicatedContext(actual);
-        result.contextData().putAll(actual.contextData());
-        return result;
+        child.putLocal(PARENT_KEY, parent);
+        return child;
     }
 
     /**
