@@ -1,5 +1,7 @@
 package io.smallrye.common.vertx;
 
+import java.util.concurrent.ConcurrentMap;
+
 import io.smallrye.common.constraint.Assert;
 import io.smallrye.common.constraint.Nullable;
 import io.vertx.core.Context;
@@ -7,12 +9,85 @@ import io.vertx.core.Vertx;
 import io.vertx.core.impl.ContextInternal;
 
 /**
- * Utility classes allowing to create duplicated contexts.
+ * Utility classes allowing to create duplicated and nested contexts.
  * <p>
  * The rationale for this class is to avoid end-users to use the Vert.x internal API, and avoids common mistakes when
  * dealing with Contexts and duplicated Contexts.
+ * </p>
+ * <p>
+ * With this class, Vert.x contexts can be categorized into three types:
+ * </p>
+ * <h2>1. Root Context</h2>
+ * The original context associated with a Vert.x thread (usually an event loop context).
+ * This context is long-lived and shared across multiple asynchronous operations.
+ * Because the data stored in this context is shared across operations, it is not safe for storing transient or request-scoped
+ * data.
+ *
+ * <pre>
+ * +---------------------------+
+ * |       Event Loop          |
+ * |       (Root Context)      |
+ * +---------------------------+
+ * </pre>
+ *
+ * <h2>2. Duplicated Context</h2>
+ * A lightweight, short-lived copy of a root context used for isolating state.
+ * <p>
+ * Duplicated contexts provide a safe space for request or task-scoped data.
+ * </p>
+ *
+ * <pre>
+ * +---------------------------+
+ * |       Event Loop          |
+ * |       (Root Context)      |
+ * +---------------------------+
+ *            |
+ *            v
+ * +---------------------------+
+ * |    Duplicated Context     |
+ * |   (copy of root context)  |
+ * +---------------------------+
+ * </pre>
+ *
+ * <h2>3. Nested Context</h2>
+ * A duplicated context that is derived from another duplicated context, forming a parent-child relationship.
+ * <p>
+ * Nested contexts copy the local state of their parent on creation but maintain isolation afterward.
+ * A reference to the parent context is retained, enabling access to shared data when necessary.
+ * </p>
+ *
+ * <pre>
+ *  +---------------------------+
+ *  |       Event Loop          |
+ *  |       (Root Context)      |
+ *  +---------------------------+
+ *          |
+ *          V
+ * +---------------------------+
+ * |    Duplicated Context     |  --- parent
+ * |    (e.g., request scope)  |
+ * +---------------------------+
+ *            |
+ *            v
+ * +---------------------------+
+ * |     Nested Context        |
+ * |  (e.g., REST call scope)  |
+ * +---------------------------+
+ * </pre>
+ *
+ * <h2>Summary of Behavior:</h2>
+ * <ul>
+ * <li>Root to Duplicated: isolates state, safe for short-lived operations</li>
+ * <li>Duplicated to️ Nested: adds parent-awareness and controlled inheritance</li>
+ * <li>Root Shared Locals: discouraged due to data leakage risk</li>
+ * </ul>
  */
 public class VertxContext {
+
+    /**
+     * The key used to store the parent context in a nested context.
+     */
+    public static final String PARENT_CONTEXT = "__PARENT_CONTEXT__";
 
     private VertxContext() {
         // Avoid direct instantiation
@@ -145,4 +220,56 @@ public class VertxContext {
     public static Context getRootContext(Context context) {
         return isDuplicatedContext(context) ? ((ContextInternal) context).unwrap() : context;
     }
+
+    /**
+     * Creates a new <em>nested</em> context from the given context.
+     * <p>
+     * A nested context is a duplicated context that has a reference to the parent context.
+     * It's an artificial way to create a hierarchy of contexts.
+     * </p>
+     * <p>
+     * If the given context is a root context, it creates a new (regulaR) duplicated context.
+     * If the given context is a duplicated context, it creates a new duplicated context and copies the context locals.
+     * <p>
+     * When creating a nested context, the locals from the parent context are copied to the nested context.
+     * In this way, the nested context can access the parent context locals, but writes are not propagated to the parent
+     * (unless made explicitly).
+     * <p>
+     * Nested contexts keep a reference to the parent context, so, it's possible to navigate the context hierarchy.
+     *
+     * @param context the context, must not be {@code null}
+     * @return a new nested context from the given context.
+     */
+    @SuppressWarnings("deprecation")
+    public static Context newNestedContext(Context context) {
+        if (context == null) {
+            throw new IllegalStateException("Cannot create a nested context from a `null` context");
+        }
+        if (!isDuplicatedContext(context)) {
+            // We are on the root context, so, just do regular duplication
+            var nested = ((ContextInternal) context).duplicate();
+            nested.putLocal(PARENT_CONTEXT, context);
+            return nested;
+        }
+        // We are on a duplicated context, so, we create a new nested context.
+        // Step 1 - create a new duplicated context from the root context
+        // Step 2 - copy the context locals
+        // Step 3 - add links to the current context (the duplicated one)
+        var nested = ((ContextInternal) context).duplicate();
+        ConcurrentMap<Object, Object> map = ((ContextInternal) context).localContextData();
+        nested.localContextData().putAll(map);
+        nested.putLocal(PARENT_CONTEXT, context);
+        return nested;
+    }
+
+    /**
+     * Creates a new <em>nested</em> context from the current context.
+     *
+     * @return a new nested context from the current context.
+     * @see #newNestedContext(Context)
+     */
+    public static Context newNestedContext() {
+        return newNestedContext(Vertx.currentContext());
+    }
+
 }
