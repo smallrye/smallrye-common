@@ -21,7 +21,7 @@
         <!-- Plugins -->
         <version.bridger>1.6.Final</version.bridger>
         <version.sundrio>0.200.3</version.sundrio>
-        <version.jandex-maven-plugin>1.2.3</version.jandex-maven-plugin>
+        <version.jandex>3.1.8</version.jandex>
 
         <!-- Dependencies -->
         <version.asm>9.8</version.asm>
@@ -141,9 +141,9 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>org.jboss.jandex</groupId>
+                    <groupId>io.smallrye</groupId>
                     <artifactId>jandex-maven-plugin</artifactId>
-                    <version>${version.jandex-maven-plugin}</version>
+                    <version>${version.jandex}</version>
                     <executions>
                         <execution>
                             <id>make-index</id>
