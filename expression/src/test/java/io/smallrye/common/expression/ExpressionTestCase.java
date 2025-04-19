@@ -790,6 +790,8 @@ public class ExpressionTestCase {
 
     @Test
     void no$$Escapes() {
+        assertEquals("$", Expression.compile("\\$", ESCAPES).evaluate((c, b) -> {
+        }));
         assertEquals("$", Expression.compile("\\$", NO_$$, ESCAPES).evaluate((c, b) -> {
         }));
         assertEquals("${foo}", Expression.compile("\\${foo}", NO_$$, ESCAPES).evaluate((c, b) -> {
@@ -807,6 +809,121 @@ public class ExpressionTestCase {
         }));
         assertEquals("foo$${bar}", Expression.compile("foo$\\${bar}", NO_$$, ESCAPES).evaluate((c, b) -> {
             assertEquals("bar", c.getKey());
+        }));
+    }
+
+    @Test
+    void mp() {
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("$", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("$", Expression.compile("$", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("$$", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("$$", Expression.compile("$$", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+
+        assertEquals("\\$", Expression.compile("\\$", MP).evaluate((c, b) -> {
+        }));
+
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("\\$$", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("\\$$", Expression.compile("\\$$", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("$$foo", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("$$foo", Expression.compile("$$foo", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("foo$$", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("foo$$", Expression.compile("foo$$", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+
+        assertEquals("foo$$bar", Expression.compile("foo$$bar", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+
+        assertEquals("${foo}", Expression.compile("$${foo}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("$${foo}", Expression.compile("$$${foo}", MP).evaluate((c, b) -> {
+        }));
+
+        assertThrows(IllegalArgumentException.class, () -> Expression.compile("$$${foo}$", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("$${foo}$", Expression.compile("$$${foo}$", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+        assertEquals("$${foo}$$", Expression.compile("$$${foo}$$", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+
+        assertEquals("foo${bar}", Expression.compile("foo$${bar}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("foo$${bar}", Expression.compile("foo$$${bar}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("foo$$$${bar}", Expression.compile("foo$$$$${bar}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("foo$$$${bar}$$$baz", Expression.compile("foo$$$$${bar}$$$baz", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+        assertEquals("foo$$$$", Expression.compile("foo$$$$", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+        assertEquals("${foo:bar}", Expression.compile("$${foo:bar}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("$${foo:bar}", Expression.compile("$$${foo:bar}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("${foo:}", Expression.compile("$${foo:${bar}}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("${foo:${bar}}", Expression.compile("$${foo:$${bar}}", MP).evaluate((c, b) -> {
+        }));
+
+        assertEquals("", Expression.compile("${foo}", MP).evaluate((c, b) -> {
+            assertEquals("foo", c.getKey());
+        }));
+        assertEquals("", Expression.compile("${foo}${bar}", MP).evaluate((c, b) -> {
+            if ("foo".equals(c.getKey()))
+                assertEquals("foo", c.getKey());
+            if ("bar".equals(c.getKey()))
+                assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foobar", Expression.compile("foo${foo}${bar}bar", MP).evaluate((c, b) -> {
+            if ("foo".equals(c.getKey()))
+                assertEquals("foo", c.getKey());
+            if ("bar".equals(c.getKey()))
+                assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo${foo}bar", Expression.compile("foo$${foo}${bar}bar", MP).evaluate((c, b) -> {
+            if ("bar".equals(c.getKey()))
+                assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo${foo}bar", Expression.compile("foo$${foo${bar}}bar", MP).evaluate((c, b) -> {
+            if ("bar".equals(c.getKey()))
+                assertEquals("bar", c.getKey());
+        }));
+        assertEquals("", Expression.compile("${}", MP).evaluate((c, b) -> {
+            assertEquals("", c.getKey());
+        }));
+        assertEquals("", Expression.compile("${:}", MP).evaluate((c, b) -> {
+            assertEquals("", c.getKey());
+        }));
+
+        assertEquals("${foo}", Expression.compile("\\${foo}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("${foo}bar", Expression.compile("\\${foo}bar", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("\\$\\{%s}", Expression.compile("\\$\\{%s}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("foo${bar}", Expression.compile("foo\\${bar}", MP).evaluate((c, b) -> {
+        }));
+        assertEquals("foo\\\\", Expression.compile("foo\\\\${bar}", MP).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+
+        assertEquals("foo\\$", Expression.compile("foo\\$${bar}", MP).evaluate((c, b) -> {
+            assertEquals("bar", c.getKey());
+        }));
+        assertEquals("foo$${bar}", Expression.compile("foo$\\${bar}", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+        assertEquals("foo$$\\{bar}", Expression.compile("foo$$\\{bar}", MP, LENIENT_SYNTAX).evaluate((c, b) -> {
         }));
     }
 }
