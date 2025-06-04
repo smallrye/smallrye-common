@@ -76,6 +76,7 @@
         <module>io</module>
         <module>net</module>
         <module>os</module>
+        <module>process</module>
         <module>ref</module>
         <module>resource</module>
         <module>search</module>
@@ -127,6 +128,11 @@
             <dependency>
                 <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-net</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-os</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
