@@ -1,0 +1,44 @@
+#!/usr/bin/env dot -Tpng
+
+digraph {
+    rankdir=TB;
+
+    node [shape=box, fontname="DejaVu Sans Mono"];
+    edge [fontname="DejaVu Sans Mono"];
+
+    conf_input [label="Building (input)"];
+    building [label="Building"];
+    conf_output [label="Building (output)"];
+    started [label="", shape="point"];
+    input [label="Writing input"];
+    output [label="Reading output"];
+    error [label="Reading error"];
+    while [label="While-running task"];
+    io_done [label="", shape="point"];
+    soft [label="Wait for soft timeout\n(if any)"];
+    hard [label="Wait for hard timeout\n(if any)"];
+    await [label="Wait for exit"];
+    exited [label="Exited"];
+
+    {rank=same; conf_input; building; conf_output;}
+
+    building -> started [label="run()"]
+    building -> conf_input [label="input()"]
+    building -> conf_output [label="output()"]
+    conf_input -> conf_output [label="output()"]
+    conf_output -> conf_input [label="input()"]
+    conf_input -> started [label="run()"]
+    conf_output -> started [label="run()"]
+    started -> input
+    started -> output
+    started -> error
+    started -> while
+    input -> io_done
+    output -> io_done
+    error -> io_done
+    while -> io_done
+    io_done -> soft
+    soft -> hard [label="terminate() if elapsed"]
+    hard -> await [label="terminateForcibly() if elapsed"]
+    await -> exited
+}

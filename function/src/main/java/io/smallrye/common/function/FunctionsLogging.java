@@ -6,7 +6,7 @@ import org.jboss.logging.annotations.LogMessage;
 import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
 
-@MessageLogger(projectCode = "SRCFG", length = 5)
+@MessageLogger(projectCode = "SRCOM", length = 5)
 interface FunctionsLogging {
     FunctionsLogging log = Logger.getMessageLogger(FunctionsLogging.class, FunctionsLogging.class.getPackage().getName());
 
