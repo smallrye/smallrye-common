@@ -1,6 +1,8 @@
 package io.smallrye.common.process;
 
 import java.io.File;
+import java.nio.charset.Charset;
+import java.nio.charset.UnsupportedCharsetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -17,6 +19,27 @@ import io.smallrye.common.os.OS;
  */
 public final class ProcessUtil {
     private ProcessUtil() {
+    }
+
+    private static final class NativeCharset {
+        private static final Charset charset;
+
+        static {
+            Charset c;
+            try {
+                c = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
+            } catch (UnsupportedCharsetException ignored) {
+                c = Charset.defaultCharset();
+            }
+            charset = c;
+        }
+    }
+
+    /**
+     * {@return the native character set (not {@code null})}
+     */
+    public static Charset nativeCharset() {
+        return NativeCharset.charset;
     }
 
     /**

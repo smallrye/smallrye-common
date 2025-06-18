@@ -38,13 +38,13 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     Duration hardExitTimeout = DEFAULT_HARD_TIMEOUT;
     private Input<O> input;
     ExceptionConsumer<Process, IOException> inputHandler;
-    Charset inputCharset;
+    Charset inputCharset = ProcessUtil.nativeCharset();
     private Output<O> output;
     ExceptionFunction<Process, O, IOException> outputHandler;
-    Charset outputCharset;
+    Charset outputCharset = ProcessUtil.nativeCharset();
     private Error<O> error;
     ExceptionConsumer<BufferedReader, IOException> errorHandler;
-    Charset errorCharset;
+    Charset errorCharset = ProcessUtil.nativeCharset();
     int errorLineLimit = 256;
     boolean errorLogOnSuccess = true;
     boolean errorGatherOnFail = true;
@@ -232,12 +232,6 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
             return this;
         }
 
-        public Input<O> nativeCharset() {
-            check();
-            inputCharset = null;
-            return this;
-        }
-
         public Input<O> transferFrom(final Path path) {
             check();
             Assert.checkNotNullParam("path", path);
@@ -271,16 +265,9 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
             check();
             Assert.checkNotNullParam("consumer", consumer);
             inputHandler = proc -> {
-                // evaluate charset late
                 Charset inputCharset = ProcessBuilderImpl.this.inputCharset;
-                if (inputCharset == null) {
-                    try (BufferedWriter bw = proc.outputWriter()) {
-                        consumer.accept(bw);
-                    }
-                } else {
-                    try (BufferedWriter bw = proc.outputWriter(inputCharset)) {
-                        consumer.accept(bw);
-                    }
+                try (BufferedWriter bw = proc.outputWriter(inputCharset)) {
+                    consumer.accept(bw);
                 }
             };
             pb.redirectInput(Redirect.PIPE);
@@ -312,12 +299,6 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
             return this;
         }
 
-        public Output<O> nativeCharset() {
-            check();
-            outputCharset = null;
-            return this;
-        }
-
         public Output<String> toSingleString(final int maxChars) {
             check();
             return processWith(br -> {
@@ -330,25 +311,25 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
                     }
                     sb.append((char) ch);
                 }
-                for (;;) {
-                    long res = br.skip(Integer.MAX_VALUE);
-                    if (res == 0) {
-                        ch = br.read();
-                        if (ch == -1) {
-                            return sb.toString();
-                        }
-                    }
-                }
+                IOUtil.drain(br);
+                return sb.toString();
             });
         }
 
-        public Output<List<String>> toStringList(final int maxLines) {
+        public Output<List<String>> toStringList(final int maxLines, final int maxLineLength) {
+            Assert.checkMinimumParameter("maxLines", 1, maxLines);
+            Assert.checkMinimumParameter("maxLineLength", 1, maxLineLength);
             check();
             return processWith(br -> {
-                ArrayList<String> list = new ArrayList<>(Math.min(maxLines, 16));
+                LineReader lr = new LineReader(br, maxLineLength);
+                ArrayList<String> list = new ArrayList<>(Math.min(16, maxLines));
                 String line;
-                while ((line = br.readLine()) != null) {
+                while ((line = lr.readLine()) != null) {
                     list.add(line);
+                    if (list.size() == maxLines) {
+                        IOUtil.drain(br);
+                        break;
+                    }
                 }
                 return List.copyOf(list);
             });
@@ -372,14 +353,8 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
             pb.redirectOutput(Redirect.PIPE);
             outputHandler = proc -> {
                 Charset outputCharset = ProcessBuilderImpl.this.outputCharset;
-                if (outputCharset == null) {
-                    try (BufferedReader br = proc.inputReader()) {
-                        return (O) processor.apply(br);
-                    }
-                } else {
-                    try (BufferedReader br = proc.inputReader(outputCharset)) {
-                        return (O) processor.apply(br);
-                    }
+                try (BufferedReader br = proc.inputReader(outputCharset)) {
+                    return (O) processor.apply(br);
                 }
             };
             return (Output<O2>) this;
@@ -454,11 +429,6 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
         public Error<O> charset(final Charset charset) {
             errorCharset = Assert.checkNotNullParam("charset", charset);
-            return this;
-        }
-
-        public Error<O> nativeCharset() {
-            errorCharset = null;
             return this;
         }
 
