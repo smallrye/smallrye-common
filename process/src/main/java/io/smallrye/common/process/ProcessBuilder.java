@@ -276,7 +276,9 @@ public sealed interface ProcessBuilder<O>
          *
          * @return this builder
          */
-        Input<O> nativeCharset();
+        default Input<O> nativeCharset() {
+            return charset(ProcessUtil.nativeCharset());
+        }
 
         /**
          * Use the given string as the input for the process being built.
