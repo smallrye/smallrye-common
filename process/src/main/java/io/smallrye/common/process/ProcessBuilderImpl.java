@@ -312,28 +312,63 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
                     }
                     sb.append((char) ch);
                 }
+                drain(br);
+                return sb.toString();
+            });
+        }
+
+        public Output<List<String>> toStringList(final int maxLines, final int maxLineLength) {
+            check();
+            return processWith(br -> {
+                StringBuilder sb = new StringBuilder(Math.min(192, maxLineLength));
+                ArrayList<String> list = new ArrayList<>(Math.min(16, maxLines));
+                int ch;
+                boolean gotCr = false;
                 for (;;) {
-                    long res = br.skip(Integer.MAX_VALUE);
-                    if (res == 0) {
-                        ch = br.read();
-                        if (ch == -1) {
-                            return sb.toString();
+                    ch = br.read();
+                    switch (ch) {
+                        case -1, '\n', '\r' -> {
+                            // end of line
+                            switch (ch) {
+                                case '\r' -> gotCr = true;
+                                case '\n' -> {
+                                    if (gotCr) {
+                                        gotCr = false;
+                                        continue;
+                                    }
+                                }
+                            }
+                            if (ch != -1 || !sb.isEmpty()) {
+                                list.add(sb.toString());
+                            }
+                            sb.setLength(0);
+                            if (list.size() == maxLines || ch == -1) {
+                                drain(br);
+                                return List.copyOf(list);
+                            }
+                        }
+                        default -> {
+                            gotCr = false;
+                            if (sb.length() < maxLineLength) {
+                                sb.append((char) ch);
+                            }
                         }
                     }
                 }
             });
         }
 
-        public Output<List<String>> toStringList(final int maxLines) {
-            check();
-            return processWith(br -> {
-                ArrayList<String> list = new ArrayList<>(Math.min(maxLines, 16));
-                String line;
-                while ((line = br.readLine()) != null) {
-                    list.add(line);
+        private void drain(Reader reader) throws IOException {
+            int ch;
+            for (;;) {
+                long res = reader.skip(Integer.MAX_VALUE);
+                if (res == 0) {
+                    ch = reader.read();
+                    if (ch == -1) {
+                        return;
+                    }
                 }
-                return List.copyOf(list);
-            });
+            }
         }
 
         public <O2> Output<O2> processBytesWith(final ExceptionFunction<InputStream, O2, IOException> processor) {

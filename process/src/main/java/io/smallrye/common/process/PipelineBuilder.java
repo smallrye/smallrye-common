@@ -156,9 +156,10 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
          * Instruct the builder to return the output of the process as a list of strings.
          *
          * @param maxLines the maximum number of lines for the returned list
+         * @param maxLineLength the maximum number of characters allowed per line
          * @return this builder
          */
-        Output<List<String>> toStringList(int maxLines);
+        Output<List<String>> toStringList(int maxLines, int maxLineLength);
 
         /**
          * Instruct the builder to transfer the output of the process to the given stream.

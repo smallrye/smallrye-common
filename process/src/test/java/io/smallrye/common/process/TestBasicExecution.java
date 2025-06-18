@@ -25,7 +25,7 @@ public class TestBasicExecution {
                 .input()
                 .fromStrings(strings)
                 .output()
-                .toStringList(10)
+                .toStringList(10, 1024)
                 .run();
         assertEquals(strings, result);
     }
