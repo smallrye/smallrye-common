@@ -546,7 +546,7 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         /**
          * Instruct the builder to transfer the error output of the process to the given stream.
          *
-         * @param writer the output stream to transfer to (must not be {@code null})
+         * @param stream the output stream to transfer to (must not be {@code null})
          * @return this builder
          */
         default Error<O> transferTo(OutputStream stream) {
@@ -557,7 +557,7 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         /**
          * Instruct the builder to transfer a copy of the error output of the process to the given stream.
          *
-         * @param writer the output stream to transfer to (must not be {@code null})
+         * @param stream the output stream to transfer to (must not be {@code null})
          * @return this builder
          */
         default Error<O> copyAndTransferTo(OutputStream stream) {
@@ -641,7 +641,7 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         /**
          * Instruct the builder to consume the bytes of the error output with the given consumer.
          *
-         * @param errorConsumer the consumer (must not be {@code null})
+         * @param consumer the consumer (must not be {@code null})
          * @return this builder
          */
         Error<O> consumeBytesWith(ExceptionConsumer<InputStream, IOException> consumer);
@@ -649,7 +649,7 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         /**
          * Instruct the builder to consume a copy of the bytes of the error output with the given consumer.
          *
-         * @param errorConsumer the consumer (must not be {@code null})
+         * @param consumer the consumer (must not be {@code null})
          * @return this builder
          */
         Error<O> copyAndConsumeBytesWith(ExceptionConsumer<InputStream, IOException> consumer);
@@ -657,18 +657,18 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         /**
          * Instruct the builder to consume the error output with the given consumer.
          *
-         * @param errorConsumer the consumer (must not be {@code null})
+         * @param consumer the consumer (must not be {@code null})
          * @return this builder
          */
-        Error<O> consumeWith(ExceptionConsumer<BufferedReader, IOException> errorConsumer);
+        Error<O> consumeWith(ExceptionConsumer<BufferedReader, IOException> consumer);
 
         /**
          * Instruct the builder to consume a copy of the error output with the given consumer.
          *
-         * @param errorConsumer the consumer (must not be {@code null})
+         * @param consumer the consumer (must not be {@code null})
          * @return this builder
          */
-        Error<O> copyAndConsumeWith(ExceptionConsumer<BufferedReader, IOException> errorConsumer);
+        Error<O> copyAndConsumeWith(ExceptionConsumer<BufferedReader, IOException> consumer);
 
         /**
          * Instruct the builder to consume each line of the error output with the given consumer.
