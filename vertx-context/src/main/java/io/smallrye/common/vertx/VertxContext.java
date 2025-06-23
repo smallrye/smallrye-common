@@ -178,7 +178,12 @@ public class VertxContext {
         if (context == null) {
             return null;
         }
-        // This creates a duplicated context from the root context of the current duplicated context (if that's one)
+        // If we are on a duplicated context, we just duplicate the root context
+        if (isDuplicatedContext(context)) {
+            // We are on a duplicated context, so we duplicate the root context
+            return ((ContextInternal) context).unwrap().duplicate();
+        }
+
         return ((ContextInternal) context).duplicate();
     }
 
