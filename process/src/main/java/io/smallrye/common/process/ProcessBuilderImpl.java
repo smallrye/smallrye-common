@@ -187,7 +187,11 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     }
 
     private ProcessRunner<O> makeRunner() {
-        return new ProcessRunner<O>(this, prev == null ? null : prev.makeRunner());
+        return new ProcessRunner<O>(this, prev == null ? null : prev.makePipelineRunner());
+    }
+
+    private PipelineRunner<O> makePipelineRunner() {
+        return new PipelineRunner<>(this, prev == null ? null : prev.makePipelineRunner());
     }
 
     private void check() {
