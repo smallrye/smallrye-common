@@ -61,6 +61,7 @@
                     <systemPropertyVariables>
                         <java.util.logging.config.class>io.smallrye.common.process.LoggingConfigurator</java.util.logging.config.class>
                     </systemPropertyVariables>
+                    <argLine>--add-reads io.smallrye.common.process=java.logging</argLine>
                 </configuration>
             </plugin>
         </plugins>

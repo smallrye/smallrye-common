@@ -29,6 +29,10 @@ public class AbnormalExitException extends ProcessExecutionException {
      * The captured lines of error output.
      */
     private List<String> errorOutput = List.of();
+    /**
+     * The captured lines of output.
+     */
+    private List<String> output = List.of();
 
     /**
      * Constructs a new {@code AbnormalExitException} instance. The message is left blank ({@code null}), and no
@@ -132,6 +136,22 @@ public class AbnormalExitException extends ProcessExecutionException {
         this.errorOutput = List.copyOf(errorOutput);
     }
 
+    /**
+     * {@return the captured output of the process execution, if any}
+     */
+    public List<String> output() {
+        return output;
+    }
+
+    /**
+     * Set the captured output of the process execution.
+     *
+     * @param output the captured error output of the process execution
+     */
+    public void setOutput(final List<String> output) {
+        this.output = List.copyOf(output);
+    }
+
     public StringBuilder toString(StringBuilder b) {
         super.toString(b);
         b.append(" with exit code ").append(exitCode);
@@ -152,6 +172,16 @@ public class AbnormalExitException extends ProcessExecutionException {
         if (!errorOutput.isEmpty()) {
             b.append(" with error output:");
             for (String line : errorOutput) {
+                b.append("\n > ").append(line);
+            }
+        }
+        List<String> output = this.output;
+        if (!output.isEmpty()) {
+            if (!errorOutput.isEmpty()) {
+                b.append("\nand");
+            }
+            b.append(" with output:");
+            for (String line : output) {
                 b.append("\n > ").append(line);
             }
         }

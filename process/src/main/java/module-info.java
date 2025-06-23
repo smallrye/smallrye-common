@@ -5,6 +5,7 @@
 module io.smallrye.common.process {
     exports io.smallrye.common.process;
 
+    requires static java.logging;
     requires io.smallrye.common.constraint;
     requires io.smallrye.common.function;
     requires io.smallrye.common.os;

@@ -11,7 +11,7 @@ import java.util.stream.Stream;
  * The convenience method {@link #processExecutionExceptions()} provides easy access
  * to these causes.
  */
-public final class PipelineExecutionException extends AbstractExecutionException {
+public class PipelineExecutionException extends AbstractExecutionException {
     @Serial
     private static final long serialVersionUID = -412352445235180802L;
 

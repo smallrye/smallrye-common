@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -140,7 +142,9 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
          *
          * @return this builder
          */
-        Output<O> nativeCharset();
+        default Output<O> nativeCharset() {
+            return charset(ProcessUtil.nativeCharset());
+        }
 
         /**
          * Instruct the builder to return the output of the process as a single string.
@@ -154,9 +158,46 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
          * Instruct the builder to return the output of the process as a list of strings.
          *
          * @param maxLines the maximum number of lines for the returned list
+         * @param maxLineLength the maximum number of characters allowed per line
          * @return this builder
          */
-        Output<List<String>> toStringList(int maxLines);
+        Output<List<String>> toStringList(int maxLines, int maxLineLength);
+
+        /**
+         * When {@code include} is {@code true} and process execution fails,
+         * some or all output lines will be gathered to be included in the thrown exception.
+         * The default is {@code false}.
+         *
+         * @param gather {@code true} to include output lines in the thrown exception, or {@code false} not to
+         * @return this builder
+         */
+        Output<O> gatherOnFail(boolean gather);
+
+        /**
+         * Limit the maximum length of each captured line to the given number of characters.
+         * The line terminator is not included in the count.
+         *
+         * @param characters the maximum number of characters
+         * @return this builder
+         * @throws IllegalArgumentException if the number of characters is less than 1
+         */
+        Output<O> maxCaptureLineLength(int characters);
+
+        /**
+         * Set the number of "head" or leading lines of output to capture for exception messages.
+         *
+         * @param headLines the number of head lines
+         * @return this builder
+         */
+        Output<O> captureHeadLines(int headLines);
+
+        /**
+         * Set the number of "tail" or trailing lines of output to capture for exception messages.
+         *
+         * @param tailLines the number of tail lines
+         * @return this builder
+         */
+        Output<O> captureTailLines(int tailLines);
 
         /**
          * Instruct the builder to transfer the output of the process to the given stream.
@@ -172,6 +213,19 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         }
 
         /**
+         * Instruct the builder to transfer a copy of the output of the process to the given stream.
+         * The stream is not closed.
+         * The character set is not used for this output mode.
+         *
+         * @param stream the output stream to transfer to (must not be {@code null})
+         * @return this builder
+         */
+        default Output<O> copyAndTransferTo(OutputStream stream) {
+            Assert.checkNotNullParam("stream", stream);
+            return copyAndConsumeBytesWith(is -> is.transferTo(stream));
+        }
+
+        /**
          * Instruct the builder to transfer the output of the process to the given writer.
          * The writer is not closed.
          *
@@ -181,6 +235,18 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         default Output<Void> transferTo(Writer writer) {
             Assert.checkNotNullParam("writer", writer);
             return consumeWith(br -> br.transferTo(writer));
+        }
+
+        /**
+         * Instruct the builder to transfer a copy of the output of the process to the given writer.
+         * The writer is not closed.
+         *
+         * @param writer the writer to transfer to (must not be {@code null})
+         * @return this builder
+         */
+        default Output<O> copyAndTransferTo(Writer writer) {
+            Assert.checkNotNullParam("writer", writer);
+            return copyAndConsumeWith(is -> is.transferTo(writer));
         }
 
         /**
@@ -194,6 +260,23 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         Output<Void> transferTo(Path path);
 
         /**
+         * Instruct the builder to transfer a copy of the output of the process to the given path.
+         * The file at the given path will be truncated if it exists.
+         * The character set is not used for this output mode.
+         *
+         * @param path the path to transfer to (must not be {@code null})
+         * @return this builder
+         */
+        default Output<O> copyAndTransferTo(Path path) {
+            Assert.checkNotNullParam("path", path);
+            return copyAndConsumeBytesWith(is -> {
+                try (OutputStream os = Files.newOutputStream(path)) {
+                    is.transferTo(os);
+                }
+            });
+        }
+
+        /**
          * Instruct the builder to transfer the output of the process to the given path.
          * The file at the given path will be appended to if it exists.
          * The character set is not used for this output mode.
@@ -202,6 +285,24 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
          * @return this builder
          */
         Output<Void> appendTo(Path path);
+
+        /**
+         * Instruct the builder to transfer a copy of the output of the process to the given path.
+         * The file at the given path will be appended to if it exists.
+         * The character set is not used for this output mode.
+         *
+         * @param path the path to transfer to (must not be {@code null})
+         * @return this builder
+         */
+        default Output<O> copyAndAppendTo(Path path) {
+            Assert.checkNotNullParam("path", path);
+            return copyAndConsumeBytesWith(is -> {
+                try (OutputStream os = Files.newOutputStream(path, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                        StandardOpenOption.APPEND)) {
+                    is.transferTo(os);
+                }
+            });
+        }
 
         /**
          * Instruct the builder to consume the bytes of the output with the given consumer.
@@ -219,6 +320,15 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         }
 
         /**
+         * Instruct the builder to consume a copy of the bytes of the output with the given consumer.
+         * The character set is not used for this output mode.
+         *
+         * @param consumer the consumer (must not be {@code null})
+         * @return this builder
+         */
+        Output<O> copyAndConsumeBytesWith(ExceptionConsumer<InputStream, IOException> consumer);
+
+        /**
          * Instruct the builder to consume the output with the given consumer.
          *
          * @param consumer the consumer (must not be {@code null})
@@ -233,16 +343,45 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         }
 
         /**
-         * Instruct the builder to consume each line of the output with the given consumer.
+         * Instruct the builder to consume a copy of the output with the given consumer.
          *
          * @param consumer the consumer (must not be {@code null})
          * @return this builder
          */
-        default Output<Void> consumeLinesWith(ExceptionConsumer<String, IOException> consumer) {
+        Output<O> copyAndConsumeWith(ExceptionConsumer<BufferedReader, IOException> consumer);
+
+        /**
+         * Instruct the builder to consume each line of the output with the given consumer.
+         *
+         * @param maxLineLength the maximum number of characters allowed per line
+         * @param consumer the consumer (must not be {@code null})
+         * @return this builder
+         */
+        default Output<Void> consumeLinesWith(int maxLineLength, ExceptionConsumer<String, IOException> consumer) {
+            Assert.checkMinimumParameter("maxLineLength", 1, maxLineLength);
             Assert.checkNotNullParam("consumer", consumer);
             return consumeWith(br -> {
+                LineReader lr = new LineReader(br, maxLineLength);
                 String line;
-                while ((line = br.readLine()) != null) {
+                while ((line = lr.readLine()) != null) {
+                    consumer.accept(line);
+                }
+            });
+        }
+
+        /**
+         * Instruct the builder to consume a copy of each line of the output with the given consumer.
+         *
+         * @param maxLineLength the maximum number of characters allowed per line
+         * @param consumer the consumer (must not be {@code null})
+         * @return this builder
+         */
+        default Output<O> copyAndConsumeLinesWith(int maxLineLength, ExceptionConsumer<String, IOException> consumer) {
+            Assert.checkNotNullParam("consumer", consumer);
+            return copyAndConsumeWith(br -> {
+                LineReader lr = new LineReader(br, maxLineLength);
+                String line;
+                while ((line = lr.readLine()) != null) {
                     consumer.accept(line);
                 }
             });
@@ -355,7 +494,9 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
          *
          * @return this builder
          */
-        Error<O> nativeCharset();
+        default Error<O> nativeCharset() {
+            return charset(ProcessUtil.nativeCharset());
+        }
 
         /**
          * When {@code log} is {@code true} and process execution completes successfully,
@@ -369,6 +510,7 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         /**
          * When {@code include} is {@code true} and process execution fails,
          * some or all error lines will be gathered to be included in the thrown exception.
+         * The default is {@code true}.
          *
          * @param gather {@code true} to include error lines in the thrown exception, or {@code false} not to
          * @return this builder
@@ -376,14 +518,14 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         Error<O> gatherOnFail(boolean gather);
 
         /**
-         * Limit the maximum length of each line to the given number of characters.
+         * Limit the maximum length of each captured line to the given number of characters.
          * The line terminator is not included in the count.
          *
          * @param characters the maximum number of characters
          * @return this builder
          * @throws IllegalArgumentException if the number of characters is less than 1
          */
-        Error<O> maxLineLength(int characters);
+        Error<O> maxCaptureLineLength(int characters);
 
         /**
          * Set the number of "head" or leading lines of error to capture for exception messages.
@@ -402,6 +544,28 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         Error<O> captureTailLines(int tailLines);
 
         /**
+         * Instruct the builder to transfer the error output of the process to the given stream.
+         *
+         * @param stream the output stream to transfer to (must not be {@code null})
+         * @return this builder
+         */
+        default Error<O> transferTo(OutputStream stream) {
+            Assert.checkNotNullParam("stream", stream);
+            return consumeBytesWith(is -> is.transferTo(stream));
+        }
+
+        /**
+         * Instruct the builder to transfer a copy of the error output of the process to the given stream.
+         *
+         * @param stream the output stream to transfer to (must not be {@code null})
+         * @return this builder
+         */
+        default Error<O> copyAndTransferTo(OutputStream stream) {
+            Assert.checkNotNullParam("stream", stream);
+            return copyAndConsumeBytesWith(is -> is.transferTo(stream));
+        }
+
+        /**
          * Instruct the builder to transfer the error output of the process to the given writer.
          *
          * @param writer the writer to transfer to (must not be {@code null})
@@ -410,6 +574,17 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         default Error<O> transferTo(Writer writer) {
             Assert.checkNotNullParam("writer", writer);
             return consumeWith(br -> br.transferTo(writer));
+        }
+
+        /**
+         * Instruct the builder to transfer a copy of the error output of the process to the given writer.
+         *
+         * @param writer the writer to transfer to (must not be {@code null})
+         * @return this builder
+         */
+        default Error<O> copyAndTransferTo(Writer writer) {
+            Assert.checkNotNullParam("writer", writer);
+            return copyAndConsumeWith(br -> br.transferTo(writer));
         }
 
         /**
@@ -422,6 +597,22 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         Error<O> transferTo(Path path);
 
         /**
+         * Instruct the builder to transfer a copy of the error output of the process to the given path.
+         * The file at the given path will be truncated if it exists.
+         *
+         * @param path the path to transfer to (must not be {@code null})
+         * @return this builder
+         */
+        default Error<O> copyAndTransferTo(Path path) {
+            Assert.checkNotNullParam("path", path);
+            return copyAndConsumeBytesWith(is -> {
+                try (OutputStream os = Files.newOutputStream(path)) {
+                    is.transferTo(os);
+                }
+            });
+        }
+
+        /**
          * Instruct the builder to transfer the error output of the process to the given path.
          * The file at the given path will be appended to if it exists.
          *
@@ -431,24 +622,87 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         Error<O> appendTo(Path path);
 
         /**
-         * Instruct the builder to consume the error output with the given consumer.
+         * Instruct the builder to transfer a copy of the error output of the process to the given path.
+         * The file at the given path will be appended to if it exists.
          *
-         * @param errorConsumer the consumer (must not be {@code null})
+         * @param path the path to transfer to (must not be {@code null})
          * @return this builder
          */
-        Error<O> consumeWith(ExceptionConsumer<BufferedReader, IOException> errorConsumer);
+        default Error<O> copyAndAppendTo(Path path) {
+            Assert.checkNotNullParam("path", path);
+            return copyAndConsumeBytesWith(is -> {
+                try (OutputStream os = Files.newOutputStream(path, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                        StandardOpenOption.APPEND)) {
+                    is.transferTo(os);
+                }
+            });
+        }
 
         /**
-         * Instruct the builder to consume each line of the error output with the given consumer.
+         * Instruct the builder to consume the bytes of the error output with the given consumer.
          *
          * @param consumer the consumer (must not be {@code null})
          * @return this builder
          */
-        default Error<O> consumeLinesWith(ExceptionConsumer<String, IOException> consumer) {
+        Error<O> consumeBytesWith(ExceptionConsumer<InputStream, IOException> consumer);
+
+        /**
+         * Instruct the builder to consume a copy of the bytes of the error output with the given consumer.
+         *
+         * @param consumer the consumer (must not be {@code null})
+         * @return this builder
+         */
+        Error<O> copyAndConsumeBytesWith(ExceptionConsumer<InputStream, IOException> consumer);
+
+        /**
+         * Instruct the builder to consume the error output with the given consumer.
+         *
+         * @param consumer the consumer (must not be {@code null})
+         * @return this builder
+         */
+        Error<O> consumeWith(ExceptionConsumer<BufferedReader, IOException> consumer);
+
+        /**
+         * Instruct the builder to consume a copy of the error output with the given consumer.
+         *
+         * @param consumer the consumer (must not be {@code null})
+         * @return this builder
+         */
+        Error<O> copyAndConsumeWith(ExceptionConsumer<BufferedReader, IOException> consumer);
+
+        /**
+         * Instruct the builder to consume each line of the error output with the given consumer.
+         *
+         * @param maxLineLength the maximum number of characters allowed per line
+         * @param consumer the consumer (must not be {@code null})
+         * @return this builder
+         */
+        default Error<O> consumeLinesWith(int maxLineLength, ExceptionConsumer<String, IOException> consumer) {
+            Assert.checkMinimumParameter("maxLineLength", 1, maxLineLength);
             Assert.checkNotNullParam("consumer", consumer);
             return consumeWith(br -> {
+                LineReader lr = new LineReader(br, maxLineLength);
                 String line;
-                while ((line = br.readLine()) != null) {
+                while ((line = lr.readLine()) != null) {
+                    consumer.accept(line);
+                }
+            });
+        }
+
+        /**
+         * Instruct the builder to consume each line of a copy of the error output with the given consumer.
+         *
+         * @param maxLineLength the maximum number of characters allowed per line
+         * @param consumer the consumer (must not be {@code null})
+         * @return this builder
+         */
+        default Error<O> copyAndConsumeLinesWith(int maxLineLength, ExceptionConsumer<String, IOException> consumer) {
+            Assert.checkMinimumParameter("maxLineLength", 1, maxLineLength);
+            Assert.checkNotNullParam("consumer", consumer);
+            return copyAndConsumeWith(br -> {
+                LineReader lr = new LineReader(br, maxLineLength);
+                String line;
+                while ((line = lr.readLine()) != null) {
                     consumer.accept(line);
                 }
             });
@@ -457,7 +711,7 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
         /**
          * Redirect error output to the output stream, overriding all other output considerations.
          * This implicitly sets {@link #logOnSuccess(boolean)} and {@link #gatherOnFail(boolean)}
-         * to {@code false}.
+         * to {@code false} and ignores all {@code copyAnd...()} handlers.
          *
          * @return this builder
          */

@@ -1,166 +1,381 @@
 package io.smallrye.common.process;
 
 import static io.smallrye.common.process.Logging.log;
+import static io.smallrye.common.process.ProcessBuilderImpl.ERR_DISCARD;
+import static io.smallrye.common.process.ProcessBuilderImpl.ERR_FILE_APPEND;
+import static io.smallrye.common.process.ProcessBuilderImpl.ERR_FILE_WRITE;
+import static io.smallrye.common.process.ProcessBuilderImpl.ERR_INHERIT;
+import static io.smallrye.common.process.ProcessBuilderImpl.ERR_REDIRECT;
+import static io.smallrye.common.process.ProcessBuilderImpl.IN_EMPTY;
+import static io.smallrye.common.process.ProcessBuilderImpl.IN_FILE;
+import static io.smallrye.common.process.ProcessBuilderImpl.IN_HANDLER;
+import static io.smallrye.common.process.ProcessBuilderImpl.IN_INHERIT;
+import static io.smallrye.common.process.ProcessBuilderImpl.IN_PIPELINE;
+import static io.smallrye.common.process.ProcessBuilderImpl.IN_PIPELINE_SPLIT;
+import static io.smallrye.common.process.ProcessBuilderImpl.OUT_DISCARD;
+import static io.smallrye.common.process.ProcessBuilderImpl.OUT_FILE_APPEND;
+import static io.smallrye.common.process.ProcessBuilderImpl.OUT_FILE_WRITE;
+import static io.smallrye.common.process.ProcessBuilderImpl.OUT_INHERIT;
+import static io.smallrye.common.process.ProcessBuilderImpl.OUT_PIPELINE;
+import static io.smallrye.common.process.ProcessBuilderImpl.OUT_PIPELINE_SPLIT;
 
-import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.ProcessBuilder;
 import java.lang.invoke.ConstantBootstraps;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.nio.charset.Charset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import io.smallrye.common.function.ExceptionConsumer;
-import io.smallrye.common.function.Functions;
+import io.smallrye.common.function.ExceptionFunction;
 
 class PipelineRunner<O> {
-    private static final VarHandle ioBitsHandle = ConstantBootstraps.fieldVarHandle(MethodHandles.lookup(), "ioBits",
+    private static final VarHandle ioCountHandle = ConstantBootstraps.fieldVarHandle(MethodHandles.lookup(), "ioCount",
             VarHandle.class, PipelineRunner.class, int.class);
 
-    static final int IO_INPUT = 1 << 0;
-    static final int IO_OUTPUT = 1 << 1;
-    static final int IO_ERROR = 1 << 2;
-    static final int IO_USER_ERROR = 1 << 3;
-    static final int IO_WHILE_RUNNING = 1 << 4;
-
     final ProcessBuilderImpl<O> processBuilder;
-    final PipelineRunner<?> prev;
+    final PipelineRunner<O> prev;
     @SuppressWarnings("unused") // ioBitsHandle
-    private volatile int ioBits;
+    private volatile int ioCount;
     private Thread inputThread;
-    private Thread errorReaderThread;
-    private Thread userErrorThread;
-    private Thread whileRunningThread;
-    private Thread waitForThread;
     private ProcessHandlerException inputProblem;
-    private ProcessHandlerException errorProblem;
-    private ProcessHandlerException userErrorProblem;
+    private Thread outputMainThread;
+    private List<Thread> outputExtraThreads = List.of();
+    private final List<ProcessHandlerException> outputProblems = new CopyOnWriteArrayList<>();
+    private Thread errorMainThread;
+    private List<Thread> errorExtraThreads = List.of();
+    private final List<ProcessHandlerException> errorProblems = new CopyOnWriteArrayList<>();
+    private Thread whileRunningThread;
     private ProcessHandlerException whileRunningProblem;
+    private Thread waitForThread;
     private ProcessHandlerException exitCheckerProblem;
     private AbnormalExitException abnormalExit;
     Process process;
-    private Gatherer gatherer;
+    private Gatherer errorGatherer;
+    private Gatherer outputGatherer;
+    private ProcessBuilder pb;
 
-    PipelineRunner(final ProcessBuilderImpl<O> processBuilder, final PipelineRunner<?> prev) {
+    PipelineRunner(final ProcessBuilderImpl<O> processBuilder, final PipelineRunner<O> prev) {
         this.processBuilder = processBuilder;
         this.prev = prev;
     }
 
-    void assembleBuilders(ProcessBuilder[] array) {
-        array[processBuilder.depth - 1] = processBuilder.pb;
-        if (prev != null) {
-            prev.assembleBuilders(array);
-        }
-    }
-
-    void setProcesses(List<Process> list) {
-        process = list.get(processBuilder.depth - 1);
-        if (prev != null) {
-            prev.setProcesses(list);
-        }
-    }
-
     int createInputThread(ThreadFactory tf, ProcessRunner<?> runner) throws IOException {
-        ExceptionConsumer<Process, IOException> inputHandler = processBuilder.inputHandler;
-        if (inputHandler != null) {
-            inputThread = tf.newThread(() -> {
-                if (runner.awaitOk()) {
-                    Thread.currentThread().setName("process-input-\"%s\"-%d"
-                            .formatted(processBuilder.command, process.pid()));
-                    try {
-                        inputHandler.accept(process);
-                    } catch (ProcessHandlerException phe) {
-                        inputProblem = phe;
-                    } catch (Throwable t) {
-                        inputProblem = new ProcessHandlerException("Input generation failed due to exception", t);
-                    } finally {
-                        ioDone(IO_INPUT);
-                        runner.taskComplete();
+        ExceptionConsumer<OutputStream, IOException> inputHandler = processBuilder.inputHandler;
+        switch (processBuilder.inputStrategy) {
+            case IN_EMPTY -> pb.redirectInput(ProcessBuilder.Redirect.DISCARD.file());
+            case IN_INHERIT -> pb.redirectInput(ProcessBuilder.Redirect.INHERIT);
+            case IN_FILE -> pb.redirectInput(processBuilder.inputFile);
+            case IN_HANDLER -> {
+                assert inputHandler != null;
+                pb.redirectInput(ProcessBuilder.Redirect.PIPE);
+                inputThread = tf.newThread(() -> {
+                    if (runner.awaitOk()) {
+                        Thread.currentThread().setName("process-input-\"%s\"-%d"
+                                .formatted(processBuilder.command.getFileName(), process.pid()));
+                        try (OutputStream os = process.getOutputStream()) {
+                            inputHandler.accept(os);
+                        } catch (ProcessHandlerException phe) {
+                            inputProblem = phe;
+                        } catch (Throwable t) {
+                            inputProblem = new ProcessHandlerException("Input generation failed due to exception", t);
+                        } finally {
+                            ioDone();
+                            runner.taskComplete();
+                        }
                     }
+                });
+                if (inputThread == null) {
+                    throw noThread(tf);
                 }
-            });
-            if (inputThread == null) {
-                throw noThread(tf);
+                inputThread.setName("process-input-\"%s\"-???".formatted(processBuilder.command.getFileName()));
+                ioRegistered();
+                return 1;
             }
-            inputThread.setName("process-input-\"%s\"-???".formatted(processBuilder.command));
-            ioRegistered(IO_INPUT);
-            return 1;
-        } else {
-            return 0;
+            case IN_PIPELINE -> {
+                // nothing
+            }
+            case IN_PIPELINE_SPLIT -> {
+                pb.redirectInput(ProcessBuilder.Redirect.PIPE);
+            }
         }
+        return 0;
     }
 
     int createErrorThreads(ThreadFactory tf, ProcessRunner<?> runner) throws IOException {
-        this.gatherer = new Gatherer(processBuilder.errorHeadLines, processBuilder.errorTailLines);
-        ExceptionConsumer<BufferedReader, IOException> eh = processBuilder.errorHandler;
-        Consumer<Object> consumer;
+        int strategy = processBuilder.errorStrategy;
+        if (strategy == ERR_REDIRECT) {
+            pb.redirectErrorStream(true);
+            return 0;
+        }
+        ExceptionConsumer<InputStream, IOException> eh = processBuilder.errorHandler;
+        List<ExceptionConsumer<InputStream, IOException>> extras = processBuilder.extraErrorHandlers;
+        List<ExceptionConsumer<InputStream, IOException>> allHandlers = new ArrayList<>(extras.size() + 2);
+        if (processBuilder.errorGatherOnFail || processBuilder.errorLogOnSuccess) {
+            this.errorGatherer = new Gatherer(processBuilder.errorHeadLines, processBuilder.errorTailLines);
+            allHandlers.add(is -> IOUtil.consumeToReader(is,
+                    br -> errorGatherer.run(new LineReader(br, processBuilder.errorLineLimit)),
+                    processBuilder.errorCharset));
+        }
         if (eh != null) {
-            //noinspection resource
-            QueueReader qr = new QueueReader();
-            consumer = processBuilder.errorGatherOnFail ? gatherer.andThen(qr::handleLine) : qr::handleLine;
-            userErrorThread = tf.newThread(() -> {
+            allHandlers.add(eh);
+        }
+        allHandlers.addAll(extras);
+        if (allHandlers.isEmpty() || allHandlers.size() == 1 && eh != null) {
+            // likely a trivial strategy
+            switch (strategy) {
+                case ERR_DISCARD -> {
+                    pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+                    return 0;
+                }
+                case ERR_INHERIT -> {
+                    pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+                    return 0;
+                }
+                case ERR_FILE_WRITE -> {
+                    pb.redirectError(ProcessBuilder.Redirect.to(processBuilder.errorFile));
+                    return 0;
+                }
+                case ERR_FILE_APPEND -> {
+                    pb.redirectError(ProcessBuilder.Redirect.appendTo(processBuilder.errorFile));
+                    return 0;
+                }
+            }
+        }
+        pb.redirectError(ProcessBuilder.Redirect.PIPE);
+        int handlerCnt = allHandlers.size();
+        if (handlerCnt == 1) {
+            // simple thread
+            ExceptionConsumer<InputStream, IOException> handler = allHandlers.get(0);
+            errorMainThread = tf.newThread(() -> {
                 if (runner.awaitOk()) {
-                    Thread.currentThread().setName("process-user-error-\"%s\"-%d"
-                            .formatted(processBuilder.command, process.pid()));
-                    try {
-                        eh.accept(qr);
+                    Thread.currentThread().setName("process-error-consumer-\"%s\"-%d"
+                            .formatted(processBuilder.command.getFileName(), process.pid()));
+                    try (InputStream is = process.getErrorStream()) {
+                        handler.accept(is);
                     } catch (ProcessHandlerException phe) {
-                        userErrorProblem = phe;
+                        errorProblems.add(phe);
                     } catch (Throwable t) {
-                        userErrorProblem = new ProcessHandlerException("User error processing failed due to exception", t);
+                        errorProblems.add(new ProcessHandlerException("User error processing failed due to exception", t));
                     } finally {
-                        ioDone(IO_USER_ERROR);
+                        ioDone();
                         runner.taskComplete();
                     }
                 }
             });
-            if (userErrorThread == null) {
+            if (errorMainThread == null) {
                 throw noThread(tf);
             }
-            userErrorThread.setName("process-user-error-\"%s\"-???".formatted(processBuilder.command));
-            ioRegistered(IO_USER_ERROR);
+            errorMainThread.setName("process-error-consumer-\"%s\"-???".formatted(processBuilder.command.getFileName()));
+            ioRegistered();
+            return 1;
         } else {
-            consumer = processBuilder.errorGatherOnFail ? gatherer : Functions.discardingConsumer();
-        }
-        errorReaderThread = tf.newThread(() -> {
-            if (runner.awaitOk()) {
-                Thread.currentThread().setName("process-error-reader-\"%s\"-%d"
-                        .formatted(processBuilder.command, process.pid()));
-                try {
-                    Charset errorCharset = processBuilder.errorCharset;
-                    if (errorCharset == null) {
-                        try (BufferedReader reader = process.errorReader()) {
-                            LineProcessor proc = new LineProcessor(reader, processBuilder.errorLineLimit, consumer);
-                            proc.run();
-                        }
-                    } else {
-                        try (BufferedReader reader = process.errorReader(errorCharset)) {
-                            LineProcessor proc = new LineProcessor(reader, processBuilder.errorLineLimit, consumer);
-                            proc.run();
+            // we have to make a tee
+            final Tee tee = new Tee(handlerCnt);
+            List<Tee.TeeInputStream> outputs = tee.outputs();
+            errorMainThread = tf.newThread(() -> {
+                if (runner.awaitOk()) {
+                    Thread.currentThread().setName("process-error-tee-\"%s\"-%d"
+                            .formatted(processBuilder.command.getFileName(), process.pid()));
+                    try (InputStream is = process.getErrorStream()) {
+                        tee.run(is);
+                    } catch (ProcessHandlerException phe) {
+                        errorProblems.add(phe);
+                    } catch (Throwable t) {
+                        errorProblems.add(new ProcessHandlerException("User error processing failed due to exception", t));
+                    } finally {
+                        ioDone();
+                        runner.taskComplete();
+                    }
+                }
+            });
+            if (errorMainThread == null) {
+                throw noThread(tf);
+            }
+            errorMainThread.setName("process-error-tee-\"%s\"-???".formatted(processBuilder.command.getFileName()));
+            ioRegistered();
+            ArrayList<Thread> handlerThreads = new ArrayList<>(handlerCnt);
+            for (int i = 0; i < handlerCnt; i++) {
+                ExceptionConsumer<InputStream, IOException> handler = allHandlers.get(i);
+                Tee.TeeInputStream input = outputs.get(i);
+                int idx = i;
+                Thread thr = tf.newThread(() -> {
+                    if (runner.awaitOk()) {
+                        Thread.currentThread().setName("process-error-consumer-%d-\"%s\"-%d"
+                                .formatted(idx, processBuilder.command.getFileName(), process.pid()));
+                        try (input) {
+                            handler.accept(input);
+                        } catch (ProcessHandlerException phe) {
+                            errorProblems.add(phe);
+                        } catch (Throwable t) {
+                            errorProblems.add(new ProcessHandlerException("User error processing failed due to exception", t));
+                        } finally {
+                            ioDone();
+                            runner.taskComplete();
                         }
                     }
-                } catch (ProcessHandlerException phe) {
-                    throw phe;
-                } catch (Throwable t) {
-                    errorProblem = new ProcessHandlerException("Error processing failed due to exception", t);
+                });
+                if (thr == null) {
+                    throw noThread(tf);
+                }
+                thr.setName("process-error-consumer-%d-\"%s\"-???"
+                        .formatted(idx, processBuilder.command.getFileName()));
+                handlerThreads.add(thr);
+                ioRegistered();
+            }
+            errorExtraThreads = handlerThreads;
+            return 1 + handlerCnt;
+        }
+    }
+
+    int createOutputThreads(ThreadFactory tf, final ProcessRunner<O> runner, final PipelineRunner<O> nextRunner)
+            throws IOException {
+        ExceptionFunction<InputStream, O, IOException> oh = processBuilder.outputHandler;
+        List<ExceptionConsumer<InputStream, IOException>> extras = processBuilder.extraOutputHandlers;
+        List<ExceptionConsumer<InputStream, IOException>> allHandlers = new ArrayList<>(extras.size() + 2);
+        if (processBuilder.outputGatherOnFail) {
+            this.outputGatherer = new Gatherer(processBuilder.outputHeadLines, processBuilder.outputTailLines);
+            allHandlers.add(is -> IOUtil.consumeToReader(is,
+                    br -> outputGatherer.run(new LineReader(br, processBuilder.outputLineLimit)),
+                    processBuilder.outputCharset));
+        }
+        int strategy = processBuilder.outputStrategy;
+        if (oh != null) {
+            // only possible on the last stage
+            allHandlers.add(is -> runner.result = oh.apply(is));
+        }
+        if (strategy == OUT_PIPELINE_SPLIT) {
+            // SPECIAL: add a handler for the next process
+            allHandlers.add(is -> {
+                try (OutputStream os = nextRunner.process.getOutputStream()) {
+                    is.transferTo(os);
                 } finally {
-                    ioDone(IO_ERROR);
-                    runner.taskComplete();
+                    // release the next process too
+                    nextRunner.ioDone();
+                }
+            });
+            // do not kill the next process before we are done feeding it
+            nextRunner.ioRegistered();
+            pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
+        }
+        allHandlers.addAll(extras);
+        if (allHandlers.isEmpty() || allHandlers.size() == 1 && oh != null) {
+            switch (strategy) {
+                case OUT_DISCARD -> {
+                    pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                    return 0;
+                }
+                case OUT_INHERIT -> {
+                    pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+                    return 0;
+                }
+                case OUT_FILE_WRITE -> {
+                    pb.redirectOutput(ProcessBuilder.Redirect.to(processBuilder.outputFile));
+                    return 0;
+                }
+                case OUT_FILE_APPEND -> {
+                    pb.redirectOutput(ProcessBuilder.Redirect.appendTo(processBuilder.outputFile));
+                    return 0;
+                }
+                case OUT_PIPELINE -> {
+                    return 0;
                 }
             }
-        });
-        if (errorReaderThread == null) {
-            throw noThread(tf);
         }
-        errorReaderThread.setName("process-error-reader-\"%s\"-???".formatted(processBuilder.command));
-        ioRegistered(IO_ERROR);
-        return eh == null ? 1 : 2;
+        pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
+        int handlerCnt = allHandlers.size();
+        if (handlerCnt == 1) {
+            // simple thread
+            ExceptionConsumer<InputStream, IOException> handler = allHandlers.get(0);
+            outputMainThread = tf.newThread(() -> {
+                if (runner.awaitOk()) {
+                    Thread.currentThread().setName("process-output-consumer-\"%s\"-%d"
+                            .formatted(processBuilder.command.getFileName(), process.pid()));
+                    try (InputStream is = process.getInputStream()) {
+                        handler.accept(is);
+                    } catch (ProcessHandlerException phe) {
+                        outputProblems.add(phe);
+                    } catch (Throwable t) {
+                        outputProblems.add(new ProcessHandlerException("User output processing failed due to exception", t));
+                    } finally {
+                        runner.ioDone();
+                        runner.taskComplete();
+                    }
+                }
+            });
+            if (outputMainThread == null) {
+                throw noThread(tf);
+            }
+            outputMainThread.setName("process-output-consumer-\"%s\"-???".formatted(processBuilder.command.getFileName()));
+            runner.ioRegistered();
+            return 1;
+        } else {
+            // we have to make a tee
+            final Tee tee = new Tee(handlerCnt);
+            List<Tee.TeeInputStream> outputs = tee.outputs();
+            outputMainThread = tf.newThread(() -> {
+                if (runner.awaitOk()) {
+                    Thread.currentThread().setName("process-output-tee-\"%s\"-%d"
+                            .formatted(processBuilder.command.getFileName(), process.pid()));
+                    try (InputStream is = process.getInputStream()) {
+                        tee.run(is);
+                    } catch (ProcessHandlerException phe) {
+                        outputProblems.add(phe);
+                    } catch (Throwable t) {
+                        outputProblems.add(new ProcessHandlerException("User output processing failed due to exception", t));
+                    } finally {
+                        runner.ioDone();
+                        runner.taskComplete();
+                    }
+                }
+            });
+            if (outputMainThread == null) {
+                throw noThread(tf);
+            }
+            outputMainThread.setName("process-output-tee-\"%s\"-???".formatted(processBuilder.command.getFileName()));
+            runner.ioRegistered();
+            ArrayList<Thread> handlerThreads = new ArrayList<>(handlerCnt);
+            for (int i = 0; i < handlerCnt; i++) {
+                ExceptionConsumer<InputStream, IOException> handler = allHandlers.get(i);
+                Tee.TeeInputStream input = outputs.get(i);
+                int idx = i;
+                Thread thr = tf.newThread(() -> {
+                    if (runner.awaitOk()) {
+                        Thread.currentThread().setName("process-output-consumer-%d-\"%s\"-%d"
+                                .formatted(idx, processBuilder.command.getFileName(), process.pid()));
+                        try (input) {
+                            handler.accept(input);
+                        } catch (ProcessHandlerException phe) {
+                            outputProblems.add(phe);
+                        } catch (Throwable t) {
+                            outputProblems
+                                    .add(new ProcessHandlerException("User output processing failed due to exception", t));
+                        } finally {
+                            runner.ioDone();
+                            runner.taskComplete();
+                        }
+                    }
+                });
+                if (thr == null) {
+                    throw noThread(tf);
+                }
+                thr.setName("process-output-consumer-%d-\"%s\"-???"
+                        .formatted(idx, processBuilder.command.getFileName()));
+                handlerThreads.add(thr);
+                runner.ioRegistered();
+            }
+            outputExtraThreads = handlerThreads;
+            return 1 + handlerCnt;
+        }
     }
 
     int createWhileRunningThread(ThreadFactory tf, ProcessRunner<?> runner) throws IOException {
@@ -169,7 +384,7 @@ class PipelineRunner<O> {
             whileRunningThread = tf.newThread(() -> {
                 if (runner.awaitOk()) {
                     Thread.currentThread().setName("process-while-running-\"%s\"-%d"
-                            .formatted(processBuilder.command, process.pid()));
+                            .formatted(processBuilder.command.getFileName(), process.pid()));
                     try {
                         whileRunning.accept(
                                 new WaitableProcessHandleImpl(process, processBuilder.command, processBuilder.arguments));
@@ -178,13 +393,13 @@ class PipelineRunner<O> {
                     } catch (Throwable t) {
                         whileRunningProblem = new ProcessHandlerException("While-running task failed due to exception", t);
                     } finally {
-                        ioDone(IO_WHILE_RUNNING);
+                        ioDone();
                         runner.taskComplete();
                     }
                 }
             });
-            whileRunningThread.setName("process-while-running-\"%s\"-???".formatted(processBuilder.command));
-            ioRegistered(IO_WHILE_RUNNING);
+            whileRunningThread.setName("process-while-running-\"%s\"-???".formatted(processBuilder.command.getFileName()));
+            ioRegistered();
             if (whileRunningThread == null) {
                 throw noThread(tf);
             }
@@ -198,7 +413,7 @@ class PipelineRunner<O> {
         waitForThread = tf.newThread(() -> {
             if (runner.awaitOk()) {
                 Thread.currentThread().setName("process-waiter-\"%s\"-%d"
-                        .formatted(processBuilder.command, process.pid()));
+                        .formatted(processBuilder.command.getFileName(), process.pid()));
                 try {
                     boolean ste = false;
                     boolean hte = false;
@@ -229,7 +444,7 @@ class PipelineRunner<O> {
                         }
                     }
                     // now, check the exit code
-                    List<String> errorLines = gatherer.toList();
+                    List<String> errorLines = errorGatherer.toList();
                     boolean result;
                     try {
                         result = processBuilder.exitCodeChecker.test(exitCode);
@@ -247,6 +462,10 @@ class PipelineRunner<O> {
                         aee.setHardTimeoutElapsed(hte);
                         if (processBuilder.errorGatherOnFail) {
                             aee.setErrorOutput(errorLines);
+                        }
+                        if (processBuilder.outputGatherOnFail) {
+                            List<String> outputLines = outputGatherer.toList();
+                            aee.setOutput(outputLines);
                         }
                         aee.setCommand(processBuilder.command);
                         aee.setArguments(processBuilder.arguments);
@@ -267,14 +486,16 @@ class PipelineRunner<O> {
         if (waitForThread == null) {
             throw noThread(tf);
         }
-        waitForThread.setName("process-waiter-\"%s\"-???".formatted(processBuilder.command));
+        waitForThread.setName("process-waiter-\"%s\"-???".formatted(processBuilder.command.getFileName()));
         return 1;
     }
 
     void startThreads() {
         startThread(inputThread);
-        startThread(errorReaderThread);
-        startThread(userErrorThread);
+        startThread(outputMainThread);
+        outputExtraThreads.forEach(Thread::start);
+        startThread(errorMainThread);
+        errorExtraThreads.forEach(Thread::start);
         startThread(whileRunningThread);
         startThread(waitForThread);
         if (prev != null) {
@@ -289,21 +510,22 @@ class PipelineRunner<O> {
     }
 
     private void awaitIoDone() {
-        int ioBits = this.ioBits;
-        while (ioBits != 0) {
+        int ioCount = this.ioCount;
+        while (ioCount != 0) {
             LockSupport.park(this);
-            ioBits = this.ioBits;
+            ioCount = this.ioCount;
         }
     }
 
-    void ioRegistered(int bit) {
+    void ioRegistered() {
+        // we're single-threaded at this point
         //noinspection NonAtomicOperationOnVolatileField
-        ioBits |= bit;
+        ioCount++;
     }
 
-    void ioDone(int bit) {
-        int oldVal = (int) ioBitsHandle.getAndBitwiseAnd(this, ~bit);
-        if (oldVal == bit) {
+    void ioDone() {
+        int oldVal = (int) ioCountHandle.getAndAdd(this, -1);
+        if (oldVal == 1) {
             LockSupport.unpark(waitForThread);
         }
     }
@@ -314,8 +536,10 @@ class PipelineRunner<O> {
 
     void unpark() {
         LockSupport.unpark(inputThread);
-        LockSupport.unpark(errorReaderThread);
-        LockSupport.unpark(userErrorThread);
+        LockSupport.unpark(outputMainThread);
+        outputExtraThreads.forEach(LockSupport::unpark);
+        LockSupport.unpark(errorMainThread);
+        errorExtraThreads.forEach(LockSupport::unpark);
         LockSupport.unpark(whileRunningThread);
         LockSupport.unpark(waitForThread);
         if (prev != null) {
@@ -323,18 +547,17 @@ class PipelineRunner<O> {
         }
     }
 
-    void collectProblems(final List<ProcessExecutionException> problems, ProcessHandlerException outputProblem) {
+    void collectProblems(final List<ProcessExecutionException> problems) {
         // add problems in pipeline order
         if (prev != null) {
-            prev.collectProblems(problems, null);
+            prev.collectProblems(problems);
         }
         ProcessExecutionException pe = abnormalExit;
         if (pe == null && (inputProblem != null
+                || !outputProblems.isEmpty()
+                || !errorProblems.isEmpty()
                 || exitCheckerProblem != null
-                || errorProblem != null
-                || userErrorProblem != null
-                || whileRunningProblem != null
-                || outputProblem != null)) {
+                || whileRunningProblem != null)) {
             pe = newProcessException("Process handle failure");
         }
         if (pe != null) {
@@ -342,15 +565,8 @@ class PipelineRunner<O> {
             if (inputProblem != null) {
                 causes.add(inputProblem);
             }
-            if (outputProblem != null) {
-                causes.add(outputProblem);
-            }
-            if (errorProblem != null) {
-                causes.add(errorProblem);
-            }
-            if (userErrorProblem != null) {
-                causes.add(userErrorProblem);
-            }
+            causes.addAll(outputProblems);
+            causes.addAll(errorProblems);
             if (whileRunningProblem != null) {
                 causes.add(whileRunningProblem);
             }
@@ -358,19 +574,11 @@ class PipelineRunner<O> {
                 causes.add(exitCheckerProblem);
             }
             switch (causes.size()) {
-                case 0 -> {
-                }
                 case 1 -> pe.initCause(causes.get(0));
                 default -> causes.forEach(pe::addSuppressed);
             }
             problems.add(pe);
         }
-    }
-
-    ProcessExecutionException newProcessException(String message, Throwable cause) {
-        ProcessExecutionException pe = newProcessException(message);
-        pe.initCause(cause);
-        return pe;
     }
 
     ProcessExecutionException newProcessException(String message) {
@@ -383,11 +591,41 @@ class PipelineRunner<O> {
         return pe;
     }
 
-    int createThreads(final ThreadFactory tf, final ProcessRunner<?> runner) throws IOException {
+    int createThreads(final ThreadFactory tf, final ProcessRunner<O> runner, final PipelineRunner<O> nextRunner)
+            throws IOException {
+        pb = processBuilder.pb;
+        pb.command(Stream.concat(Stream.of(processBuilder.command.toString()), processBuilder.arguments.stream()).toList());
         int cnt = createInputThread(tf, runner)
                 + createErrorThreads(tf, runner)
+                + createOutputThreads(tf, runner, nextRunner)
                 + createWhileRunningThread(tf, runner)
                 + createWaitForThread(tf, runner);
-        return prev == null ? cnt : cnt + prev.createThreads(tf, runner);
+        return prev == null ? cnt : cnt + prev.createThreads(tf, runner, this);
+    }
+
+    void startProcesses(int pipelineEnd, List<Process> processes, List<ProcessBuilder> builders) throws IOException {
+        int depth = processBuilder.depth;
+        int index = depth - 1;
+        builders.set(index, pb);
+        if (processBuilder.outputStrategy != OUT_PIPELINE_SPLIT) {
+            if (prev == null) {
+                // start the pipeline, from the beginning
+                processes.addAll(ProcessBuilder.startPipeline(builders.subList(0, pipelineEnd)));
+            } else {
+                // let the previous step start the pipeline
+                prev.startProcesses(pipelineEnd, processes, builders);
+            }
+        } else {
+            // split the pipeline here
+            // start earlier processes (if any)
+            if (prev != null) {
+                prev.startProcesses(depth, processes, builders);
+            }
+            // now start the subsequent processes in the pipeline separately (if any)
+            if (depth < pipelineEnd) {
+                processes.addAll(ProcessBuilder.startPipeline(builders.subList(depth, pipelineEnd)));
+            }
+        }
+        process = processes.get(index);
     }
 }

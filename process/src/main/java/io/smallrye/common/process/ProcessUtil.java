@@ -1,6 +1,8 @@
 package io.smallrye.common.process;
 
 import java.io.File;
+import java.nio.charset.Charset;
+import java.nio.charset.UnsupportedCharsetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -19,17 +21,57 @@ public final class ProcessUtil {
     private ProcessUtil() {
     }
 
+    private static final class NativeCharset {
+        private static final Charset charset;
+
+        static {
+            Charset c;
+            try {
+                c = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
+            } catch (UnsupportedCharsetException ignored) {
+                c = Charset.defaultCharset();
+            }
+            charset = c;
+        }
+    }
+
+    /**
+     * {@return the native character set (not {@code null})}
+     */
+    public static Charset nativeCharset() {
+        return NativeCharset.charset;
+    }
+
     /**
      * Forcibly destroy the process and all of its descendants.
      *
-     * @param handle the root-most process handle (must not be {@code null})
+     * @param handle the root-most process handle
      */
     public static void destroyAllForcibly(ProcessHandle handle) {
+        if (handle == null) {
+            return;
+        }
         // capture the child processes *before* killing them
         for (ProcessHandle processHandle : handle.children().toList()) {
             destroyAllForcibly(processHandle);
         }
         handle.destroyForcibly();
+    }
+
+    /**
+     * Forcibly destroy the process and all of its descendants.
+     *
+     * @param process the root-most process
+     */
+    public static void destroyAllForcibly(Process process) {
+        if (process == null) {
+            return;
+        }
+        // capture the child processes *before* killing them
+        for (ProcessHandle processHandle : process.children().toList()) {
+            destroyAllForcibly(processHandle);
+        }
+        process.destroyForcibly();
     }
 
     /**
