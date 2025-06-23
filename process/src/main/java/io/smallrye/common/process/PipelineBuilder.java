@@ -20,8 +20,11 @@ import io.smallrye.common.function.ExceptionFunction;
 
 /**
  * A builder for the tail portion of a pipeline.
+ * Normally, instances of this interface are only accessible from
+ * {@link ProcessBuilder#newBuilder(Path) ProcessBuilder.newBuilder(...)}.
  *
  * @param <O> the output type
+ * @see ProcessBuilder
  */
 public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, PipelineBuilder.Output, ProcessBuilder {
     /**
