@@ -45,14 +45,33 @@ public final class ProcessUtil {
     /**
      * Forcibly destroy the process and all of its descendants.
      *
-     * @param handle the root-most process handle (must not be {@code null})
+     * @param handle the root-most process handle
      */
     public static void destroyAllForcibly(ProcessHandle handle) {
+        if (handle == null) {
+            return;
+        }
         // capture the child processes *before* killing them
         for (ProcessHandle processHandle : handle.children().toList()) {
             destroyAllForcibly(processHandle);
         }
         handle.destroyForcibly();
+    }
+
+    /**
+     * Forcibly destroy the process and all of its descendants.
+     *
+     * @param process the root-most process
+     */
+    public static void destroyAllForcibly(Process process) {
+        if (process == null) {
+            return;
+        }
+        // capture the child processes *before* killing them
+        for (ProcessHandle processHandle : process.children().toList()) {
+            destroyAllForcibly(processHandle);
+        }
+        process.destroyForcibly();
     }
 
     /**

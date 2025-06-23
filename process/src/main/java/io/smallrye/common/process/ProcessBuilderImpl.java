@@ -2,11 +2,13 @@ package io.smallrye.common.process;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.lang.ProcessBuilder.Redirect;
 import java.nio.charset.Charset;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -18,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.IntPredicate;
-import java.util.stream.Stream;
 
 import io.smallrye.common.constraint.Assert;
 import io.smallrye.common.function.ExceptionConsumer;
@@ -27,52 +28,83 @@ import io.smallrye.common.os.OS;
 
 final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
-    final java.lang.ProcessBuilder pb = new java.lang.ProcessBuilder();
-    final ProcessBuilderImpl<?> prev;
+    static final int IN_EMPTY = 0;
+    static final int IN_INHERIT = 1;
+    static final int IN_FILE = 2;
+    static final int IN_HANDLER = 3;
+    static final int IN_PIPELINE = 4;
+    static final int IN_PIPELINE_SPLIT = 5;
+
+    static final int OUT_DISCARD = 0;
+    static final int OUT_INHERIT = 1;
+    static final int OUT_FILE_WRITE = 2;
+    static final int OUT_FILE_APPEND = 3;
+    static final int OUT_HANDLER = 4;
+    static final int OUT_PIPELINE = 5;
+    static final int OUT_PIPELINE_SPLIT = 6;
+
+    static final int ERR_DISCARD = 0;
+    static final int ERR_INHERIT = 1;
+    static final int ERR_FILE_WRITE = 2;
+    static final int ERR_FILE_APPEND = 3;
+    static final int ERR_HANDLER = 4;
+    static final int ERR_REDIRECT = 5;
+
+    final ProcessBuilderImpl<O> prev;
     final int depth;
     final Path command;
+    File directory;
     private volatile boolean locked;
     List<String> arguments = List.of();
     IntPredicate exitCodeChecker = e -> e == 0;
     Duration softExitTimeout = DEFAULT_SOFT_TIMEOUT;
     Duration hardExitTimeout = DEFAULT_HARD_TIMEOUT;
     private Input<O> input;
-    ExceptionConsumer<Process, IOException> inputHandler;
+    int inputStrategy = IN_EMPTY;
+    ExceptionConsumer<OutputStream, IOException> inputHandler;
     Charset inputCharset = ProcessUtil.nativeCharset();
+    File inputFile;
     private Output<O> output;
-    ExceptionFunction<Process, O, IOException> outputHandler;
+    int outputStrategy = OUT_DISCARD;
+    ExceptionFunction<InputStream, O, IOException> outputHandler;
+    List<ExceptionConsumer<InputStream, IOException>> extraOutputHandlers = List.of();
     Charset outputCharset = ProcessUtil.nativeCharset();
+    int outputLineLimit = 256;
+    boolean outputGatherOnFail = false;
+    int outputHeadLines = 5;
+    int outputTailLines = 5;
+    File outputFile;
     private Error<O> error;
-    ExceptionConsumer<BufferedReader, IOException> errorHandler;
+    int errorStrategy = ERR_DISCARD;
+    ExceptionConsumer<InputStream, IOException> errorHandler;
+    List<ExceptionConsumer<InputStream, IOException>> extraErrorHandlers = List.of();
     Charset errorCharset = ProcessUtil.nativeCharset();
     int errorLineLimit = 256;
     boolean errorLogOnSuccess = true;
     boolean errorGatherOnFail = true;
     int errorHeadLines = 5;
     int errorTailLines = 5;
+    File errorFile;
     Consumer<WaitableProcessHandle> whileRunning;
+    // we create this very early so we can access the env map
+    final java.lang.ProcessBuilder pb = new java.lang.ProcessBuilder();
 
-    private ProcessBuilderImpl(ProcessBuilderImpl<?> prev, Path command) {
+    private ProcessBuilderImpl(ProcessBuilderImpl<O> prev, Path command) {
         // constructed for pipeline execution
+        checkCommand(command);
         this.command = command;
         this.prev = prev;
         depth = prev.depth + 1;
         softExitTimeout = prev.softExitTimeout;
         hardExitTimeout = prev.hardExitTimeout;
-        pb.redirectInput(Redirect.PIPE);
-        pb.redirectOutput(Redirect.DISCARD);
-        // error is captured in some form by default
-        pb.redirectError(Redirect.PIPE);
+        inputStrategy = prev.outputStrategy == OUT_PIPELINE_SPLIT ? IN_PIPELINE_SPLIT : IN_PIPELINE;
     }
 
-    public ProcessBuilderImpl(Path command) {
+    ProcessBuilderImpl(Path command) {
+        checkCommand(command);
         this.command = command;
         prev = null;
         depth = 1;
-        pb.redirectInput(Redirect.DISCARD.file());
-        pb.redirectOutput(Redirect.DISCARD);
-        // error is captured in some form by default
-        pb.redirectError(Redirect.PIPE);
     }
 
     public ProcessBuilder<O> arguments(final List<String> arguments) {
@@ -83,7 +115,7 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
     public ProcessBuilder<O> directory(final Path directory) {
         check();
-        pb.directory(Assert.checkNotNullParam("directory", directory).toFile());
+        this.directory = Assert.checkNotNullParam("directory", directory).toFile();
         return this;
     }
 
@@ -150,7 +182,6 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
     public O run() {
         check();
-        commitCommand();
         locked = true;
         return makeRunner().run();
     }
@@ -162,6 +193,16 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     private void check() {
         if (locked) {
             throw new IllegalStateException("This builder can no longer be configured");
+        }
+    }
+
+    private static void checkCommand(Path command) {
+        if (OS.current() == OS.WINDOWS) {
+            String fileNameString = command.getFileName().toString();
+            if (fileNameString.endsWith(".bat") || fileNameString.endsWith(".cmd")) {
+                // todo: wrap with cmd.exe/etc. with correct argument escaping
+                throw new UnsupportedOperationException("Execution of batch scripts on Windows is not yet supported");
+            }
         }
     }
 
@@ -214,14 +255,14 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     public final class InputImpl extends ViewImpl implements Input<O> {
         public Input<O> empty() {
             check();
-            pb.redirectInput(Redirect.DISCARD.file());
+            inputStrategy = IN_EMPTY;
             inputHandler = null;
             return this;
         }
 
         public Input<O> inherited() {
             check();
-            pb.redirectInput(Redirect.INHERIT);
+            inputStrategy = IN_INHERIT;
             inputHandler = null;
             return this;
         }
@@ -236,7 +277,8 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
             check();
             Assert.checkNotNullParam("path", path);
             if (path.getFileSystem() == FileSystems.getDefault()) {
-                pb.redirectInput(Redirect.from(path.toFile()));
+                inputStrategy = IN_FILE;
+                inputFile = path.toFile();
                 inputHandler = null;
             } else {
                 // exotic file
@@ -252,25 +294,21 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         public Input<O> produceBytesWith(final ExceptionConsumer<OutputStream, IOException> consumer) {
             check();
             Assert.checkNotNullParam("consumer", consumer);
-            inputHandler = proc -> {
-                try (OutputStream os = proc.getOutputStream()) {
-                    consumer.accept(os);
-                }
-            };
-            pb.redirectInput(Redirect.PIPE);
+            inputStrategy = IN_HANDLER;
+            inputHandler = consumer;
             return this;
         }
 
         public Input<O> produceWith(final ExceptionConsumer<Writer, IOException> consumer) {
             check();
             Assert.checkNotNullParam("consumer", consumer);
-            inputHandler = proc -> {
-                Charset inputCharset = ProcessBuilderImpl.this.inputCharset;
-                try (BufferedWriter bw = proc.outputWriter(inputCharset)) {
-                    consumer.accept(bw);
+            produceBytesWith(os -> {
+                try (OutputStreamWriter osw = new OutputStreamWriter(os, inputCharset)) {
+                    try (BufferedWriter bw = new BufferedWriter(osw)) {
+                        consumer.accept(bw);
+                    }
                 }
-            };
-            pb.redirectInput(Redirect.PIPE);
+            });
             return this;
         }
     }
@@ -282,14 +320,14 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         public Output<Void> discard() {
             check();
             outputHandler = null;
-            pb.redirectOutput(Redirect.DISCARD);
+            outputStrategy = OUT_DISCARD;
             return (Output<Void>) this;
         }
 
         public Output<Void> inherited() {
             check();
             outputHandler = null;
-            pb.redirectOutput(Redirect.INHERIT);
+            outputStrategy = OUT_INHERIT;
             return (Output<Void>) this;
         }
 
@@ -335,162 +373,237 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
             });
         }
 
+        public Output<O> gatherOnFail(final boolean gather) {
+            check();
+            outputGatherOnFail = gather;
+            return this;
+        }
+
+        public Output<O> maxCaptureLineLength(final int characters) {
+            Assert.checkMinimumParameter("characters", 1, characters);
+            check();
+            outputLineLimit = characters;
+            return this;
+        }
+
+        public Output<O> captureHeadLines(final int headLines) {
+            Assert.checkMinimumParameter("headLines", 0, headLines);
+            check();
+            outputHeadLines = headLines;
+            return this;
+        }
+
+        public Output<O> captureTailLines(final int tailLines) {
+            Assert.checkMinimumParameter("tailLines", 0, tailLines);
+            check();
+            outputTailLines = tailLines;
+            return this;
+        }
+
         public <O2> Output<O2> processBytesWith(final ExceptionFunction<InputStream, O2, IOException> processor) {
             check();
             Assert.checkNotNullParam("processor", processor);
-            pb.redirectOutput(Redirect.PIPE);
-            outputHandler = proc -> {
-                try (InputStream is = proc.getInputStream()) {
-                    return (O) processor.apply(is);
-                }
-            };
+            outputStrategy = OUT_HANDLER;
+            outputHandler = (ExceptionFunction<InputStream, O, IOException>) processor;
             return (Output<O2>) this;
         }
 
         public <O2> Output<O2> processWith(final ExceptionFunction<BufferedReader, O2, IOException> processor) {
             check();
             Assert.checkNotNullParam("processor", processor);
-            pb.redirectOutput(Redirect.PIPE);
-            outputHandler = proc -> {
-                Charset outputCharset = ProcessBuilderImpl.this.outputCharset;
-                try (BufferedReader br = proc.inputReader(outputCharset)) {
-                    return (O) processor.apply(br);
+            processBytesWith(is -> {
+                try (InputStreamReader isr = new InputStreamReader(is, outputCharset)) {
+                    try (BufferedReader br = new BufferedReader(isr)) {
+                        return (O) processor.apply(br);
+                    }
                 }
-            };
+            });
             return (Output<O2>) this;
         }
 
         public Output<Void> transferTo(final Path path) {
-            transferTo(path, false);
+            transferTo(path, OUT_FILE_WRITE);
             return (Output<Void>) this;
         }
 
         public Output<Void> appendTo(final Path path) {
-            transferTo(path, true);
+            transferTo(path, OUT_FILE_APPEND);
             return (Output<Void>) this;
         }
 
-        private void transferTo(Path path, boolean append) {
+        public Output<O> copyAndConsumeBytesWith(final ExceptionConsumer<InputStream, IOException> consumer) {
+            Assert.checkNotNullParam("consumer", consumer);
+            List<ExceptionConsumer<InputStream, IOException>> handlers = extraOutputHandlers;
+            switch (handlers.size()) {
+                case 0 -> extraOutputHandlers = List.of(consumer);
+                case 1 -> extraOutputHandlers = List.of(extraOutputHandlers.get(0), consumer);
+                case 2 -> {
+                    extraOutputHandlers = new ArrayList<>();
+                    extraOutputHandlers.addAll(handlers);
+                    extraOutputHandlers.add(consumer);
+                }
+                default -> extraOutputHandlers.add(consumer);
+            }
+            return this;
+        }
+
+        public Output<O> copyAndConsumeWith(final ExceptionConsumer<BufferedReader, IOException> consumer) {
+            Assert.checkNotNullParam("consumer", consumer);
+            return copyAndConsumeBytesWith(is -> IOUtil.consumeToReader(is, consumer, outputCharset));
+        }
+
+        private void transferTo(Path path, int strategy) {
             check();
             Assert.checkNotNullParam("path", path);
-            if (path.getFileSystem() == FileSystems.getDefault()) {
-                pb.redirectOutput(append ? Redirect.appendTo(path.toFile()) : Redirect.to(path.toFile()));
-                outputHandler = null;
-            } else {
-                // exotic file
-                processBytesWith(is -> {
-                    try (OutputStream os = append ? Files.newOutputStream(path, StandardOpenOption.CREATE,
-                            StandardOpenOption.WRITE, StandardOpenOption.APPEND) : Files.newOutputStream(path)) {
+            ExceptionFunction<InputStream, O, IOException> handler = switch (strategy) {
+                case OUT_FILE_WRITE -> is -> {
+                    try (OutputStream os = Files.newOutputStream(path)) {
                         is.transferTo(os);
                     }
                     return null;
-                });
+                };
+                case OUT_FILE_APPEND -> is -> {
+                    try (OutputStream os = Files.newOutputStream(path,
+                            StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND)) {
+                        is.transferTo(os);
+                    }
+                    return null;
+                };
+                default -> throw Assert.impossibleSwitchCase(strategy);
+            };
+            if (path.getFileSystem() == FileSystems.getDefault()) {
+                outputStrategy = strategy;
+                outputFile = path.toFile();
+                outputHandler = handler;
+            } else {
+                // exotic file
+                processBytesWith(handler);
             }
         }
 
         public PipelineBuilder<Void> pipeTo(final Path command) {
             check();
-            pb.redirectOutput(Redirect.PIPE);
-            commitCommand();
-            outputHandler = null;
             locked = true;
-            return new ProcessBuilderImpl<Void>(ProcessBuilderImpl.this, command);
+            outputHandler = null;
+            outputStrategy = extraOutputHandlers.isEmpty() && !outputGatherOnFail ? OUT_PIPELINE : OUT_PIPELINE_SPLIT;
+            return new ProcessBuilderImpl<>((ProcessBuilderImpl<Void>) ProcessBuilderImpl.this, command);
         }
-    }
-
-    private void commitCommand() {
-        if (OS.current() == OS.WINDOWS) {
-            String fileNameString = command.getFileName().toString();
-            if (fileNameString.endsWith(".bat") || fileNameString.endsWith(".cmd")) {
-                // todo: wrap with cmd.exe/etc. with correct argument escaping
-                throw new UnsupportedOperationException("Execution of batch scripts on Windows is not yet supported");
-            }
-        }
-        Stream<String> stream = Stream.concat(Stream.of(command.toString()), arguments.stream());
-        pb.command(stream.toList());
     }
 
     public final class ErrorImpl extends ViewImpl implements Error<O> {
 
         public Error<O> discard() {
+            check();
+            errorStrategy = ERR_DISCARD;
             errorHandler = null;
             return this;
         }
 
         public Error<O> inherited() {
-            consumeWith(br -> {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    System.err.println(line);
-                }
-            });
+            check();
+            errorStrategy = ERR_INHERIT;
+            errorHandler = is -> is.transferTo(System.err);
             return this;
         }
 
         public Error<O> charset(final Charset charset) {
+            check();
             errorCharset = Assert.checkNotNullParam("charset", charset);
             return this;
         }
 
         public Error<O> logOnSuccess(final boolean log) {
+            check();
             errorLogOnSuccess = log;
             return this;
         }
 
         public Error<O> gatherOnFail(final boolean gather) {
+            check();
             errorGatherOnFail = gather;
             return this;
         }
 
-        public Error<O> maxLineLength(final int characters) {
+        public Error<O> maxCaptureLineLength(final int characters) {
+            check();
+            Assert.checkMinimumParameter("characters", 1, characters);
             errorLineLimit = characters;
             return this;
         }
 
         public Error<O> captureHeadLines(final int headLines) {
+            check();
             errorHeadLines = headLines;
             return this;
         }
 
         public Error<O> captureTailLines(final int tailLines) {
+            check();
             errorTailLines = tailLines;
             return this;
         }
 
         public Error<O> transferTo(final Path path) {
-            consumeWith(br -> {
-                try (BufferedWriter bw = Files.newBufferedWriter(path)) {
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        bw.write(line);
-                        bw.write(System.lineSeparator());
-                    }
+            Assert.checkNotNullParam("path", path);
+            consumeBytesWith(is -> {
+                try (OutputStream os = Files.newOutputStream(path)) {
+                    is.transferTo(os);
                 }
             });
             return this;
         }
 
         public Error<O> appendTo(final Path path) {
-            consumeWith(br -> {
-                try (BufferedWriter bw = Files.newBufferedWriter(path, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        bw.write(line);
-                        bw.write(System.lineSeparator());
-                    }
+            Assert.checkNotNullParam("path", path);
+            consumeBytesWith(is -> {
+                try (OutputStream os = Files.newOutputStream(path, StandardOpenOption.WRITE, StandardOpenOption.APPEND,
+                        StandardOpenOption.CREATE)) {
+                    is.transferTo(os);
                 }
             });
             return this;
         }
 
-        public Error<O> consumeWith(final ExceptionConsumer<BufferedReader, IOException> processor) {
-            Assert.checkNotNullParam("processor", processor);
-            errorHandler = processor;
+        public Error<O> consumeBytesWith(final ExceptionConsumer<InputStream, IOException> consumer) {
+            check();
+            Assert.checkNotNullParam("consumer", consumer);
+            errorStrategy = ERR_HANDLER;
+            errorHandler = consumer;
+            return this;
+        }
+
+        public Error<O> copyAndConsumeBytesWith(final ExceptionConsumer<InputStream, IOException> consumer) {
+            check();
+            Assert.checkNotNullParam("consumer", consumer);
+            List<ExceptionConsumer<InputStream, IOException>> handlers = extraErrorHandlers;
+            switch (handlers.size()) {
+                case 0 -> extraErrorHandlers = List.of(consumer);
+                case 1 -> extraErrorHandlers = List.of(extraErrorHandlers.get(0), consumer);
+                case 2 -> {
+                    extraErrorHandlers = new ArrayList<>();
+                    extraErrorHandlers.addAll(handlers);
+                    extraErrorHandlers.add(consumer);
+                }
+                default -> extraErrorHandlers.add(consumer);
+            }
+            return this;
+        }
+
+        public Error<O> consumeWith(final ExceptionConsumer<BufferedReader, IOException> consumer) {
+            Assert.checkNotNullParam("consumer", consumer);
+            consumeBytesWith(is -> IOUtil.consumeToReader(is, consumer, errorCharset));
+            return this;
+        }
+
+        public Error<O> copyAndConsumeWith(final ExceptionConsumer<BufferedReader, IOException> consumer) {
+            Assert.checkNotNullParam("consumer", consumer);
+            copyAndConsumeBytesWith(is -> IOUtil.consumeToReader(is, consumer, errorCharset));
             return this;
         }
 
         public Error<O> redirect() {
-            pb.redirectErrorStream(true);
+            check();
+            errorStrategy = ERR_REDIRECT;
             errorHandler = null;
             return this;
         }

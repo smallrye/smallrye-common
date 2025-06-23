@@ -8,14 +8,12 @@ import java.lang.invoke.ConstantBootstraps;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.locks.LockSupport;
 
-/**
- *
- */
 final class ProcessRunner<O> extends PipelineRunner<O> {
     private static final VarHandle taskCountHandle = ConstantBootstraps.fieldVarHandle(MethodHandles.lookup(), "taskCount",
             VarHandle.class, MethodHandles.lookup().lookupClass(), int.class);
@@ -38,9 +36,7 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
      */
     private final CopyOnWriteArraySet<Thread> waiters = new CopyOnWriteArraySet<>(List.of(Thread.currentThread()));
     private volatile int status;
-    private Thread outputThread;
-    private ProcessHandlerException outputProblem;
-    private O result;
+    O result;
 
     /**
      * Number of tasks still running. Main thread blocks until this reaches zero.
@@ -48,13 +44,8 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
     @SuppressWarnings("unused") // taskCountHandle
     private volatile int taskCount;
 
-    ProcessRunner(final ProcessBuilderImpl<O> processBuilder, final PipelineRunner<?> prev) {
+    ProcessRunner(final ProcessBuilderImpl<O> processBuilder, final PipelineRunner<O> prev) {
         super(processBuilder, prev);
-    }
-
-    void startThreads() {
-        startThread(outputThread);
-        super.startThreads();
     }
 
     void taskComplete() {
@@ -66,10 +57,6 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
                 return true;
             });
         }
-    }
-
-    int createThreads(ThreadFactory tf, final ProcessRunner<?> runner) throws IOException {
-        return super.createThreads(tf, runner) + createOutputThread(tf);
     }
 
     O run() {
@@ -86,7 +73,7 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
         int taskCnt;
         try {
             // start up input, output, error, and wait-for threads
-            taskCnt = createThreads(tf, this);
+            taskCnt = createThreads(tf, this, null);
         } catch (IOException e) {
             throw new PipelineExecutionException("Failed to create process thread(s)", e);
         }
@@ -98,10 +85,15 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
             throw new PipelineExecutionException("Failed to start process thread(s)", t);
         }
         try {
-            java.lang.ProcessBuilder[] array = new java.lang.ProcessBuilder[processBuilder.depth];
-            assembleBuilders(array);
-            List<Process> processes = ProcessBuilder.startPipeline(List.of(array));
-            setProcesses(processes);
+            int depth = processBuilder.depth;
+            final List<Process> processes = new ArrayList<>(depth);
+            final List<ProcessBuilder> processBuilders = Arrays.asList(new ProcessBuilder[depth]);
+            try {
+                startProcesses(depth, processes, processBuilders);
+            } catch (Throwable t) {
+                processes.forEach(ProcessUtil::destroyAllForcibly);
+                throw t;
+            }
             taskCount = taskCnt;
         } catch (Throwable t) {
             status = STATUS_FAILED;
@@ -115,20 +107,25 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
             if (cnt != 0) {
                 waiters.add(Thread.currentThread());
                 do {
+                    log.debugf("Waiting for processes to exit (%d subtasks remaining)", cnt);
                     Thread.interrupted();
                     LockSupport.park(this);
                     cnt = taskCount;
                 } while (cnt != 0);
+                log.debug("All process exit tasks are complete");
             }
-        }, "process-shutdown-\"%s\"-%d".formatted(processBuilder.command, process.pid()));
+        }, "pipeline-shutdown");
         Runtime.getRuntime().addShutdownHook(shutdownHook);
         try {
             int cnt = taskCnt;
-            while (cnt != 0) {
+            if (cnt != 0) {
+                waiters.add(Thread.currentThread());
+            }
+            do {
                 Thread.interrupted();
                 LockSupport.park(this);
                 cnt = taskCount;
-            }
+            } while (cnt != 0);
         } finally {
             Runtime.getRuntime().removeShutdownHook(shutdownHook);
         }
@@ -145,48 +142,11 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
         };
     }
 
-    void collectProblems(final List<ProcessExecutionException> problems) {
-        collectProblems(problems, outputProblem);
-    }
-
-    int createOutputThread(ThreadFactory tf) throws IOException {
-        if (processBuilder.outputHandler != null) {
-            outputThread = tf.newThread(() -> {
-                if (awaitOk()) {
-                    Thread.currentThread().setName("process-output-\"%s\"-%d"
-                            .formatted(processBuilder.command, process.pid()));
-                    try {
-                        result = processBuilder.outputHandler.apply(process);
-                    } catch (ProcessHandlerException phe) {
-                        outputProblem = phe;
-                    } catch (Throwable t) {
-                        outputProblem = new ProcessHandlerException("Output processing failed due to exception", t);
-                    } finally {
-                        ioDone(IO_OUTPUT);
-                        taskComplete();
-                    }
-                }
-            });
-            if (outputThread == null) {
-                throw noThread(tf);
-            }
-            outputThread.setName("process-output-\"%s\"-???".formatted(processBuilder.command));
-            ioRegistered(IO_OUTPUT);
-            return 1;
-        } else {
-            return 0;
-        }
-    }
-
-    void unpark() {
-        LockSupport.unpark(outputThread);
-        super.unpark();
-    }
-
     boolean awaitOk() {
         while (status == STATUS_WAITING) {
-            LockSupport.park(processBuilder);
+            LockSupport.park(this);
         }
+        log.trace("Process thread released");
         return status == STATUS_STARTED;
     }
 }

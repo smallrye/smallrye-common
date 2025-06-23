@@ -1,18 +1,17 @@
 package io.smallrye.common.process;
 
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
  * This class gathers some number of lines from the line queue,
  * saving the first and last {@code n} lines to be collected later.
- * Intended for use with {@link LineProcessor}.
  */
-final class Gatherer implements Consumer<Object> {
+final class Gatherer {
     private final int headLines;
     private final int tailLines;
     private final ArrayList<String> head;
@@ -26,8 +25,9 @@ final class Gatherer implements Consumer<Object> {
         tail = new ArrayDeque<>(tailLines);
     }
 
-    public void accept(final Object obj) {
-        if (obj instanceof String line) {
+    public void run(final LineReader reader) throws IOException {
+        String line;
+        while ((line = reader.readLine()) != null) {
             if (head.size() < headLines) {
                 head.add(line);
             } else if (tailLines > 0) {
@@ -40,7 +40,6 @@ final class Gatherer implements Consumer<Object> {
                 skipped++;
             }
         }
-        // else ignore
     }
 
     public List<String> toList() {

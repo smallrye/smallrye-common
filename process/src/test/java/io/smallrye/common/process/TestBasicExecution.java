@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import io.smallrye.common.process.helpers.Cat;
 import io.smallrye.common.process.helpers.Errorifier;
+import io.smallrye.common.process.helpers.ErrorifierWithOutput;
 
 public class TestBasicExecution {
 
@@ -26,6 +27,20 @@ public class TestBasicExecution {
                 .fromStrings(strings)
                 .output()
                 .toStringList(10, 1024)
+                .run();
+        assertEquals(strings, result);
+    }
+
+    @Test
+    public void testSimpleCatWithTee() throws Exception {
+        List<String> strings = List.of("Hello", "world", "foo", "bar");
+        List<String> result = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .input()
+                .fromStrings(strings)
+                .output()
+                .toStringList(10, 1024)
+                .copyAndConsumeLinesWith(256, System.out::println)
+                .copyAndConsumeLinesWith(256, System.out::println)
                 .run();
         assertEquals(strings, result);
     }
@@ -54,15 +69,34 @@ public class TestBasicExecution {
         ArrayDeque<String> q = new ArrayDeque<>();
         ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "0"))
                 .error()
-                .consumeWith(br -> {
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        q.add(line);
-                    }
-                })
+                .consumeLinesWith(256, q::add)
                 .run();
         assertEquals("Some error text", q.removeFirst());
         assertTrue(q.isEmpty());
+    }
+
+    @Test
+    public void testGatherErrorAndOutput() throws Exception {
+        ArrayDeque<String> oq = new ArrayDeque<>();
+        ArrayDeque<String> eq = new ArrayDeque<>();
+        try {
+            ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(ErrorifierWithOutput.class, "1"))
+                    .output()
+                    .gatherOnFail(true)
+                    .consumeLinesWith(256, oq::add)
+                    .error()
+                    .consumeLinesWith(256, eq::add)
+                    .run();
+            fail("Expected exception");
+        } catch (ProcessExecutionException ex) {
+            String es = ex.toString();
+            assertTrue(es.contains("Some output text"));
+            assertTrue(es.contains("Some error text"));
+        }
+        assertEquals("Some output text", oq.removeFirst());
+        assertTrue(oq.isEmpty());
+        assertEquals("Some error text", eq.removeFirst());
+        assertTrue(eq.isEmpty());
     }
 
     @Test
@@ -124,6 +158,30 @@ public class TestBasicExecution {
                 .toSingleString(1024)
                 .run();
         assertEquals("Hello world!", output);
+    }
+
+    @Test
+    public void testSplitPipeline() throws Exception {
+        ArrayDeque<String> q = new ArrayDeque<>();
+        String output = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+                .arguments(findHelper(Cat.class))
+                .input()
+                .fromString("Hello world!")
+                .output()
+                .pipeTo(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .output()
+                .pipeTo(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .output()
+                .copyAndConsumeLinesWith(1024, q::add)
+                .pipeTo(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .output()
+                .pipeTo(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .output()
+                .toSingleString(1024)
+                .run();
+        assertEquals("Hello world!", output);
+        assertEquals("Hello world!", q.removeFirst());
+        assertTrue(q.isEmpty());
     }
 
     /**
