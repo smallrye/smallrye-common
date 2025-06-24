@@ -59,6 +59,7 @@ class PipelineRunner<O> {
     private Thread waitForThread;
     private ProcessHandlerException exitCheckerProblem;
     private AbnormalExitException abnormalExit;
+    Thread asyncThread;
     Process process;
     private Gatherer errorGatherer;
     private Gatherer outputGatherer;
@@ -498,6 +499,7 @@ class PipelineRunner<O> {
         errorExtraThreads.forEach(Thread::start);
         startThread(whileRunningThread);
         startThread(waitForThread);
+        startThread(asyncThread);
         if (prev != null) {
             prev.startThreads();
         }
@@ -542,6 +544,7 @@ class PipelineRunner<O> {
         errorExtraThreads.forEach(LockSupport::unpark);
         LockSupport.unpark(whileRunningThread);
         LockSupport.unpark(waitForThread);
+        LockSupport.unpark(asyncThread);
         if (prev != null) {
             prev.unpark();
         }
