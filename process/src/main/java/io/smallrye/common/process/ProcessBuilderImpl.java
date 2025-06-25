@@ -97,6 +97,9 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         depth = prev.depth + 1;
         softExitTimeout = prev.softExitTimeout;
         hardExitTimeout = prev.hardExitTimeout;
+        pb.environment().clear();
+        pb.environment().putAll(prev.pb.environment());
+        directory = prev.directory;
         inputStrategy = prev.outputStrategy == OUT_PIPELINE_SPLIT ? IN_PIPELINE_SPLIT : IN_PIPELINE;
     }
 
