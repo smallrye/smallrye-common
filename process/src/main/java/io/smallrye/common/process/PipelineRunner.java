@@ -598,6 +598,7 @@ class PipelineRunner<O> {
             throws IOException {
         pb = processBuilder.pb;
         pb.command(Stream.concat(Stream.of(processBuilder.command.toString()), processBuilder.arguments.stream()).toList());
+        pb.directory(processBuilder.directory);
         int cnt = createInputThread(tf, runner)
                 + createErrorThreads(tf, runner)
                 + createOutputThreads(tf, runner, nextRunner)
