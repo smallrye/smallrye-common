@@ -9,6 +9,8 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,19 @@ public class TestBasicExecution {
                 .output()
                 .toStringList(10, 1024)
                 .run();
+        assertEquals(strings, result);
+    }
+
+    @Test
+    public void testSimpleCatAsync() throws Exception {
+        List<String> strings = List.of("Hello", "world", "foo", "bar");
+        CompletableFuture<List<String>> future = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .input()
+                .fromStrings(strings)
+                .output()
+                .toStringList(10, 1024)
+                .runAsync();
+        List<String> result = future.get();
         assertEquals(strings, result);
     }
 
@@ -104,6 +119,23 @@ public class TestBasicExecution {
         try {
             ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "7"))
                     .run();
+            fail("Expected specific exception");
+        } catch (AbnormalExitException e) {
+            assertEquals(7, e.exitCode());
+        }
+    }
+
+    @Test
+    public void testFailureAsync() throws Throwable {
+        CompletableFuture<Void> cf = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "7"))
+                .runAsync();
+        try {
+            try {
+                cf.get();
+                fail("Expected specific exception");
+            } catch (ExecutionException e) {
+                throw e.getCause();
+            }
             fail("Expected specific exception");
         } catch (AbnormalExitException e) {
             assertEquals(7, e.exitCode());

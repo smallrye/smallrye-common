@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 
@@ -189,6 +190,12 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         return makeRunner().run();
     }
 
+    public CompletableFuture<O> runAsync() {
+        check();
+        locked = true;
+        return makeRunner().runAsync();
+    }
+
     private ProcessRunner<O> makeRunner() {
         return new ProcessRunner<O>(this, prev == null ? null : prev.makePipelineRunner());
     }
@@ -240,6 +247,10 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
         public O run() throws AbnormalExitException {
             return ProcessBuilderImpl.this.run();
+        }
+
+        public CompletableFuture<O> runAsync() {
+            return ProcessBuilderImpl.this.runAsync();
         }
 
         public ProcessBuilder<O> exitCodeChecker(final IntPredicate checker) {

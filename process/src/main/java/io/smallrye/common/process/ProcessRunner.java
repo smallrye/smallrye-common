@@ -10,6 +10,7 @@ import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.locks.LockSupport;
@@ -59,17 +60,42 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
         }
     }
 
-    O run() {
-        ThreadFactory tf;
-        // todo: if (Thread.currentThread().isVirtual()) { ... }
-        tf = task -> new Thread(() -> {
-            log.trace("Starting process thread");
-            try {
-                task.run();
-            } finally {
-                log.trace("Ending process thread");
+    CompletableFuture<O> runAsync() {
+        CompletableFuture<O> cf = new CompletableFuture<>();
+        ThreadFactory tf = threadFactory();
+        asyncThread = tf.newThread(() -> {
+            if (awaitOk()) {
+                Thread shutdownHook = registerHook();
+                await();
+                try {
+                    cf.complete(complete());
+                } catch (Throwable t) {
+                    cf.completeExceptionally(t);
+                } finally {
+                    Runtime.getRuntime().removeShutdownHook(shutdownHook);
+                }
             }
         });
+        if (asyncThread == null) {
+            throw new PipelineExecutionException("Failed to start process thread(s)", noThread(tf));
+        }
+        asyncThread.setName("process-async-handler");
+        initialize(tf);
+        return cf;
+    }
+
+    O run() {
+        initialize(threadFactory());
+        Thread shutdownHook = registerHook();
+        try {
+            await();
+        } finally {
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        }
+        return complete();
+    }
+
+    private void initialize(final ThreadFactory tf) {
         int taskCnt;
         try {
             // start up input, output, error, and wait-for threads
@@ -102,8 +128,23 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
         }
         status = STATUS_STARTED;
         unpark();
+    }
+
+    private void await() {
+        int cnt = taskCount;
+        if (cnt != 0) {
+            waiters.add(Thread.currentThread());
+        }
+        do {
+            Thread.interrupted();
+            LockSupport.park(this);
+            cnt = taskCount;
+        } while (cnt != 0);
+    }
+
+    private Thread registerHook() {
         Thread shutdownHook = new Thread(() -> {
-            int cnt = taskCnt;
+            int cnt = taskCount;
             if (cnt != 0) {
                 waiters.add(Thread.currentThread());
                 do {
@@ -116,19 +157,10 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
             }
         }, "pipeline-shutdown");
         Runtime.getRuntime().addShutdownHook(shutdownHook);
-        try {
-            int cnt = taskCnt;
-            if (cnt != 0) {
-                waiters.add(Thread.currentThread());
-            }
-            do {
-                Thread.interrupted();
-                LockSupport.park(this);
-                cnt = taskCount;
-            } while (cnt != 0);
-        } finally {
-            Runtime.getRuntime().removeShutdownHook(shutdownHook);
-        }
+        return shutdownHook;
+    }
+
+    private O complete() {
         List<ProcessExecutionException> problems = new ArrayList<>(4);
         collectProblems(problems);
         return switch (problems.size()) {
@@ -140,6 +172,18 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
                 throw ex;
             }
         };
+    }
+
+    private static ThreadFactory threadFactory() {
+        // todo: if (Thread.currentThread().isVirtual()) { ... }
+        return task -> new Thread(() -> {
+            log.trace("Starting process thread");
+            try {
+                task.run();
+            } finally {
+                log.trace("Ending process thread");
+            }
+        });
     }
 
     boolean awaitOk() {
