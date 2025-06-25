@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -16,6 +17,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 import io.smallrye.common.process.helpers.Cat;
+import io.smallrye.common.process.helpers.Cwd;
 import io.smallrye.common.process.helpers.Errorifier;
 import io.smallrye.common.process.helpers.ErrorifierWithOutput;
 
@@ -214,6 +216,31 @@ public class TestBasicExecution {
         assertEquals("Hello world!", output);
         assertEquals("Hello world!", q.removeFirst());
         assertTrue(q.isEmpty());
+    }
+
+    @Test
+    public void testWorkingDirectory() throws Exception {
+        assertEquals("test-a", ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+                .arguments(findHelper(Cwd.class))
+                .directory(findResource("test-a/empty.txt").getParent())
+                .output().toSingleString(1000)
+                .run());
+        assertEquals("test-b", ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+                .arguments(findHelper(Cwd.class))
+                .directory(findResource("test-b/empty.txt").getParent())
+                .output().toSingleString(1000)
+                .run());
+    }
+
+    static Path findResource(String name) throws URISyntaxException {
+        URL url = TestBasicExecution.class.getClassLoader().getResource(name);
+        if (url == null) {
+            throw new IllegalStateException("Unexpected missing file for " + name);
+        }
+        if (!url.getProtocol().equals("file")) {
+            throw new IllegalStateException("Unexpected wrong protocol for " + url);
+        }
+        return Path.of(url.toURI());
     }
 
     /**
