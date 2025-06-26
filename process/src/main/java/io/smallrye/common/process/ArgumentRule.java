@@ -1,6 +1,7 @@
 package io.smallrye.common.process;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -19,21 +20,23 @@ enum ArgumentRule {
     },
     BATCH {
         void checkArguments(final List<String> arguments) throws IllegalArgumentException {
-            // for now: accept any "safe" string, excluding empty strings
             for (String argument : arguments) {
                 int len = argument.length();
+                if (len == 0) {
+                    throw invalidCharacter(argument, 0);
+                }
+                boolean qs = argument.startsWith("\"");
+                boolean qe = argument.endsWith("\"");
+                if (qs && !qe) {
+                    throw invalidCharacter(argument, 0);
+                } else if (qe && !qs) {
+                    throw invalidCharacter(argument, argument.length() - 1);
+                }
                 int cp;
                 for (int i = 0; i < len; i += Character.charCount(cp)) {
                     cp = argument.codePointAt(i);
-                    switch (cp) {
-                        case '&', '<', '>', '[', ']', '{', '}', '^',
-                                '=', ';', '!', '\'', '+', ',', '`', '~' ->
-                            throw invalidCharacter(argument, i);
-                        default -> {
-                            if (Character.isWhitespace(cp) || Character.isISOControl(cp)) {
-                                throw invalidCharacter(argument, i);
-                            }
-                        }
+                    if (Character.isISOControl(cp) || cp == '%') {
+                        throw invalidCharacter(argument, i);
                     }
                 }
             }
@@ -41,7 +44,44 @@ enum ArgumentRule {
 
         List<String> formatArguments(final Path command, final List<String> arguments) throws IllegalArgumentException {
             // in the future, this will be replaced with a variation which has extra quoting capabilities
-            return Stream.concat(Stream.of(command.toString()), arguments.stream()).toList();
+            ArrayList<String> list = new ArrayList<>(arguments.size() + 5);
+            StringBuilder sb = new StringBuilder();
+            list.add(quote(command.toString(), sb));
+            for (final String argument : arguments) {
+                list.add(quote(argument, sb));
+            }
+            return list;
+        }
+
+        private String quote(String str, StringBuilder sb) {
+            if (str.startsWith("\"") && str.endsWith("\"")) {
+                str = str.substring(1, str.length() - 1);
+            }
+            boolean quoting = false;
+            int start = sb.length();
+            int cp;
+            for (int i = 0; i < str.length(); i += Character.charCount(cp)) {
+                cp = str.codePointAt(i);
+                switch (cp) {
+                    case '&', '<', '>', '[', ']', '{', '}', '^', '"',
+                            '=', ';', '!', '\'', '+', ',', '`', '~' -> {
+                        sb.append('^').appendCodePoint(cp);
+                        if (!quoting) {
+                            quoting = true;
+                            sb.insert(start, '"');
+                        }
+                    }
+                    default -> sb.appendCodePoint(cp);
+                }
+            }
+            if (quoting) {
+                sb.append('"');
+            }
+            try {
+                return sb.toString();
+            } finally {
+                sb.setLength(0);
+            }
         }
     },
     POWERSHELL {

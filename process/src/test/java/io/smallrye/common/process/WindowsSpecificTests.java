@@ -31,6 +31,24 @@ public class WindowsSpecificTests {
                 .output().toStringList(16, 1024)
                 .run();
         assertEquals(List.of("hello", "world"), output);
+
+        output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+                .arguments("with spaces", "with ^ caret")
+                .output().toStringList(16, 1024)
+                .run();
+        assertEquals(List.of("with spaces", "with ^ caret"), output);
+
+        output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+                .arguments("\"withQuotes\"", "\"quotes and spaces\"")
+                .output().toStringList(16, 1024)
+                .run();
+        assertEquals(List.of("withQuotes", "quotes and spaces"), output);
+
+        output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+                .arguments("\"with \"interior\" quotes\"", "it works!")
+                .output().toStringList(16, 1024)
+                .run();
+        assertEquals(List.of("with \"interior\" quotes", "it works!"), output);
     }
 
     @Test
@@ -38,7 +56,15 @@ public class WindowsSpecificTests {
         assumeTrue(OS.current() == OS.WINDOWS);
         assertThrows(IllegalArgumentException.class, () -> {
             ProcessBuilder.newBuilder(Path.of("ignored.cmd"))
-                    .arguments("\"&\"", "^^");
+                    .arguments("\0");
+        });
+        assertThrows(IllegalArgumentException.class, () -> {
+            ProcessBuilder.newBuilder(Path.of("ignored.cmd"))
+                    .arguments("\"quoted at start\" but not at end");
+        });
+        assertThrows(IllegalArgumentException.class, () -> {
+            ProcessBuilder.newBuilder(Path.of("ignored.cmd"))
+                    .arguments("not at start \"but quoted at end\"");
         });
     }
 

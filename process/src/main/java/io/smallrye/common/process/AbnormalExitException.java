@@ -154,10 +154,12 @@ public class AbnormalExitException extends ProcessExecutionException {
 
     public StringBuilder toString(StringBuilder b) {
         super.toString(b);
-        b.append(" with exit code ").append(exitCode);
-        if (OS.current() != OS.WINDOWS && exitCode > 128 && exitCode <= 192) {
-            // todo: add signal names and descriptions to OS module?
-            b.append(" (possibly due to signal ").append(exitCode - 128).append(')');
+        if (exitCode != -1) {
+            b.append(" with exit code ").append(exitCode);
+            if (OS.current() != OS.WINDOWS && exitCode > 128 && exitCode <= 192) {
+                // todo: add signal names and descriptions to OS module?
+                b.append(" (possibly due to signal ").append(exitCode - 128).append(')');
+            }
         }
         if (softTimeoutElapsed) {
             if (hardTimeoutElapsed) {
