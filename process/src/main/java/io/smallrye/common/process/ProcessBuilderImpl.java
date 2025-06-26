@@ -17,6 +17,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -54,6 +55,7 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     final ProcessBuilderImpl<O> prev;
     final int depth;
     final Path command;
+    final ArgumentRule argumentRule;
     File directory;
     private volatile boolean locked;
     List<String> arguments = List.of();
@@ -92,8 +94,8 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
     private ProcessBuilderImpl(ProcessBuilderImpl<O> prev, Path command) {
         // constructed for pipeline execution
-        checkCommand(command);
         this.command = command;
+        this.argumentRule = computeRule(command);
         this.prev = prev;
         depth = prev.depth + 1;
         softExitTimeout = prev.softExitTimeout;
@@ -105,14 +107,15 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     }
 
     ProcessBuilderImpl(Path command) {
-        checkCommand(command);
         this.command = command;
+        this.argumentRule = computeRule(command);
         prev = null;
         depth = 1;
     }
 
     public ProcessBuilder<O> arguments(final List<String> arguments) {
         check();
+        argumentRule.checkArguments(arguments);
         this.arguments = List.copyOf(arguments);
         return this;
     }
@@ -210,14 +213,20 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         }
     }
 
-    private static void checkCommand(Path command) {
-        if (OS.current() == OS.WINDOWS) {
-            String fileNameString = command.getFileName().toString();
-            if (fileNameString.endsWith(".bat") || fileNameString.endsWith(".cmd")) {
-                // todo: wrap with cmd.exe/etc. with correct argument escaping
-                throw new UnsupportedOperationException("Execution of batch scripts on Windows is not yet supported");
+    private static ArgumentRule computeRule(final Path command) {
+        return switch (OS.current()) {
+            case WINDOWS -> {
+                String cmdFileName = command.getFileName().toString().toLowerCase(Locale.ROOT);
+                if (cmdFileName.endsWith(".bat") || cmdFileName.endsWith(".cmd")) {
+                    yield ArgumentRule.BATCH;
+                } else if (cmdFileName.endsWith(".ps1")) {
+                    yield ArgumentRule.POWERSHELL;
+                } else {
+                    yield ArgumentRule.DEFAULT;
+                }
             }
-        }
+            default -> ArgumentRule.DEFAULT;
+        };
     }
 
     public abstract sealed class ViewImpl implements ProcessBuilder<O> {
