@@ -65,21 +65,16 @@ public abstract class AbstractExecutionException extends RuntimeException {
      * @param sb the string builder (must not be {@code null})
      * @return the same string builder (not {@code null})
      */
-    public StringBuilder toString(StringBuilder sb) {
-        String className = getClass().getName();
-        sb.append(className);
-        String message = getLocalizedMessage();
+    public StringBuilder getMessage(StringBuilder sb) {
+        String message = super.getMessage();
         if (message != null) {
-            sb.append(':').append(' ');
             sb.append(message);
         }
         return sb;
     }
 
-    /**
-     * {@return a short description of this exception}
-     */
-    public final String toString() {
-        return toString(new StringBuilder()).toString();
+    @Override
+    public String getMessage() {
+        return getMessage(new StringBuilder()).toString();
     }
 }
