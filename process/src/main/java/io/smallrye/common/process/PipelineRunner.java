@@ -33,7 +33,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 import io.smallrye.common.function.ExceptionConsumer;
 import io.smallrye.common.function.ExceptionFunction;
@@ -597,7 +596,7 @@ class PipelineRunner<O> {
     int createThreads(final ThreadFactory tf, final ProcessRunner<O> runner, final PipelineRunner<O> nextRunner)
             throws IOException {
         pb = processBuilder.pb;
-        pb.command(Stream.concat(Stream.of(processBuilder.command.toString()), processBuilder.arguments.stream()).toList());
+        pb.command(processBuilder.argumentRule.formatArguments(processBuilder.command, processBuilder.arguments));
         pb.directory(processBuilder.directory);
         int cnt = createInputThread(tf, runner)
                 + createErrorThreads(tf, runner)
