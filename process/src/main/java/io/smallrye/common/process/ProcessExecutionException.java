@@ -135,8 +135,8 @@ public class ProcessExecutionException extends AbstractExecutionException {
         this.showCommand = showCommand;
     }
 
-    public StringBuilder toString(final StringBuilder sb) {
-        super.toString(sb);
+    public StringBuilder getMessage(final StringBuilder sb) {
+        super.getMessage(sb);
         if (showCommand && command != null) {
             sb.append(" for command \"").append(command).append('"');
             if (!arguments.isEmpty()) {

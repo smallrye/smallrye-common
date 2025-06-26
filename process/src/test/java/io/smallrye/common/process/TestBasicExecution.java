@@ -232,6 +232,23 @@ public class TestBasicExecution {
                 .run());
     }
 
+    @Test
+    public void testFormatInfiniteLoop() {
+        // just make sure it doesn't infinitely loop
+        AbnormalExitException aee = new AbnormalExitException("Something went generically wrong");
+        aee.setExitCode(123);
+        aee.setArguments(List.of("foo", "bar"));
+        aee.setCommand(Path.of("./command"));
+        aee.setOutput(List.of("Some", "output"));
+        aee.setErrorOutput(List.of("Some", "error"));
+        aee.setPid(123456L);
+        aee.setShowCommand(true);
+        aee.setSoftTimeoutElapsed(true);
+        aee.setHardTimeoutElapsed(true);
+        //noinspection CallToPrintStackTrace
+        aee.printStackTrace();
+    }
+
     static Path findResource(String name) throws URISyntaxException {
         URL url = TestBasicExecution.class.getClassLoader().getResource(name);
         if (url == null) {

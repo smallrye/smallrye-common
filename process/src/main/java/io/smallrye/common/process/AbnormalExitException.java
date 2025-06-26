@@ -152,8 +152,8 @@ public class AbnormalExitException extends ProcessExecutionException {
         this.output = List.copyOf(output);
     }
 
-    public StringBuilder toString(StringBuilder b) {
-        super.toString(b);
+    public StringBuilder getMessage(StringBuilder b) {
+        super.getMessage(b);
         if (exitCode != -1) {
             b.append(" with exit code ").append(exitCode);
             if (OS.current() != OS.WINDOWS && exitCode > 128 && exitCode <= 192) {
