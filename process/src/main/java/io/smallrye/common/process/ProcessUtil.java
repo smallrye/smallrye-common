@@ -5,11 +5,12 @@ import java.nio.charset.Charset;
 import java.nio.charset.UnsupportedCharsetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import io.smallrye.common.constraint.Assert;
 import io.smallrye.common.os.OS;
@@ -88,27 +89,29 @@ public final class ProcessUtil {
         if (path.isAbsolute()) {
             return Files.isExecutable(path) ? Optional.of(path) : Optional.empty();
         }
-        String pathEnv = System.getenv("PATH");
-        for (String segment : pathEnv.split(Pattern.quote(File.pathSeparator))) {
-            if (!segment.isEmpty()) {
-                Path execPath = Path.of(segment).resolve(path);
-                if (Files.isExecutable(execPath)) {
-                    return Optional.of(execPath);
-                }
+        for (Path segment : searchPath()) {
+            Path execPath = segment.resolve(path);
+            if (Files.isExecutable(execPath)) {
+                return Optional.of(execPath);
             }
-        }
-        if (OS.current() == OS.WINDOWS) {
-            pathEnv = System.getenv("PATHEXT");
-            for (String segment : pathEnv.split(Pattern.quote(File.pathSeparator))) {
-                if (!segment.isEmpty()) {
-                    Path execPath = Path.of(segment).resolve(path);
-                    if (Files.isExecutable(execPath)) {
-                        return Optional.of(execPath);
+            if (OS.current() == OS.WINDOWS) {
+                for (String ext : Windows.pathExt) {
+                    Path execPathExt = execPath.getParent().resolve(execPath.getFileName() + ext);
+                    if (Files.isExecutable(execPathExt)) {
+                        return Optional.of(execPathExt);
                     }
                 }
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * {@return the system search path (i.e. the {@code PATH} environment variable) as a list of {@link Path} (not
+     * {@code null})}
+     */
+    public static List<Path> searchPath() {
+        return PathEnv.path;
     }
 
     /**
@@ -118,7 +121,14 @@ public final class ProcessUtil {
      * is returned.
      */
     public static Path pathOfJava() {
-        return JavaPath.path;
+        return JavaPath.javaPath;
+    }
+
+    /**
+     * {@return the path corresponding to {@code java.home} or the {@code JAVA_HOME} environment variable, if any}
+     */
+    public static Optional<Path> javaHome() {
+        return JavaPath.javaHome;
     }
 
     /**
@@ -187,37 +197,56 @@ public final class ProcessUtil {
         }
     }
 
+    private static final class PathEnv {
+        private static final List<Path> path = Stream.of(System.getenv().getOrDefault("PATH", "").split(File.pathSeparator))
+                .filter(s -> !s.isEmpty())
+                .map(Path::of)
+                .toList();
+    }
+
+    private static final class Windows {
+        private static final List<String> pathExt = Stream
+                .of(System.getenv().getOrDefault("PATHEXT", "").split(File.pathSeparator))
+                .filter(s -> !s.isEmpty())
+                .toList();
+    }
+
     private static final class JavaPath {
         private JavaPath() {
         }
 
         private static final String javaName;
-        private static final Path path;
+        private static final Optional<Path> javaHome;
+        private static final Path javaPath;
 
         static {
-            javaName = OS.current() == OS.WINDOWS ? "java.exe" : "java";
-            Path javaPath = null;
-            Optional<String> javaCommand = ProcessHandle.current().info().command();
-            if (javaCommand.isPresent()) {
-                javaPath = Path.of(javaCommand.get());
+            String javaHomeStr = System.getProperty("java.home");
+            if (javaHomeStr == null) {
+                javaHomeStr = System.getenv("JAVA_HOME");
             }
-            if (javaPath == null) {
-                String javaHome = System.getProperty("java.home");
-                if (javaHome == null) {
-                    javaHome = System.getenv("JAVA_HOME");
-                }
-                if (javaHome != null) {
-                    javaPath = Path.of(javaHome, "bin", javaName);
-                    if (!Files.isExecutable(javaPath)) {
-                        javaPath = null;
+            javaHome = javaHomeStr == null ? Optional.empty() : Optional.of(Path.of(javaHomeStr));
+            javaName = OS.current() == OS.WINDOWS ? "java.exe" : "java";
+            Path javaTestPath = ProcessHandle.current().info().command().map(Path::of).orElse(null);
+            if ((javaTestPath == null || !Files.isExecutable(javaTestPath)) && javaHomeStr != null) {
+                javaTestPath = Path.of(javaHomeStr, "bin", javaName);
+                if (!Files.isExecutable(javaTestPath)) {
+                    javaTestPath = null;
+                    if (OS.current() == OS.WINDOWS) {
+                        for (String ext : Windows.pathExt) {
+                            Path execPathExt = Path.of(javaHomeStr, "bin", "java" + ext);
+                            if (Files.isExecutable(execPathExt)) {
+                                javaTestPath = execPathExt;
+                                break;
+                            }
+                        }
                     }
                 }
             }
             Path javaRelativePath = Path.of(javaName);
-            if (javaPath == null) {
-                javaPath = pathOfCommand(javaRelativePath).orElse(javaRelativePath);
+            if (javaTestPath == null) {
+                javaTestPath = pathOfCommand(javaRelativePath).orElse(javaRelativePath);
             }
-            path = javaPath;
+            javaPath = javaTestPath;
         }
     }
 }
