@@ -575,10 +575,7 @@ class PipelineRunner<O> {
             if (exitCheckerProblem != null) {
                 causes.add(exitCheckerProblem);
             }
-            switch (causes.size()) {
-                case 1 -> pe.initCause(causes.get(0));
-                default -> causes.forEach(pe::addSuppressed);
-            }
+            causes.forEach(pe::addSuppressed);
             problems.add(pe);
         }
     }
