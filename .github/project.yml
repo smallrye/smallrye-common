@@ -1,5 +1,5 @@
 name: SmallRye Common
 # for this project, always set next-version to the next *minor* unless it's on a stable branch!
 release:
-  current-version: 2.13.3
+  current-version: 2.13.4
   next-version: 2.14.0-SNAPSHOT
