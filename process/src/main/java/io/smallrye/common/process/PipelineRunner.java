@@ -444,7 +444,7 @@ class PipelineRunner<O> {
                         }
                     }
                     // now, check the exit code
-                    List<String> errorLines = errorGatherer.toList();
+                    List<String> errorLines = processBuilder.errorGatherOnFail ? errorGatherer.toList() : List.of();
                     boolean result;
                     try {
                         result = processBuilder.exitCodeChecker.test(exitCode);
@@ -555,6 +555,10 @@ class PipelineRunner<O> {
             prev.collectProblems(problems);
         }
         ProcessExecutionException pe = abnormalExit;
+        if (pe != null) {
+            // set a legible stack trace
+            pe.setStackTrace(new Throwable().getStackTrace());
+        }
         if (pe == null && (inputProblem != null
                 || !outputProblems.isEmpty()
                 || !errorProblems.isEmpty()
@@ -575,10 +579,7 @@ class PipelineRunner<O> {
             if (exitCheckerProblem != null) {
                 causes.add(exitCheckerProblem);
             }
-            switch (causes.size()) {
-                case 1 -> pe.initCause(causes.get(0));
-                default -> causes.forEach(pe::addSuppressed);
-            }
+            causes.forEach(pe::addSuppressed);
             problems.add(pe);
         }
     }

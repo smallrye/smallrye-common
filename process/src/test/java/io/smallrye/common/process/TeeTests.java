@@ -42,11 +42,37 @@ public class TeeTests {
         }
     }
 
+    @Test
+    public void testTeeStreaming() {
+        ByteArrayInputStream is = new ByteArrayInputStream(testString.getBytes(StandardCharsets.UTF_8));
+        Tee tee = new Tee(4);
+
+        try (var ignored = AutoThread.start(doItStream(tee.outputs().get(0)))) {
+            try (var ignored1 = AutoThread.start(doItStream(tee.outputs().get(1)))) {
+                try (var ignored2 = AutoThread.start(doItStream(tee.outputs().get(2)))) {
+                    try (var ignored3 = AutoThread.start(doItStream(tee.outputs().get(3)))) {
+                        tee.run(is);
+                    }
+                }
+            }
+        }
+    }
+
     private Runnable doIt(Tee.TeeInputStream tis) {
         return () -> {
             try (BufferedReader br = new BufferedReader(new InputStreamReader(new BumpyInputStream(tis)), 97)) {
                 assertEquals(testString, br.readLine());
                 assertNull(br.readLine());
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
+    }
+
+    private Runnable doItStream(Tee.TeeInputStream tis) {
+        return () -> {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(new BumpyInputStream(tis)), 97)) {
+                assertEquals(1, br.lines().filter(testString::equals).count());
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }

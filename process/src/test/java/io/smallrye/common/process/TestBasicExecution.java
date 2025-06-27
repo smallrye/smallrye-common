@@ -245,8 +245,7 @@ public class TestBasicExecution {
         aee.setShowCommand(true);
         aee.setSoftTimeoutElapsed(true);
         aee.setHardTimeoutElapsed(true);
-        //noinspection CallToPrintStackTrace
-        aee.printStackTrace();
+        System.out.println(aee.getMessage());
     }
 
     static Path findResource(String name) throws URISyntaxException {
