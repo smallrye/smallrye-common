@@ -444,7 +444,7 @@ class PipelineRunner<O> {
                         }
                     }
                     // now, check the exit code
-                    List<String> errorLines = errorGatherer.toList();
+                    List<String> errorLines = processBuilder.errorGatherOnFail ? errorGatherer.toList() : List.of();
                     boolean result;
                     try {
                         result = processBuilder.exitCodeChecker.test(exitCode);
