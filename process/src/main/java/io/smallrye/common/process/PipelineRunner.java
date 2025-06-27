@@ -555,6 +555,10 @@ class PipelineRunner<O> {
             prev.collectProblems(problems);
         }
         ProcessExecutionException pe = abnormalExit;
+        if (pe != null) {
+            // set a legible stack trace
+            pe.setStackTrace(new Throwable().getStackTrace());
+        }
         if (pe == null && (inputProblem != null
                 || !outputProblems.isEmpty()
                 || !errorProblems.isEmpty()
