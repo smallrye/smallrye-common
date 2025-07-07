@@ -26,7 +26,7 @@ public class TestBasicExecution {
     @Test
     public void testSimpleCat() throws Exception {
         List<String> strings = List.of("Hello", "world", "foo", "bar");
-        List<String> result = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+        List<String> result = Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
                 .input()
                 .fromStrings(strings)
                 .output()
@@ -38,7 +38,7 @@ public class TestBasicExecution {
     @Test
     public void testSimpleCatAsync() throws Exception {
         List<String> strings = List.of("Hello", "world", "foo", "bar");
-        CompletableFuture<List<String>> future = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+        CompletableFuture<List<String>> future = Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
                 .input()
                 .fromStrings(strings)
                 .output()
@@ -51,7 +51,7 @@ public class TestBasicExecution {
     @Test
     public void testSimpleCatWithTee() throws Exception {
         List<String> strings = List.of("Hello", "world", "foo", "bar");
-        List<String> result = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+        List<String> result = Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
                 .input()
                 .fromStrings(strings)
                 .output()
@@ -67,7 +67,7 @@ public class TestBasicExecution {
         var holder = new Object() {
             volatile boolean done;
         };
-        ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+        Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
                 .whileRunning(ph -> {
                     try {
                         Thread.sleep(500L);
@@ -84,7 +84,7 @@ public class TestBasicExecution {
     @Test
     public void testCaptureError() throws Exception {
         ArrayDeque<String> q = new ArrayDeque<>();
-        ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "0"))
+        Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "0"))
                 .error()
                 .consumeLinesWith(256, q::add)
                 .run();
@@ -97,7 +97,7 @@ public class TestBasicExecution {
         ArrayDeque<String> oq = new ArrayDeque<>();
         ArrayDeque<String> eq = new ArrayDeque<>();
         try {
-            ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(ErrorifierWithOutput.class, "1"))
+            Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(ErrorifierWithOutput.class, "1"))
                     .output()
                     .gatherOnFail(true)
                     .consumeLinesWith(256, oq::add)
@@ -119,7 +119,7 @@ public class TestBasicExecution {
     @Test
     public void testFailure() throws Exception {
         try {
-            ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "7"))
+            Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "7"))
                     .run();
             fail("Expected specific exception");
         } catch (AbnormalExitException e) {
@@ -129,7 +129,7 @@ public class TestBasicExecution {
 
     @Test
     public void testFailureAsync() throws Throwable {
-        CompletableFuture<Void> cf = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "7"))
+        CompletableFuture<Void> cf = Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "7"))
                 .runAsync();
         try {
             try {
@@ -147,7 +147,7 @@ public class TestBasicExecution {
     @Test
     public void testFailingPipeline() throws Exception {
         try {
-            ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "1"))
+            Exec.newBuilder(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "1"))
                     .output()
                     .pipeTo(ProcessUtil.pathOfJava(), findHelper(Errorifier.class, "2"))
                     .output()
@@ -168,7 +168,7 @@ public class TestBasicExecution {
 
     @Test
     public void testLongPipeline() throws Exception {
-        String output = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+        String output = Exec.newBuilder(ProcessUtil.pathOfJava())
                 .arguments(findHelper(Cat.class))
                 .input()
                 .fromString("Hello world!")
@@ -197,7 +197,7 @@ public class TestBasicExecution {
     @Test
     public void testSplitPipeline() throws Exception {
         ArrayDeque<String> q = new ArrayDeque<>();
-        String output = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+        String output = Exec.newBuilder(ProcessUtil.pathOfJava())
                 .arguments(findHelper(Cat.class))
                 .input()
                 .fromString("Hello world!")
@@ -220,12 +220,12 @@ public class TestBasicExecution {
 
     @Test
     public void testWorkingDirectory() throws Exception {
-        assertEquals("test-a", ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+        assertEquals("test-a", Exec.newBuilder(ProcessUtil.pathOfJava())
                 .arguments(findHelper(Cwd.class))
                 .directory(findResource("test-a/empty.txt").getParent())
                 .output().toSingleString(1000)
                 .run());
-        assertEquals("test-b", ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+        assertEquals("test-b", Exec.newBuilder(ProcessUtil.pathOfJava())
                 .arguments(findHelper(Cwd.class))
                 .directory(findResource("test-b/empty.txt").getParent())
                 .output().toSingleString(1000)

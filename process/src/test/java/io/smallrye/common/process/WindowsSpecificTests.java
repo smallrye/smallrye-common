@@ -17,7 +17,7 @@ public class WindowsSpecificTests {
     @Test
     public void testBatchExecution() throws Exception {
         assumeTrue(OS.current() == OS.WINDOWS);
-        List<String> output = ProcessBuilder.newBuilder(findScript("batch/hello_world.cmd"))
+        List<String> output = Exec.newBuilder(findScript("batch/hello_world.cmd"))
                 .output().toStringList(16, 1024)
                 .run();
         assertEquals(List.of("Hello world!"), output);
@@ -26,25 +26,25 @@ public class WindowsSpecificTests {
     @Test
     public void testBatchArguments() throws Exception {
         assumeTrue(OS.current() == OS.WINDOWS);
-        List<String> output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+        List<String> output = Exec.newBuilder(findScript("batch/echo_2_args.cmd"))
                 .arguments("hello", "world")
                 .output().toStringList(16, 1024)
                 .run();
         assertEquals(List.of("hello", "world"), output);
 
-        output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+        output = Exec.newBuilder(findScript("batch/echo_2_args.cmd"))
                 .arguments("with spaces", "with ^ caret")
                 .output().toStringList(16, 1024)
                 .run();
         assertEquals(List.of("with spaces", "with ^ caret"), output);
 
-        output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+        output = Exec.newBuilder(findScript("batch/echo_2_args.cmd"))
                 .arguments("\"withQuotes\"", "\"quotes and spaces\"")
                 .output().toStringList(16, 1024)
                 .run();
         assertEquals(List.of("withQuotes", "quotes and spaces"), output);
 
-        output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+        output = Exec.newBuilder(findScript("batch/echo_2_args.cmd"))
                 .arguments("\"with \"interior\" quotes\"", "it works!")
                 .output().toStringList(16, 1024)
                 .run();
@@ -55,15 +55,15 @@ public class WindowsSpecificTests {
     public void testBatchRejectedArguments() {
         assumeTrue(OS.current() == OS.WINDOWS);
         assertThrows(IllegalArgumentException.class, () -> {
-            ProcessBuilder.newBuilder(Path.of("ignored.cmd"))
+            Exec.newBuilder(Path.of("ignored.cmd"))
                     .arguments("\0");
         });
         assertThrows(IllegalArgumentException.class, () -> {
-            ProcessBuilder.newBuilder(Path.of("ignored.cmd"))
+            Exec.newBuilder(Path.of("ignored.cmd"))
                     .arguments("\"quoted at start\" but not at end");
         });
         assertThrows(IllegalArgumentException.class, () -> {
-            ProcessBuilder.newBuilder(Path.of("ignored.cmd"))
+            Exec.newBuilder(Path.of("ignored.cmd"))
                     .arguments("not at start \"but quoted at end\"");
         });
     }
@@ -71,7 +71,7 @@ public class WindowsSpecificTests {
     @Test
     public void testPowershellExecution() throws Exception {
         assumeTrue(OS.current() == OS.WINDOWS);
-        List<String> output = ProcessBuilder.newBuilder(findScript("powershell/hello_world.ps1"))
+        List<String> output = Exec.newBuilder(findScript("powershell/hello_world.ps1"))
                 .output().toStringList(16, 1024)
                 .run();
         assertEquals(List.of("Hello world!"), output);
@@ -80,7 +80,7 @@ public class WindowsSpecificTests {
     @Test
     public void testPowershellArguments() throws Exception {
         assumeTrue(OS.current() == OS.WINDOWS);
-        List<String> output = ProcessBuilder.newBuilder(findScript("powershell/echo_args.ps1"))
+        List<String> output = Exec.newBuilder(findScript("powershell/echo_args.ps1"))
                 .arguments("hello", "world")
                 .output().toStringList(16, 1024)
                 .run();
