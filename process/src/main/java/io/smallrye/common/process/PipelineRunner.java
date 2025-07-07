@@ -519,9 +519,7 @@ class PipelineRunner<O> {
     }
 
     void ioRegistered() {
-        // we're single-threaded at this point
-        //noinspection NonAtomicOperationOnVolatileField
-        ioCount++;
+        ioCountHandle.getAndAdd(this, 1);
     }
 
     void ioDone() {
