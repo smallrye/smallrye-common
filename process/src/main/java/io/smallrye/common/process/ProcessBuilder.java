@@ -40,12 +40,12 @@ import io.smallrye.common.function.ExceptionFunction;
  * The goal of this process API is to make it easy to create and manage processes,
  * while also making it difficult to inadvertently cause deadlocks or other similar non-obvious problems.
  * <h2>Running processes</h2>
- * Trivial process execution can be initiated using the {@link #exec(Path,List) exec(...)} and
- * {@link #execToString(Path, List) execToString(...)} methods.
+ * Trivial process execution can be initiated using the {@link Exec#exec(Path,List) exec(...)} and
+ * {@link Exec#execToString(Path, List) execToString(...)} methods.
  * To configure and create a single process beyond trivial cases,
  * the full builder API must be used.
  * <p>
- * The builder API is used by calling {@link #newBuilder(Path) newBuilder(...)},
+ * The builder API is used by calling {@link Exec#newBuilder(Path) newBuilder(...)},
  * chaining additional calls from the result of that method to configure the process,
  * and finally calling {@link #run()} to start the process execution.
  * Once {@link #run()} is called, the builder may no longer be used.
@@ -196,7 +196,9 @@ public sealed interface ProcessBuilder<O>
      *
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
+     * @deprecated Use {@link Exec#exec(Path, String...)} instead.
      */
+    @Deprecated
     static void exec(Path command, String... args) {
         exec(command, List.of(args));
     }
@@ -206,7 +208,9 @@ public sealed interface ProcessBuilder<O>
      *
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
+     * @deprecated Use {@link Exec#exec(Path, List)} instead.
      */
+    @Deprecated
     static void exec(Path command, List<String> args) {
         newBuilder(command).arguments(args).run();
     }
@@ -216,7 +220,9 @@ public sealed interface ProcessBuilder<O>
      *
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
+     * @deprecated Use {@link Exec#exec(String, String...)} instead.
      */
+    @Deprecated
     static void exec(String command, String... args) {
         exec(Path.of(command), args);
     }
@@ -226,7 +232,9 @@ public sealed interface ProcessBuilder<O>
      *
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
+     * @deprecated Use {@link Exec#exec(String, List)} instead.
      */
+    @Deprecated
     static void exec(String command, List<String> args) {
         exec(Path.of(command), args);
     }
@@ -237,7 +245,9 @@ public sealed interface ProcessBuilder<O>
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
      * @return the result as a single string (not {@code null})
+     * @deprecated Use {@link Exec#execToString(Path, String...)} instead.
      */
+    @Deprecated
     static String execToString(Path command, String... args) {
         return execToString(command, List.of(args));
     }
@@ -248,7 +258,9 @@ public sealed interface ProcessBuilder<O>
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
      * @return the result as a single string (not {@code null})
+     * @deprecated Use {@link Exec#execToString(Path, List)} instead.
      */
+    @Deprecated
     static String execToString(Path command, List<String> args) {
         return newBuilder(command).arguments(args).output().toSingleString(65536).run();
     }
@@ -259,7 +271,9 @@ public sealed interface ProcessBuilder<O>
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
      * @return the result as a single string (not {@code null})
+     * @deprecated Use {@link Exec#exec(String, String...)} instead.
      */
+    @Deprecated
     static String execToString(String command, String... args) {
         return execToString(Path.of(command), args);
     }
@@ -270,7 +284,9 @@ public sealed interface ProcessBuilder<O>
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
      * @return the result as a single string (not {@code null})
+     * @deprecated Use {@link Exec#execToString(String, List)} instead.
      */
+    @Deprecated
     static String execToString(String command, List<String> args) {
         return execToString(Path.of(command), args);
     }
@@ -280,7 +296,9 @@ public sealed interface ProcessBuilder<O>
      *
      * @param command the command to execute (must not be {@code null})
      * @return the new process builder (not {@code null})
+     * @deprecated Use {@link Exec#newBuilder(Path)} instead.
      */
+    @Deprecated
     static ProcessBuilder<Void> newBuilder(Path command) {
         return new ProcessBuilderImpl<>(Assert.checkNotNullParam("command", command));
     }
@@ -291,7 +309,9 @@ public sealed interface ProcessBuilder<O>
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
      * @return the new process builder (not {@code null})
+     * @deprecated Use {@link Exec#newBuilder(Path, List)} instead.
      */
+    @Deprecated
     static ProcessBuilder<Void> newBuilder(Path command, List<String> args) {
         return newBuilder(command).arguments(args);
     }
@@ -302,7 +322,9 @@ public sealed interface ProcessBuilder<O>
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
      * @return the new process builder (not {@code null})
+     * @deprecated Use {@link Exec#newBuilder(Path, String...)} instead.
      */
+    @Deprecated
     static ProcessBuilder<Void> newBuilder(Path command, String... args) {
         return newBuilder(command).arguments(args);
     }
@@ -312,7 +334,9 @@ public sealed interface ProcessBuilder<O>
      *
      * @param command the command to execute (must not be {@code null})
      * @return the new process builder (not {@code null})
+     * @deprecated Use {@link Exec#newBuilder(String)} instead.
      */
+    @Deprecated
     static ProcessBuilder<Void> newBuilder(String command) {
         return newBuilder(Path.of(command));
     }
@@ -323,7 +347,9 @@ public sealed interface ProcessBuilder<O>
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
      * @return the new process builder (not {@code null})
+     * @deprecated Use {@link Exec#newBuilder(String, List)} instead.
      */
+    @Deprecated
     static ProcessBuilder<Void> newBuilder(String command, List<String> args) {
         return newBuilder(Path.of(command), args);
     }
@@ -334,7 +360,9 @@ public sealed interface ProcessBuilder<O>
      * @param command the command to execute (must not be {@code null})
      * @param args the arguments (must not be {@code null})
      * @return the new process builder (not {@code null})
+     * @deprecated Use {@link Exec#newBuilder(String, String...)} instead.
      */
+    @Deprecated
     static ProcessBuilder<Void> newBuilder(String command, String... args) {
         return newBuilder(Path.of(command), args);
     }
