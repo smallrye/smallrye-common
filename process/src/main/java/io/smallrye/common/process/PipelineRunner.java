@@ -114,6 +114,8 @@ class PipelineRunner<O> {
     int createErrorThreads(ThreadFactory tf, ProcessRunner<?> runner) throws IOException {
         int strategy = processBuilder.errorStrategy;
         if (strategy == ERR_REDIRECT) {
+            processBuilder.errorGatherOnFail = false;
+            processBuilder.errorLogOnSuccess = false;
             pb.redirectErrorStream(true);
             return 0;
         }

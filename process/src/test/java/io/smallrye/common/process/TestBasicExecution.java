@@ -1,6 +1,7 @@
 package io.smallrye.common.process;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -230,6 +231,17 @@ public class TestBasicExecution {
                 .directory(findResource("test-b/empty.txt").getParent())
                 .output().toSingleString(1000)
                 .run());
+    }
+
+    @Test
+    public void testNullPointerOnRedirect() throws Exception {
+        assertThrows(AbnormalExitException.class, () -> {
+            ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+                    .arguments(findHelper(ErrorifierWithOutput.class, "1"))
+                    .output().gatherOnFail(true).inherited()
+                    .error().gatherOnFail(true).redirect()
+                    .run();
+        });
     }
 
     @Test

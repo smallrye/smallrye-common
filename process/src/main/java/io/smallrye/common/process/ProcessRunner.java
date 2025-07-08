@@ -104,6 +104,7 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
             throw new PipelineExecutionException("Failed to create process thread(s)", e);
         }
         try {
+            taskCount = taskCnt;
             startThreads();
         } catch (Throwable t) {
             status = STATUS_FAILED;
@@ -120,7 +121,6 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
                 processes.forEach(ProcessUtil::destroyAllForcibly);
                 throw t;
             }
-            taskCount = taskCnt;
         } catch (Throwable t) {
             status = STATUS_FAILED;
             unpark();
