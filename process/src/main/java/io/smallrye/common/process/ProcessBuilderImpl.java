@@ -57,6 +57,7 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     final Path command;
     final ArgumentRule argumentRule;
     File directory;
+    boolean specialQuoting;
     private volatile boolean locked;
     List<String> arguments = List.of();
     IntPredicate exitCodeChecker = e -> e == 0;
@@ -117,6 +118,11 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         check();
         argumentRule.checkArguments(arguments);
         this.arguments = List.copyOf(arguments);
+        return this;
+    }
+
+    public ProcessBuilder<O> specialQuoting(final boolean specialQuoting) {
+        this.specialQuoting = specialQuoting;
         return this;
     }
 
@@ -232,6 +238,10 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     public abstract sealed class ViewImpl implements ProcessBuilder<O> {
         public ProcessBuilder<O> arguments(final List<String> command) {
             return ProcessBuilderImpl.this.arguments(command);
+        }
+
+        public ProcessBuilder<O> specialQuoting(final boolean specialQuoting) {
+            return ProcessBuilderImpl.this.specialQuoting(specialQuoting);
         }
 
         public ProcessBuilder<O> directory(final Path directory) {

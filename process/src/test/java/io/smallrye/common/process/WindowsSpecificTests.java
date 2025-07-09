@@ -33,18 +33,34 @@ public class WindowsSpecificTests {
         assertEquals(List.of("hello", "world"), output);
 
         output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+                .specialQuoting(true)
+                .arguments("--foo=bar", "--foo bar")
+                .output().toStringList(16, 1024)
+                .run();
+        assertEquals(List.of("--foo=bar", "--foo bar"), output);
+
+        output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+                .arguments("--foo=bar", "--foo bar")
+                .output().toStringList(16, 1024)
+                .run();
+        assertEquals(List.of("--foo", "bar"), output);
+
+        output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+                .specialQuoting(true)
                 .arguments("with spaces", "with ^ caret")
                 .output().toStringList(16, 1024)
                 .run();
         assertEquals(List.of("with spaces", "with ^ caret"), output);
 
         output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+                .specialQuoting(true)
                 .arguments("\"withQuotes\"", "\"quotes and spaces\"")
                 .output().toStringList(16, 1024)
                 .run();
         assertEquals(List.of("withQuotes", "quotes and spaces"), output);
 
         output = ProcessBuilder.newBuilder(findScript("batch/echo_2_args.cmd"))
+                .specialQuoting(true)
                 .arguments("\"with \"interior\" quotes\"", "it works!")
                 .output().toStringList(16, 1024)
                 .run();

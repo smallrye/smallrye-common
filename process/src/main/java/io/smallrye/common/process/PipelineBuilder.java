@@ -45,6 +45,16 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
     PipelineBuilder<O> arguments(String... command);
 
     /**
+     * Enable special quoting for batch scripts on Windows.
+     * Note that this requires the batch script to use a specific form
+     * of argument expansion.
+     *
+     * @param specialQuoting {@code true} to enable special quoting, or {@code false} to use default quoting
+     * @return this builder
+     */
+    PipelineBuilder<O> specialQuoting(boolean specialQuoting);
+
+    /**
      * Set the working directory for this process execution.
      *
      * @param directory the working directory (must not be {@code null})
