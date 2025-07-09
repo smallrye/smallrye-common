@@ -597,7 +597,8 @@ class PipelineRunner<O> {
     int createThreads(final ThreadFactory tf, final ProcessRunner<O> runner, final PipelineRunner<O> nextRunner)
             throws IOException {
         pb = processBuilder.pb;
-        pb.command(processBuilder.argumentRule.formatArguments(processBuilder.command, processBuilder.arguments));
+        pb.command(processBuilder.argumentRule.formatArguments(processBuilder.command, processBuilder.arguments,
+                processBuilder.specialQuoting));
         pb.directory(processBuilder.directory);
         int cnt = createInputThread(tf, runner)
                 + createErrorThreads(tf, runner)

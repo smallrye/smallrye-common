@@ -348,6 +348,9 @@ public sealed interface ProcessBuilder<O>
     }
 
     @Override
+    ProcessBuilder<O> specialQuoting(boolean specialQuoting);
+
+    @Override
     ProcessBuilder<O> directory(Path directory);
 
     @Override

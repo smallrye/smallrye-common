@@ -14,7 +14,8 @@ enum ArgumentRule {
             // no operation (accepts any)
         }
 
-        List<String> formatArguments(final Path command, final List<String> arguments) throws IllegalArgumentException {
+        List<String> formatArguments(final Path command, final List<String> arguments, final boolean specialQuoting)
+                throws IllegalArgumentException {
             return Stream.concat(Stream.of(command.toString()), arguments.stream()).toList();
         }
     },
@@ -42,13 +43,19 @@ enum ArgumentRule {
             }
         }
 
-        List<String> formatArguments(final Path command, final List<String> arguments) throws IllegalArgumentException {
+        List<String> formatArguments(final Path command, final List<String> arguments, final boolean specialQuoting)
+                throws IllegalArgumentException {
             // in the future, this will be replaced with a variation which has extra quoting capabilities
             ArrayList<String> list = new ArrayList<>(arguments.size() + 5);
-            StringBuilder sb = new StringBuilder();
-            list.add(quote(command.toString(), sb));
-            for (final String argument : arguments) {
-                list.add(quote(argument, sb));
+            if (specialQuoting) {
+                StringBuilder sb = new StringBuilder();
+                list.add(quote(command.toString(), sb));
+                for (final String argument : arguments) {
+                    list.add(quote(argument, sb));
+                }
+            } else {
+                list.add(command.toString());
+                list.addAll(arguments);
             }
             return list;
         }
@@ -89,7 +96,8 @@ enum ArgumentRule {
             // OK
         }
 
-        List<String> formatArguments(final Path command, final List<String> arguments) throws IllegalArgumentException {
+        List<String> formatArguments(final Path command, final List<String> arguments, final boolean specialQuoting)
+                throws IllegalArgumentException {
             return Stream.concat(
                     Stream.of("powershell.exe", "-ExecutionPolicy", "Bypass", "-File", command.toString()),
                     arguments.stream()).toList();
@@ -103,5 +111,6 @@ enum ArgumentRule {
 
     abstract void checkArguments(List<String> arguments) throws IllegalArgumentException;
 
-    abstract List<String> formatArguments(Path command, List<String> arguments) throws IllegalArgumentException;
+    abstract List<String> formatArguments(Path command, List<String> arguments, boolean specialQuoting)
+            throws IllegalArgumentException;
 }
