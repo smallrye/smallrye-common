@@ -1,21 +1,17 @@
 package io.smallrye.common.classloader;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
-import static org.objectweb.asm.Opcodes.ALOAD;
-import static org.objectweb.asm.Opcodes.ARETURN;
-import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
-import static org.objectweb.asm.Opcodes.RETURN;
-import static org.objectweb.asm.Opcodes.V1_8;
+import static java.lang.constant.ConstantDescs.*;
+import static org.junit.jupiter.api.Assertions.*;
 
+import java.lang.constant.ClassDesc;
+import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 
 import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
+
+import io.github.dmlloyd.classfile.ClassFile;
+import io.github.dmlloyd.classfile.extras.reflect.AccessFlag;
 
 class ClassDefinerTest {
     @Test
@@ -39,27 +35,24 @@ class ClassDefinerTest {
     }
 
     private byte[] getHelloClass(final String name) {
-        ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        writer.visit(V1_8, ACC_PUBLIC, name.replace('.', '/'), null, "java/lang/Object", null);
-
-        {
-            MethodVisitor methodVisitor = writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
-            methodVisitor.visitVarInsn(ALOAD, 0);
-            methodVisitor.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
-            methodVisitor.visitInsn(RETURN);
-            methodVisitor.visitMaxs(1, 1);
-            methodVisitor.visitEnd();
-        }
-
-        {
-            MethodVisitor methodVisitor = writer.visitMethod(ACC_PUBLIC, "hello", "()Ljava/lang/String;", null, null);
-            methodVisitor.visitLdcInsn("hello");
-            methodVisitor.visitInsn(ARETURN);
-            methodVisitor.visitMaxs(1, 1);
-            methodVisitor.visitEnd();
-            writer.visitEnd();
-        }
-
-        return writer.toByteArray();
+        return ClassFile.of().build(ClassDesc.of(name), cb -> {
+            cb.withVersion(ClassFile.JAVA_17_VERSION, 0);
+            cb.withFlags(AccessFlag.PUBLIC);
+            cb.withMethod("<init>", MethodTypeDesc.of(CD_void), 0, mb -> {
+                mb.withFlags(AccessFlag.PUBLIC);
+                mb.withCode(b0 -> {
+                    b0.aload(0);
+                    b0.invokespecial(CD_Object, "<init>", MethodTypeDesc.of(CD_void));
+                    b0.return_();
+                });
+            });
+            cb.withMethod("hello", MethodTypeDesc.of(CD_String), 0, mb -> {
+                mb.withFlags(AccessFlag.PUBLIC);
+                mb.withCode(b0 -> {
+                    b0.loadConstant("hello");
+                    b0.areturn();
+                });
+            });
+        });
     }
 }
