@@ -24,7 +24,7 @@
         <version.jandex>3.1.8</version.jandex>
 
         <!-- Dependencies -->
-        <version.asm>9.8</version.asm>
+        <version.classfile.api>24.0</version.classfile.api>
         <version.graalvm>24.2.2</version.graalvm>
         <version.vertx>4.5.16</version.vertx>
         <version.maven-resolver>1.9.22</version.maven-resolver>
@@ -103,9 +103,9 @@
                 <scope>import</scope>
             </dependency>
             <dependency>
-                <groupId>org.ow2.asm</groupId>
-                <artifactId>asm</artifactId>
-                <version>${version.asm}</version>
+                <groupId>io.github.dmlloyd</groupId>
+                <artifactId>jdk-classfile-backport</artifactId>
+                <version>${version.classfile.api}</version>
                 <scope>test</scope>
             </dependency>
 
