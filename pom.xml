@@ -21,7 +21,7 @@
         <!-- Plugins -->
         <version.bridger>1.6.Final</version.bridger>
         <version.sundrio>0.200.4</version.sundrio>
-        <version.jandex>3.1.8</version.jandex>
+        <version.jandex>3.4.0</version.jandex>
 
         <!-- Dependencies -->
         <version.classfile.api>24.0</version.classfile.api>
