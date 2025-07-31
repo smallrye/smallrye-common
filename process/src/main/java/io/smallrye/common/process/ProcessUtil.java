@@ -198,7 +198,7 @@ public final class ProcessUtil {
     }
 
     private static final class PathEnv {
-        private static final List<Path> path = Stream.of(System.getenv().getOrDefault("PATH", "").split(File.pathSeparator))
+        private static final List<Path> path = Stream.of(getenv("PATH").split(File.pathSeparator))
                 .filter(s -> !s.isEmpty())
                 .map(Path::of)
                 .toList();
@@ -206,9 +206,21 @@ public final class ProcessUtil {
 
     private static final class Windows {
         private static final List<String> pathExt = Stream
-                .of(System.getenv().getOrDefault("PATHEXT", "").split(File.pathSeparator))
+                .of(getenv("PATHEXT").split(File.pathSeparator))
                 .filter(s -> !s.isEmpty())
                 .toList();
+    }
+
+    /**
+     * Do not use System.getenv().getOrDefault(name, "") as it is not case insensitive,
+     * and PATH is referenced as Path on Windows.
+     */
+    private static String getenv(String name) {
+        String envVariable = System.getenv(name);
+        if (envVariable == null) {
+            return "";
+        }
+        return envVariable;
     }
 
     private static final class JavaPath {
