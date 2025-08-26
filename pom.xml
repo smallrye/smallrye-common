@@ -24,7 +24,7 @@
         <version.jandex>3.1.8</version.jandex>
 
         <!-- Dependencies -->
-        <version.classfile.api>24.0</version.classfile.api>
+        <version.classfile.api>25.0</version.classfile.api>
         <version.graalvm>24.2.2</version.graalvm>
         <version.vertx>4.5.18</version.vertx>
         <version.maven-resolver>1.9.22</version.maven-resolver>
