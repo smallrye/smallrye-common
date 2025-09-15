@@ -177,13 +177,13 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
     public ProcessBuilder<O> softExitTimeout(final Duration duration) {
         check();
-        this.softExitTimeout = Assert.checkNotNullParam("duration", duration);
+        this.softExitTimeout = duration;
         return this;
     }
 
     public ProcessBuilder<O> hardExitTimeout(final Duration duration) {
         check();
-        this.hardExitTimeout = Assert.checkNotNullParam("duration", duration);
+        this.hardExitTimeout = duration;
         return this;
     }
 
