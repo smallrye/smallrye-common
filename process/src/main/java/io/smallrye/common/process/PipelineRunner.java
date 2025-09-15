@@ -26,7 +26,6 @@ import java.lang.ProcessBuilder;
 import java.lang.invoke.ConstantBootstraps;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -422,7 +421,7 @@ class PipelineRunner<O> {
                     awaitIoDone();
                     if (process.isAlive() && processBuilder.softExitTimeout != null) {
                         // start the countdown!
-                        if (ProcessUtil.stillRunningAfter(process, processBuilder.softExitTimeout.get(ChronoUnit.NANOS))) {
+                        if (ProcessUtil.stillRunningAfter(process, processBuilder.softExitTimeout)) {
                             ste = true;
                             if (process.supportsNormalTermination()) {
                                 // start knocking on the door
@@ -431,7 +430,7 @@ class PipelineRunner<O> {
                         }
                     }
                     if (process.isAlive() && processBuilder.hardExitTimeout != null) {
-                        if (ProcessUtil.stillRunningAfter(process, processBuilder.hardExitTimeout.get(ChronoUnit.NANOS))) {
+                        if (ProcessUtil.stillRunningAfter(process, processBuilder.hardExitTimeout)) {
                             hte = true;
                             // obliterate
                             ProcessUtil.destroyAllForcibly(process.toHandle());
