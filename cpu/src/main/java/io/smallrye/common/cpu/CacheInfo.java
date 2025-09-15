@@ -7,8 +7,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -81,93 +79,77 @@ public final class CacheInfo {
     }
 
     static {
-        cacheLevels = AccessController.doPrivileged(new PrivilegedAction<>() {
-            @Override
-            public CacheLevelInfo[] run() {
-                if (determineCacheLevel()) {
-                    try {
-                        String osArch = System.getProperty("os.name", "unknown").toLowerCase(Locale.US);
-                        if (osArch.contains("linux")) {
-                            // try to read /sys fs
-                            final File cpu0 = new File("/sys/devices/system/cpu/cpu0/cache");
-                            if (cpu0.exists()) {
-                                // great!
-                                final File[] files = cpu0.listFiles();
-                                if (files != null) {
-                                    ArrayList<File> indexes = new ArrayList<File>();
-                                    for (File file : files) {
-                                        if (file.getName().startsWith("index")) {
-                                            indexes.add(file);
-                                        }
-                                    }
-                                    final CacheLevelInfo[] levelInfoArray = new CacheLevelInfo[indexes.size()];
-                                    for (int i = 0; i < indexes.size(); i++) {
-                                        File file = indexes.get(i);
-                                        int index = parseIntFile(new File(file, "level"));
-                                        final CacheType type;
-                                        switch (parseStringFile(new File(file, "type"))) {
-                                            case "Data":
-                                                type = CacheType.DATA;
-                                                break;
-                                            case "Instruction":
-                                                type = CacheType.INSTRUCTION;
-                                                break;
-                                            case "Unified":
-                                                type = CacheType.UNIFIED;
-                                                break;
-                                            default:
-                                                type = CacheType.UNKNOWN;
-                                                break;
-                                        }
-                                        int size = parseIntKBFile(new File(file, "size"));
-                                        int lineSize = parseIntFile(new File(file, "coherency_line_size"));
-                                        levelInfoArray[i] = new CacheLevelInfo(index, type, size, lineSize);
-                                    }
-                                    return levelInfoArray;
+        CacheLevelInfo[] cacheLevelInfos;
+        if (Boolean.getBoolean("smallrye.cpu.determine-cache-level")) {
+            try {
+                String osArch = System.getProperty("os.name", "unknown").toLowerCase(Locale.US);
+                if (osArch.contains("linux")) {
+                    // try to read /sys fs
+                    final File cpu0 = new File("/sys/devices/system/cpu/cpu0/cache");
+                    if (cpu0.exists()) {
+                        // great!
+                        final File[] files = cpu0.listFiles();
+                        if (files != null) {
+                            ArrayList<File> indexes = new ArrayList<File>();
+                            for (File file : files) {
+                                if (file.getName().startsWith("index")) {
+                                    indexes.add(file);
                                 }
                             }
-                        } else if (osArch.contains("mac os x")) {
-                            // cache line size
-                            final int lineSize = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.cachelinesize"));
-                            if (lineSize != 0) {
-                                // cache sizes
-                                final int l1d = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.l1dcachesize"));
-                                final int l1i = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.l1icachesize"));
-                                final int l2 = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.l2cachesize"));
-                                final int l3 = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.l3cachesize"));
-                                ArrayList<CacheLevelInfo> list = new ArrayList<CacheLevelInfo>();
-                                if (l1d != 0) {
-                                    list.add(new CacheLevelInfo(1, CacheType.DATA, l1d / 1024, lineSize));
-                                }
-                                if (l1i != 0) {
-                                    list.add(new CacheLevelInfo(1, CacheType.INSTRUCTION, l1i / 1024, lineSize));
-                                }
-                                if (l2 != 0) {
-                                    list.add(new CacheLevelInfo(2, CacheType.UNIFIED, l2 / 1024, lineSize));
-                                }
-                                if (l3 != 0) {
-                                    list.add(new CacheLevelInfo(3, CacheType.UNIFIED, l3 / 1024, lineSize));
-                                }
-                                if (list.size() > 0) {
-                                    return list.toArray(new CacheLevelInfo[list.size()]);
-                                }
+                            final CacheLevelInfo[] levelInfoArray = new CacheLevelInfo[indexes.size()];
+                            for (int i = 0; i < indexes.size(); i++) {
+                                File file = indexes.get(i);
+                                int index = parseIntFile(new File(file, "level"));
+                                final CacheType type = switch (parseStringFile(new File(file, "type"))) {
+                                    case "Data" -> CacheType.DATA;
+                                    case "Instruction" -> CacheType.INSTRUCTION;
+                                    case "Unified" -> CacheType.UNIFIED;
+                                    default -> CacheType.UNKNOWN;
+                                };
+                                int size = parseIntKBFile(new File(file, "size"));
+                                int lineSize = parseIntFile(new File(file, "coherency_line_size"));
+                                levelInfoArray[i] = new CacheLevelInfo(index, type, size, lineSize);
                             }
-                        } else if (osArch.contains("windows")) {
-                            // TODO: use the wmic utility to get cache line info
+                            cacheLevelInfos = levelInfoArray;
                         }
-                    } catch (Throwable ignored) {
                     }
-                    // all has failed
-                    return new CacheLevelInfo[0];
-                } else {
-                    return new CacheLevelInfo[] { new CacheLevelInfo(0, CacheType.UNKNOWN, 0, 64) };
+                } else if (osArch.contains("mac os x")) {
+                    // cache line size
+                    final int lineSize = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.cachelinesize"));
+                    if (lineSize != 0) {
+                        // cache sizes
+                        final int l1d = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.l1dcachesize"));
+                        final int l1i = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.l1icachesize"));
+                        final int l2 = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.l2cachesize"));
+                        final int l3 = safeParseInt(parseProcessOutput("/usr/sbin/sysctl", "-n", "hw.l3cachesize"));
+                        ArrayList<CacheLevelInfo> list = new ArrayList<CacheLevelInfo>();
+                        if (l1d != 0) {
+                            list.add(new CacheLevelInfo(1, CacheType.DATA, l1d / 1024, lineSize));
+                        }
+                        if (l1i != 0) {
+                            list.add(new CacheLevelInfo(1, CacheType.INSTRUCTION, l1i / 1024, lineSize));
+                        }
+                        if (l2 != 0) {
+                            list.add(new CacheLevelInfo(2, CacheType.UNIFIED, l2 / 1024, lineSize));
+                        }
+                        if (l3 != 0) {
+                            list.add(new CacheLevelInfo(3, CacheType.UNIFIED, l3 / 1024, lineSize));
+                        }
+                        if (!list.isEmpty()) {
+                            cacheLevelInfos = list.toArray(new CacheLevelInfo[0]);
+                        }
+                    }
+                } else if (osArch.contains("windows")) {
+                    // TODO: use the wmic utility to get cache line info
                 }
+            } catch (Throwable ignored) {
             }
-        });
-    }
-
-    private static boolean determineCacheLevel() {
-        return Boolean.parseBoolean(System.getProperty("smallrye.cpu.determine-cache-level", "false"));
+            // all has failed
+            cacheLevelInfos = new CacheLevelInfo[0];
+        } else {
+            cacheLevelInfos = new CacheLevelInfo[] { new CacheLevelInfo(0, CacheType.UNKNOWN, 0, 64) };
+        }
+        cacheLevels = cacheLevelInfos;
     }
 
     static int parseIntFile(final File file) {
