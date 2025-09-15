@@ -5,6 +5,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.UnsupportedCharsetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -138,6 +139,8 @@ public final class ProcessUtil {
         return JavaPath.javaName;
     }
 
+    private static final Duration LONGEST_NS = Duration.ofNanos(Long.MAX_VALUE);
+
     /**
      * Wait (uninterruptibly) for some amount of time for the given process to finish.
      *
@@ -146,6 +149,18 @@ public final class ProcessUtil {
      * @return {@code true} if the process is still running after the elapsed time, or {@code false} if it has exited
      */
     public static boolean stillRunningAfter(Process proc, long nanos) {
+        return stillRunningAfter(proc, Duration.ofNanos(nanos));
+    }
+
+    /**
+     * Wait (uninterruptibly) for some amount of time for the given process to finish.
+     *
+     * @param proc the process (must not be {@code null})
+     * @param time the amount of time to wait (must not be {@code null})
+     * @return {@code true} if the process is still running after the elapsed time, or {@code false} if it has exited
+     */
+    public static boolean stillRunningAfter(Process proc, Duration time) {
+        long nanos = time.compareTo(LONGEST_NS) > 0 ? Long.MAX_VALUE : time.toNanos();
         boolean intr = false;
         try {
             long start = System.nanoTime();
