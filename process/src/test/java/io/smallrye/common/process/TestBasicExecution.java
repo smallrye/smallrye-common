@@ -9,18 +9,23 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import io.smallrye.common.os.OS;
 import io.smallrye.common.process.helpers.Cat;
 import io.smallrye.common.process.helpers.Cwd;
 import io.smallrye.common.process.helpers.Errorifier;
 import io.smallrye.common.process.helpers.ErrorifierWithOutput;
+import io.smallrye.common.process.helpers.WaitForever;
 
 public class TestBasicExecution {
 
@@ -240,6 +245,30 @@ public class TestBasicExecution {
                     .arguments(findHelper(ErrorifierWithOutput.class, "1"))
                     .output().gatherOnFail(true).inherited()
                     .error().gatherOnFail(true).redirect()
+                    .run();
+        });
+    }
+
+    @Test
+    public void testSoftTimeout() throws Exception {
+        // windows doesn't do soft timeouts
+        Assumptions.assumeFalse(OS.WINDOWS.isCurrent());
+        assertThrows(AbnormalExitException.class, () -> {
+            ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+                    .arguments(findHelper(WaitForever.class))
+                    .softExitTimeout(Duration.of(50, ChronoUnit.MILLIS))
+                    .hardExitTimeout(null)
+                    .run();
+        });
+    }
+
+    @Test
+    public void testHardTimeout() throws Exception {
+        assertThrows(AbnormalExitException.class, () -> {
+            ProcessBuilder.newBuilder(ProcessUtil.pathOfJava())
+                    .arguments(findHelper(WaitForever.class))
+                    .softExitTimeout(null)
+                    .hardExitTimeout(Duration.of(50, ChronoUnit.MILLIS))
                     .run();
         });
     }
