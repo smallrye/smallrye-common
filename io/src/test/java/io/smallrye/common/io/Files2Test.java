@@ -1,0 +1,71 @@
+package io.smallrye.common.io;
+
+import static io.smallrye.common.constraint.Assert.assertFalse;
+import static io.smallrye.common.constraint.Assert.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import org.junit.jupiter.api.Test;
+
+public class Files2Test {
+    public Files2Test() {
+    }
+
+    private void makeStructure(Path rootPath) {
+        FileMaker.of(rootPath, root -> {
+            root.file("blah.bin", 100);
+            root.file("empty.txt", 0);
+            root.dir("subDir", subDir -> {
+                subDir.file("subfile", 999);
+                subDir.symlink("tricky", "..");
+                subDir.dir("subDir2", subDir2 -> {
+                    subDir2.dir("subDir3", subDir3 -> {
+                        subDir3.symlink("nothing", "blah blah blah");
+                        subDir3.file("innermost", 7777);
+                    });
+                });
+            });
+        });
+    }
+
+    @Test
+    public void testDeleteRecursively() throws IOException {
+        assumeTrue(Files2.hasSecureDirectories());
+        // first we have to create a bunch of files
+        Path testArea = Path.of("target/test-area");
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        Files2.deleteRecursively(testArea);
+        assertFalse(Files.exists(testArea));
+    }
+
+    @Test
+    public void testDeleteRecursivelyAbsolute() throws IOException {
+        assumeTrue(Files2.hasSecureDirectories());
+        // first we have to create a bunch of files
+        Path testArea = Path.of("target/test-area").toAbsolutePath();
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        Files2.deleteRecursively(testArea);
+        assertFalse(Files.exists(testArea));
+    }
+
+    @Test
+    public void testDeleteRecursivelyEvenIfInsecure() throws IOException {
+        // first we have to create a bunch of files
+        Path testArea = Path.of("target/test-area");
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        Files2.deleteRecursivelyEvenIfInsecure(testArea);
+        assertFalse(Files.exists(testArea));
+    }
+}
