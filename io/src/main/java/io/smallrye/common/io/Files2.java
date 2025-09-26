@@ -238,9 +238,28 @@ public final class Files2 {
         return CWD;
     }
 
+    /**
+     * {@return {@code true} if this platform has secure directories, or {@code false} if it does not}
+     * Some operating systems or JVM versions do not support secure directories.
+     */
+    public static boolean hasSecureDirectories() {
+        return HAS_SDS;
+    }
+
     // -- private --
 
     private static final Path CWD = Path.of(System.getProperty("user.dir", ".")).normalize().toAbsolutePath();
+    private static final boolean HAS_SDS;
+
+    static {
+        boolean hasSDS;
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(CWD)) {
+            hasSDS = ds instanceof SecureDirectoryStream<?>;
+        } catch (IOException e) {
+            hasSDS = false;
+        }
+        HAS_SDS = hasSDS;
+    }
 
     private static SecureDirectoryStream<Path> newSecureDirectoryStreamFollow(Path path) throws IOException {
         DirectoryStream<Path> ds = Files.newDirectoryStream(path);
