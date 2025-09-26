@@ -189,4 +189,15 @@ public class Files2Test {
         assertEquals(0, stats.directoriesFound());
         assertEquals(0, stats.directoriesRemoved());
     }
+
+    @Test
+    public void testDeleteRecursivelyQuietEvenIfInsecureOnError() {
+        Path nePath = Path.of("target/non-existent-path");
+        assertFalse(Files.exists(nePath));
+        DeleteStats stats = Files2.deleteRecursivelyQuietEvenIfInsecure(nePath);
+        assertEquals(0, stats.filesFound());
+        assertEquals(0, stats.filesRemoved());
+        assertEquals(0, stats.directoriesFound());
+        assertEquals(0, stats.directoriesRemoved());
+    }
 }
