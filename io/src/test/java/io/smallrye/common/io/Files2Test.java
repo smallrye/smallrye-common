@@ -3,6 +3,7 @@ package io.smallrye.common.io;
 import static io.smallrye.common.constraint.Assert.assertFalse;
 import static io.smallrye.common.constraint.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
@@ -16,6 +17,7 @@ public class Files2Test {
     }
 
     private void makeStructure(Path rootPath) {
+        assumeFalse(Files.exists(rootPath));
         FileMaker.of(rootPath, root -> {
             root.file("blah.bin", 100);
             root.file("empty.txt", 0);
