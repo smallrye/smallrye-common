@@ -3,7 +3,6 @@ package io.smallrye.common.io;
 import static io.smallrye.common.constraint.Assert.assertFalse;
 import static io.smallrye.common.constraint.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
@@ -11,13 +10,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class Files2Test {
     public Files2Test() {
     }
 
     private void makeStructure(Path rootPath) {
-        assumeFalse(Files.exists(rootPath));
         FileMaker.of(rootPath, root -> {
             root.file("blah.bin", 100);
             root.file("empty.txt", 0);
@@ -35,10 +34,9 @@ public class Files2Test {
     }
 
     @Test
-    public void testDeleteRecursively() throws IOException {
+    public void testDeleteRecursively(@TempDir Path testArea) throws IOException {
         assumeTrue(Files2.hasSecureDirectories());
         // first we have to create a bunch of files
-        Path testArea = Path.of("target/test-area");
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
@@ -48,10 +46,10 @@ public class Files2Test {
     }
 
     @Test
-    public void testDeleteRecursivelyAbsolute() throws IOException {
+    public void testDeleteRecursivelyAbsolute(@TempDir Path testArea) throws IOException {
         assumeTrue(Files2.hasSecureDirectories());
         // first we have to create a bunch of files
-        Path testArea = Path.of("target/test-area").toAbsolutePath();
+        testArea = testArea.toAbsolutePath();
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
@@ -61,9 +59,8 @@ public class Files2Test {
     }
 
     @Test
-    public void testDeleteRecursivelyEvenIfInsecure() throws IOException {
+    public void testDeleteRecursivelyEvenIfInsecure(@TempDir Path testArea) throws IOException {
         // first we have to create a bunch of files
-        Path testArea = Path.of("target/test-area");
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
@@ -73,10 +70,9 @@ public class Files2Test {
     }
 
     @Test
-    public void testCleanRecursively() throws IOException {
+    public void testCleanRecursively(@TempDir Path testArea) throws IOException {
         assumeTrue(Files2.hasSecureDirectories());
         // first we have to create a bunch of files
-        Path testArea = Path.of("target/test-area");
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
@@ -92,10 +88,10 @@ public class Files2Test {
     }
 
     @Test
-    public void testCleanRecursivelyAbsolute() throws IOException {
+    public void testCleanRecursivelyAbsolute(@TempDir Path testArea) throws IOException {
         assumeTrue(Files2.hasSecureDirectories());
         // first we have to create a bunch of files
-        Path testArea = Path.of("target/test-area").toAbsolutePath();
+        testArea = testArea.toAbsolutePath();
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
@@ -111,9 +107,8 @@ public class Files2Test {
     }
 
     @Test
-    public void testCleanRecursivelyEvenIfInsecure() throws IOException {
+    public void testCleanRecursivelyEvenIfInsecure(@TempDir Path testArea) throws IOException {
         // first we have to create a bunch of files
-        Path testArea = Path.of("target/test-area");
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
@@ -129,9 +124,8 @@ public class Files2Test {
     }
 
     @Test
-    public void testDeleteRecursivelyQuiet() {
+    public void testDeleteRecursivelyQuiet(@TempDir Path testArea) {
         assumeTrue(Files2.hasSecureDirectories());
-        Path testArea = Path.of("target/test-area");
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
@@ -146,9 +140,9 @@ public class Files2Test {
     }
 
     @Test
-    public void testDeleteRecursivelyQuietAbsolute() {
+    public void testDeleteRecursivelyQuietAbsolute(@TempDir Path testArea) {
         assumeTrue(Files2.hasSecureDirectories());
-        Path testArea = Path.of("target/test-area").toAbsolutePath();
+        testArea = testArea.toAbsolutePath();
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
@@ -163,8 +157,7 @@ public class Files2Test {
     }
 
     @Test
-    public void testDeleteRecursivelyQuietEvenIfInsecure() {
-        Path testArea = Path.of("target/test-area");
+    public void testDeleteRecursivelyQuietEvenIfInsecure(@TempDir Path testArea) {
         makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
