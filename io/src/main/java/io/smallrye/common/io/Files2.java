@@ -39,62 +39,12 @@ public final class Files2 {
             throws IOException {
         checkNotNullParam("path", path);
         checkNotNullParam("linkOptions", linkOptions);
-        path = path.normalize();
-        boolean noFollow = false;
-        for (LinkOption linkOption : linkOptions) {
-            switch (linkOption) {
-                case NOFOLLOW_LINKS -> noFollow = true;
-                default -> throw Messages.log.unknownOption(linkOption);
-            }
+        SecureDirectoryStream<Path> base = CWD_SDS;
+        if (base == null) {
+            throw Messages.log.secureDirectoryNotSupported(path.getFileSystem(), path);
         }
-        return noFollow ? newSecureDirectoryStreamNoFollow(path) : newSecureDirectoryStreamFollow(path);
-    }
-
-    /**
-     * Open a new secure directory stream at the given path.
-     * If the link option {@link LinkOption#NOFOLLOW_LINKS} is given, the open will fail with an exception
-     * if {@code path} is a symbolic link.
-     *
-     * @param path the path of the directory to open (must not be {@code null})
-     * @param linkOption the link option (must not be {@code null})
-     *
-     * @return a secure directory stream for the given path (not {@code null})
-     *
-     * @throws NotDirectoryException if the target {@code path} is not a directory
-     * @throws IOException if another I/O error occurs
-     * @throws UnsupportedOperationException if this platform does not support secure directory streams
-     *
-     * @see SecureDirectoryStream#newDirectoryStream(Object, LinkOption...)
-     */
-    // this method exists to prevent a spurious array creation when giving an option
-    public static SecureDirectoryStream<Path> newSecureDirectoryStream(Path path, LinkOption linkOption)
-            throws IOException {
-        checkNotNullParam("path", path);
-        checkNotNullParam("linkOption", linkOption);
-        if (linkOption != LinkOption.NOFOLLOW_LINKS) {
-            throw log.unknownOption(linkOption);
-        }
-        return newSecureDirectoryStreamNoFollow(path.normalize());
-    }
-
-    /**
-     * Open a new secure directory stream at the given path, following symbolic links.
-     *
-     * @param path the path of the directory to open (must not be {@code null})
-     *
-     * @return a secure directory stream for the given path (not {@code null})
-     *
-     * @throws NotDirectoryException if the target {@code path} is not a directory
-     * @throws IOException if another I/O error occurs
-     * @throws UnsupportedOperationException if this platform does not support secure directory streams
-     *
-     * @see SecureDirectoryStream#newDirectoryStream(Object, LinkOption...)
-     */
-    // this method exists to prevent a spurious array creation when giving no option
-    public static SecureDirectoryStream<Path> newSecureDirectoryStream(Path path)
-            throws IOException {
-        checkNotNullParam("path", path);
-        return newSecureDirectoryStreamFollow(path.normalize());
+        // this is a back-door way of having NOFOLLOW_LINKS be supported even for absolute paths.
+        return base.newDirectoryStream(path, linkOptions);
     }
 
     /**
@@ -111,20 +61,12 @@ public final class Files2 {
      */
     public static void deleteRecursivelyEvenIfInsecure(Path path) throws IOException {
         checkNotNullParam("path", path);
-        path = path.normalize();
-        if (!Files.exists(path)) {
-            return;
-        }
-        Path parent = path.getParent();
-        if (parent == null) {
-            throw log.cannotRecursivelyDeleteRoot();
-        }
-        try (DirectoryStream<Path> pds = Files.newDirectoryStream(parent)) {
-            if (pds instanceof SecureDirectoryStream<Path> sds) {
-                deleteRecursively(sds, path.getFileName());
-            } else {
-                deleteRecursivelyInsecurely(path);
-            }
+        SecureDirectoryStream<Path> base = CWD_SDS;
+        if (base != null) {
+            // secure!
+            deleteRecursively(base, path);
+        } else {
+            deleteRecursivelyInsecurely(path);
         }
     }
 
@@ -162,21 +104,19 @@ public final class Files2 {
      */
     public static void deleteRecursively(Path path) throws IOException {
         checkNotNullParam("path", path);
-        path = path.normalize();
-        Path parent = path.getParent();
-        if (parent == null) {
-            throw log.cannotRecursivelyDeleteRoot();
+        SecureDirectoryStream<Path> base = CWD_SDS;
+        if (base == null) {
+            throw Messages.log.secureDirectoryNotSupported(path.getFileSystem(), path);
         }
-        try (SecureDirectoryStream<Path> sds = newSecureDirectoryStreamFollow(parent.normalize())) {
-            deleteRecursively(sds, path.getFileName());
-        }
+        deleteRecursively(base, path);
     }
 
     /**
      * Attempt to recursively delete all of the files returned by the given directory stream.
      * If any of the target paths are symbolic links, they will be removed.
      * <p>
-     * The directory stream is not closed by this operation.
+     * The directory stream is not closed by this operation,
+     * but its iterator is consumed.
      * The caller should ensure that the stream is closed at the appropriate time.
      *
      * @param sds the directory stream whose contents should be removed (must not be {@code null})
@@ -185,7 +125,6 @@ public final class Files2 {
     public static void deleteRecursively(SecureDirectoryStream<Path> sds) throws IOException {
         checkNotNullParam("sds", sds);
         for (Path abs : sds) {
-            log.tracef("Securely deleting %s", abs);
             deleteRecursively(sds, abs.getFileName());
         }
     }
@@ -193,10 +132,11 @@ public final class Files2 {
     /**
      * Attempt to recursively delete the file or directory at the given directory and path.
      * If the target path is a symbolic link, it will be removed.
-     * The target {@code path} must be a relative path, and will be normalized to prevent
-     * "escaping" via rogue {@code ..} elements.
+     * The target {@code path} must be a relative path.
+     * The caller should ensure that the given path is sanitized if needed (see {@link Path#normalize()}).
      * <p>
-     * The directory stream is not closed by this operation.
+     * The directory stream is not closed by this operation,
+     * and its iterator is not consumed.
      * The caller should ensure that the stream is closed at the appropriate time.
      *
      * @param sds the directory stream containing the file (must not be {@code null})
@@ -205,17 +145,18 @@ public final class Files2 {
      * @throws IllegalArgumentException if the given path is absolute
      */
     public static void deleteRecursively(SecureDirectoryStream<Path> sds, Path path) throws IOException {
+        log.tracef("Securely deleting %s", path);
         checkNotNullParam("sds", sds);
         checkNotNullParam("path", path);
         if (path.isAbsolute()) {
             throw log.notRelative(path);
         }
-        // prevent escaping
-        path = path.normalize();
         if (sds.getFileAttributeView(path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS).readAttributes()
                 .isDirectory()) {
             try (SecureDirectoryStream<Path> subStream = sds.newDirectoryStream(path, LinkOption.NOFOLLOW_LINKS)) {
+                log.tracef("Entering directory %s", path);
                 deleteRecursively(subStream);
+                log.tracef("Exiting directory %s", path);
             }
             sds.deleteDirectory(path);
         } else {
@@ -252,52 +193,31 @@ public final class Files2 {
      * Some operating systems or JVM versions do not support secure directories.
      */
     public static boolean hasSecureDirectories() {
-        return HAS_SDS;
+        return CWD_SDS != null;
     }
 
     // -- private --
 
     private static final Path CWD = Path.of(System.getProperty("user.dir", ".")).normalize().toAbsolutePath();
-    private static final boolean HAS_SDS;
+    private static final SecureDirectoryStream<Path> CWD_SDS;
 
     static {
-        boolean hasSDS;
-        try (DirectoryStream<Path> ds = Files.newDirectoryStream(CWD)) {
-            hasSDS = ds instanceof SecureDirectoryStream<?>;
-        } catch (IOException e) {
-            hasSDS = false;
-        }
-        HAS_SDS = hasSDS;
-    }
-
-    private static SecureDirectoryStream<Path> newSecureDirectoryStreamFollow(Path path) throws IOException {
-        DirectoryStream<Path> ds = Files.newDirectoryStream(path);
-        // not t-w-r because we only close on error, not on success
+        SecureDirectoryStream<Path> cwdSds;
         try {
+            DirectoryStream<Path> ds = Files.newDirectoryStream(CWD);
             if (ds instanceof SecureDirectoryStream<Path> sds) {
-                return sds;
+                cwdSds = sds;
+            } else {
+                try {
+                    ds.close();
+                } catch (IOException ignored) {
+                }
+                cwdSds = null;
             }
-            throw log.secureDirectoryNotSupported(path.getFileSystem(), path);
-        } catch (Throwable t) {
-            try {
-                ds.close();
-            } catch (Throwable t2) {
-                t.addSuppressed(t2);
-            }
-            throw t;
+        } catch (IOException ignored) {
+            cwdSds = null;
         }
-    }
-
-    private static SecureDirectoryStream<Path> newSecureDirectoryStreamNoFollow(Path path) throws IOException {
-        Path parent = path.getParent();
-        if (parent == null) {
-            // the root cannot be a symbolic link by definition
-            return newSecureDirectoryStreamFollow(path);
-        }
-        // open the parent directory to safely open subdirectory with NOFOLLOW_LINKS
-        try (SecureDirectoryStream<Path> sds = newSecureDirectoryStream(parent)) {
-            return sds.newDirectoryStream(path.getFileName(), LinkOption.NOFOLLOW_LINKS);
-        }
+        CWD_SDS = cwdSds;
     }
 
     private static void deleteRecursivelyInsecurely(final DirectoryStream<Path> ds) throws IOException {
