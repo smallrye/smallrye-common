@@ -131,9 +131,11 @@ public final class Files2 {
 
     /**
      * Attempt to recursively delete the file or directory at the given directory and path.
-     * If the target path is a symbolic link, it will be removed.
-     * The target {@code path} must be a relative path.
-     * The caller should ensure that the given path is sanitized if needed (see {@link Path#normalize()}).
+     * If the target path or any nested path is a symbolic link, it will be removed and will not be
+     * treated as a directory.
+     * If the target path is absolute, then {@code sds} is ignored and the absolute path is removed.
+     * The caller should ensure that the given path is sanitized if needed (see {@link Path#normalize()}
+     * and {@link Path#isAbsolute()}).
      * <p>
      * The directory stream is not closed by this operation,
      * and its iterator is not consumed.
@@ -148,9 +150,6 @@ public final class Files2 {
         log.tracef("Securely deleting %s", path);
         checkNotNullParam("sds", sds);
         checkNotNullParam("path", path);
-        if (path.isAbsolute()) {
-            throw log.notRelative(path);
-        }
         if (sds.getFileAttributeView(path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS).readAttributes()
                 .isDirectory()) {
             try (SecureDirectoryStream<Path> subStream = sds.newDirectoryStream(path, LinkOption.NOFOLLOW_LINKS)) {

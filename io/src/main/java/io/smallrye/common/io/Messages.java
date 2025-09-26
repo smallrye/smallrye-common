@@ -13,15 +13,6 @@ import org.jboss.logging.annotations.MessageLogger;
 interface Messages extends BasicLogger {
     Messages log = org.jboss.logging.Logger.getMessageLogger(lookup(), Messages.class, "io.smallrye.common.io");
 
-    @Message(id = 4000, value = "Absolute path \"%s\" given for argument which requires a relative path")
-    IllegalArgumentException notRelative(Path path);
-
-    @Message(id = 4001, value = "Cannot recursively delete directory with no parent")
-    UnsupportedOperationException cannotRecursivelyDeleteRoot();
-
-    @Message(id = 4002, value = "Secure directory streams not supported by %s for path \"%s\"")
+    @Message(id = 4000, value = "Secure directory streams not supported by %s for path \"%s\"")
     UnsupportedOperationException secureDirectoryNotSupported(FileSystem fileSystem, Path path);
-
-    @Message(id = 4003, value = "Unknown option given: %s")
-    IllegalArgumentException unknownOption(Object option);
 }
