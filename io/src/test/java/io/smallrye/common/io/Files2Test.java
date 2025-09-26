@@ -68,4 +68,60 @@ public class Files2Test {
         Files2.deleteRecursivelyEvenIfInsecure(testArea);
         assertFalse(Files.exists(testArea));
     }
+
+    @Test
+    public void testCleanRecursively() throws IOException {
+        assumeTrue(Files2.hasSecureDirectories());
+        // first we have to create a bunch of files
+        Path testArea = Path.of("target/test-area");
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        Files2.cleanRecursively(testArea);
+        assertTrue(Files.exists(testArea));
+        assertFalse(Files.exists(testArea.resolve("blah.bin")));
+        assertFalse(Files.exists(testArea.resolve("empty.txt")));
+        assertTrue(Files.exists(testArea.resolve("subDir")));
+        assertFalse(Files.exists(testArea.resolve("subDir").resolve("subfile")));
+        Files2.deleteRecursively(testArea);
+        assertFalse(Files.exists(testArea));
+    }
+
+    @Test
+    public void testCleanRecursivelyAbsolute() throws IOException {
+        assumeTrue(Files2.hasSecureDirectories());
+        // first we have to create a bunch of files
+        Path testArea = Path.of("target/test-area").toAbsolutePath();
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        Files2.cleanRecursively(testArea);
+        assertTrue(Files.exists(testArea));
+        assertFalse(Files.exists(testArea.resolve("blah.bin")));
+        assertFalse(Files.exists(testArea.resolve("empty.txt")));
+        assertTrue(Files.exists(testArea.resolve("subDir")));
+        assertFalse(Files.exists(testArea.resolve("subDir").resolve("subfile")));
+        Files2.deleteRecursively(testArea);
+        assertFalse(Files.exists(testArea));
+    }
+
+    @Test
+    public void testCleanRecursivelyEvenIfInsecure() throws IOException {
+        // first we have to create a bunch of files
+        Path testArea = Path.of("target/test-area");
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        Files2.cleanRecursivelyEvenIfInsecure(testArea);
+        assertTrue(Files.exists(testArea));
+        assertFalse(Files.exists(testArea.resolve("blah.bin")));
+        assertFalse(Files.exists(testArea.resolve("empty.txt")));
+        assertTrue(Files.exists(testArea.resolve("subDir")));
+        assertFalse(Files.exists(testArea.resolve("subDir").resolve("subfile")));
+        Files2.deleteRecursivelyEvenIfInsecure(testArea);
+        assertFalse(Files.exists(testArea));
+    }
 }

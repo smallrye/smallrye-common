@@ -144,7 +144,6 @@ public final class Files2 {
      * @param sds the directory stream containing the file (must not be {@code null})
      * @param path the relative path of the file or directory to be removed (must not be {@code null})
      * @throws IOException if one or more files fails to be deleted or another I/O error occurs
-     * @throws IllegalArgumentException if the given path is absolute
      */
     public static void deleteRecursively(SecureDirectoryStream<Path> sds, Path path) throws IOException {
         log.tracef("Securely deleting %s", path);
@@ -158,6 +157,123 @@ public final class Files2 {
                 log.tracef("Exiting directory %s", path);
             }
             sds.deleteDirectory(path);
+        } else {
+            sds.deleteFile(path);
+        }
+    }
+
+    /**
+     * Attempt to recursively clean the file or directory at the given path,
+     * even if secure directory streams are not supported.
+     * If the target path or any nested path is not a directory, it will be removed.
+     * Directories will be preserved.
+     * <em>Warning:</em> this method can potentially delete files outside the intended path
+     * if the target platform does not support secure directory iteration.
+     *
+     * @param path the path to clean (must not be {@code null})
+     * @throws IOException if one or more files fails to be cleaned or another I/O error occurs
+     *
+     * @see #cleanRecursively(Path)
+     */
+    public static void cleanRecursivelyEvenIfInsecure(Path path) throws IOException {
+        checkNotNullParam("path", path);
+        SecureDirectoryStream<Path> base = CWD_SDS;
+        if (base != null) {
+            // secure!
+            cleanRecursively(base, path);
+        } else {
+            cleanRecursivelyInsecurely(path);
+        }
+    }
+
+    /**
+     * Attempt to recursively clean all of the files and directories from the given stream,
+     * even if secure directory streams are not supported.
+     * If any nested path is not a directory, it will be removed.
+     * Directories will be preserved.
+     * <em>Warning:</em> this method can potentially delete files outside the intended path
+     * if the target platform does not support secure directory iteration.
+     * <p>
+     * The directory stream is not closed by this operation.
+     * The caller should ensure that the stream is closed at the appropriate time.
+     *
+     * @param ds the directory stream whose contents should be cleaned (must not be {@code null})
+     * @throws IOException if one or more files fails to be cleaned or another I/O error occurs
+     *
+     * @see #cleanRecursively(Path)
+     */
+    public static void cleanRecursivelyEvenIfInsecure(DirectoryStream<Path> ds) throws IOException {
+        checkNotNullParam("ds", ds);
+        if (ds instanceof SecureDirectoryStream<Path> sds) {
+            cleanRecursively(sds);
+        } else {
+            cleanRecursivelyInsecurely(ds);
+        }
+    }
+
+    /**
+     * Attempt to recursively clean the file or directory at the given path.
+     * If the target path is not a directory, it will be removed.
+     *
+     * @param path the file or directory to be cleaned (must not be {@code null})
+     * @throws IOException if one or more files fails to be deleted or another I/O error occurs
+     * @throws UnsupportedOperationException if secure directory traversal is unsupported
+     */
+    public static void cleanRecursively(Path path) throws IOException {
+        checkNotNullParam("path", path);
+        SecureDirectoryStream<Path> base = CWD_SDS;
+        if (base == null) {
+            throw Messages.log.secureDirectoryNotSupported(path.getFileSystem(), path);
+        }
+        cleanRecursively(base, path);
+    }
+
+    /**
+     * Attempt to recursively clean all of the files returned by the given directory stream.
+     * If any of the target paths are not directories, they will be removed.
+     * <p>
+     * The directory stream is not closed by this operation,
+     * but its iterator is consumed.
+     * The caller should ensure that the stream is closed at the appropriate time.
+     *
+     * @param sds the directory stream whose contents should be cleaned (must not be {@code null})
+     * @throws IOException if one or more files fails to be deleted or another I/O error occurs
+     */
+    public static void cleanRecursively(SecureDirectoryStream<Path> sds) throws IOException {
+        checkNotNullParam("sds", sds);
+        for (Path abs : sds) {
+            cleanRecursively(sds, abs.getFileName());
+        }
+    }
+
+    /**
+     * Attempt to recursively clean the file or directory at the given directory and path.
+     * If the target path or any nested path is a symbolic link, it will be removed and will not be
+     * treated as a directory.
+     * If any of the target paths are not directories, they will be removed.
+     * If the target path is absolute, then {@code sds} is ignored and the absolute path is cleaned.
+     * The caller should ensure that the given path is sanitized if needed (see {@link Path#normalize()}
+     * and {@link Path#isAbsolute()}).
+     * <p>
+     * The directory stream is not closed by this operation,
+     * and its iterator is not consumed.
+     * The caller should ensure that the stream is closed at the appropriate time.
+     *
+     * @param sds the directory stream containing the file (must not be {@code null})
+     * @param path the relative path of the file or directory to be cleaned (must not be {@code null})
+     * @throws IOException if one or more files fails to be deleted or another I/O error occurs
+     */
+    public static void cleanRecursively(SecureDirectoryStream<Path> sds, Path path) throws IOException {
+        checkNotNullParam("sds", sds);
+        checkNotNullParam("path", path);
+        log.tracef("Cleaning %s", path);
+        if (sds.getFileAttributeView(path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS).readAttributes()
+                .isDirectory()) {
+            try (SecureDirectoryStream<Path> subStream = sds.newDirectoryStream(path, LinkOption.NOFOLLOW_LINKS)) {
+                log.tracef("Entering directory %s", path);
+                cleanRecursively(subStream);
+                log.tracef("Exiting directory %s", path);
+            }
         } else {
             sds.deleteFile(path);
         }
@@ -229,10 +345,27 @@ public final class Files2 {
         log.tracef("Insecurely deleting path %s", path);
         if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
             try (DirectoryStream<Path> ds = Files.newDirectoryStream(path)) {
-                deleteRecursivelyInsecurely(ds);
+                deleteRecursivelyEvenIfInsecure(ds);
             }
         }
         Files.delete(path);
+    }
+
+    private static void cleanRecursivelyInsecurely(final DirectoryStream<Path> ds) throws IOException {
+        for (Path path : ds) {
+            cleanRecursivelyEvenIfInsecure(path);
+        }
+    }
+
+    private static void cleanRecursivelyInsecurely(final Path path) throws IOException {
+        log.tracef("Insecurely cleaning path %s", path);
+        if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+            try (DirectoryStream<Path> ds = Files.newDirectoryStream(path)) {
+                cleanRecursivelyEvenIfInsecure(ds);
+            }
+        } else {
+            Files.delete(path);
+        }
     }
 
 }
