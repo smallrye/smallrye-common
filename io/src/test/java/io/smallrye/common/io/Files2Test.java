@@ -177,4 +177,16 @@ public class Files2Test {
         assertEquals(4, stats.directoriesFound());
         assertEquals(4, stats.directoriesRemoved());
     }
+
+    @Test
+    public void testDeleteRecursivelyQuietOnError() {
+        assumeTrue(Files2.hasSecureDirectories());
+        Path nePath = Path.of("target/non-existent-path");
+        assertFalse(Files.exists(nePath));
+        DeleteStats stats = Files2.deleteRecursivelyQuiet(nePath);
+        assertEquals(0, stats.filesFound());
+        assertEquals(0, stats.filesRemoved());
+        assertEquals(0, stats.directoriesFound());
+        assertEquals(0, stats.directoriesRemoved());
+    }
 }

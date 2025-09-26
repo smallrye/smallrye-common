@@ -4,8 +4,23 @@ import io.smallrye.common.constraint.Assert;
 
 /**
  * Statistics for a quiet file deletion operation.
+ *
+ * @param directoriesFound the number of directories found (must be greater than zero)
+ * @param directoriesRemoved the number of directories removed (must be greater than zero and less than or equal to
+ *        {@code directoriesFound})
+ * @param filesFound the number of files found (must be greater than zero)
+ * @param filesRemoved the number of files removed (must be greater than zero and less than or equal to {@code filesFound})
  */
 public record DeleteStats(long directoriesFound, long directoriesRemoved, long filesFound, long filesRemoved) {
+    /**
+     * Construct a new instance.
+     *
+     * @param directoriesFound the number of directories found (must be greater than zero)
+     * @param directoriesRemoved the number of directories removed (must be greater than zero and less than or equal to
+     *        {@code directoriesFound})
+     * @param filesFound the number of files found (must be greater than zero)
+     * @param filesRemoved the number of files removed (must be greater than zero and less than or equal to {@code filesFound})
+     */
     public DeleteStats {
         Assert.checkMinimumParameter("directoriesFound", 0, directoriesFound);
         Assert.checkMinimumParameter("directoriesRemoved", 0, directoriesRemoved);

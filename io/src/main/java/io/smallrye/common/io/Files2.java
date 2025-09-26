@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.SecureDirectoryStream;
@@ -467,30 +468,37 @@ public final class Files2 {
     }
 
     private static void deleteRecursivelyQuiet(final SecureDirectoryStream<Path> sds, final Path path, final long[] stats) {
+        boolean isDirectory;
         try {
-            if (sds.getFileAttributeView(path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS).readAttributes()
-                    .isDirectory()) {
-                stats[DeleteStats.DIR_FOUND]++;
-                try (SecureDirectoryStream<Path> subStream = sds.newDirectoryStream(path, LinkOption.NOFOLLOW_LINKS)) {
-                    log.tracef("Entering directory %s", path);
-                    deleteRecursivelyQuiet(subStream, stats);
-                    log.tracef("Exiting directory %s", path);
-                } catch (IOException ignored) {
-                }
-                try {
-                    sds.deleteDirectory(path);
-                    stats[DeleteStats.DIR_REMOVED]++;
-                } catch (IOException ignored) {
-                }
-            } else {
-                stats[DeleteStats.FILE_FOUND]++;
-                try {
-                    sds.deleteFile(path);
-                    stats[DeleteStats.FILE_REMOVED]++;
-                } catch (IOException ignored) {
-                }
-            }
+            isDirectory = sds.getFileAttributeView(path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS)
+                    .readAttributes().isDirectory();
+        } catch (NoSuchFileException ignored) {
+            // not found at all, so don't count it
+            return;
         } catch (IOException ignored) {
+            // no idea what this thing was, just count it as a file
+            isDirectory = false;
+        }
+        if (isDirectory) {
+            stats[DeleteStats.DIR_FOUND]++;
+            try (SecureDirectoryStream<Path> subStream = sds.newDirectoryStream(path, LinkOption.NOFOLLOW_LINKS)) {
+                log.tracef("Entering directory %s", path);
+                deleteRecursivelyQuiet(subStream, stats);
+                log.tracef("Exiting directory %s", path);
+            } catch (IOException ignored) {
+            }
+            try {
+                sds.deleteDirectory(path);
+                stats[DeleteStats.DIR_REMOVED]++;
+            } catch (IOException ignored) {
+            }
+        } else {
+            stats[DeleteStats.FILE_FOUND]++;
+            try {
+                sds.deleteFile(path);
+                stats[DeleteStats.FILE_REMOVED]++;
+            } catch (IOException ignored) {
+            }
         }
     }
 
