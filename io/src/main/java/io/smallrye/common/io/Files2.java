@@ -134,6 +134,9 @@ public final class Files2 {
      * If any of the target paths are symbolic links, they will be removed.
      * <em>Warning:</em> this method can potentially delete files outside the intended path
      * if the target platform does not support secure directory iteration.
+     * <p>
+     * The directory stream is not closed by this operation.
+     * The caller should ensure that the stream is closed at the appropriate time.
      *
      * @param ds the directory stream whose contents should be removed (must not be {@code null})
      * @throws IOException if one or more files fails to be deleted or another I/O error occurs
@@ -172,6 +175,9 @@ public final class Files2 {
     /**
      * Attempt to recursively delete all of the files returned by the given directory stream.
      * If any of the target paths are symbolic links, they will be removed.
+     * <p>
+     * The directory stream is not closed by this operation.
+     * The caller should ensure that the stream is closed at the appropriate time.
      *
      * @param sds the directory stream whose contents should be removed (must not be {@code null})
      * @throws IOException if one or more files fails to be deleted or another I/O error occurs
@@ -189,6 +195,9 @@ public final class Files2 {
      * If the target path is a symbolic link, it will be removed.
      * The target {@code path} must be a relative path, and will be normalized to prevent
      * "escaping" via rogue {@code ..} elements.
+     * <p>
+     * The directory stream is not closed by this operation.
+     * The caller should ensure that the stream is closed at the appropriate time.
      *
      * @param sds the directory stream containing the file (must not be {@code null})
      * @param path the relative path of the file or directory to be removed (must not be {@code null})
