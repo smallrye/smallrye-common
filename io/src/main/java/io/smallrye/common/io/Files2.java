@@ -163,6 +163,121 @@ public final class Files2 {
     }
 
     /**
+     * Attempt to recursively delete the file or directory at the given path,
+     * even if secure directory streams are not supported.
+     * I/O errors will not be reported.
+     * If the target path is a symbolic link, it will be removed.
+     * <em>Warning:</em> this method can potentially delete files outside the intended path
+     * if the target platform does not support secure directory iteration.
+     *
+     * @param path the path to delete (must not be {@code null})
+     * @return the deletion statistics (not {@code null})
+     *
+     * @see #deleteRecursivelyQuiet(Path)
+     */
+    public static DeleteStats deleteRecursivelyQuietEvenIfInsecure(Path path) {
+        checkNotNullParam("path", path);
+        SecureDirectoryStream<Path> base = CWD_SDS;
+        if (base != null) {
+            // secure!
+            return deleteRecursivelyQuiet(base, path);
+        } else {
+            long[] stats = new long[DeleteStats.STATS_SIZE];
+            deleteRecursivelyQuietInsecurely(path, stats);
+            return new DeleteStats(stats);
+        }
+    }
+
+    /**
+     * Attempt to recursively delete all of the files returned by the given directory stream,
+     * even if secure directory streams are not supported.
+     * I/O errors will not be reported.
+     * If any of the target paths are symbolic links, they will be removed.
+     * <em>Warning:</em> this method can potentially delete files outside the intended path
+     * if the target platform does not support secure directory iteration.
+     * <p>
+     * The directory stream is not closed by this operation.
+     * The caller should ensure that the stream is closed at the appropriate time.
+     *
+     * @param ds the directory stream whose contents should be removed (must not be {@code null})
+     * @return the deletion statistics (not {@code null})
+     *
+     * @see #deleteRecursivelyQuiet(SecureDirectoryStream)
+     */
+    public static DeleteStats deleteRecursivelyQuietEvenIfInsecure(DirectoryStream<Path> ds) {
+        checkNotNullParam("ds", ds);
+        if (ds instanceof SecureDirectoryStream<Path> sds) {
+            return deleteRecursivelyQuiet(sds);
+        } else {
+            long[] stats = new long[DeleteStats.STATS_SIZE];
+            deleteRecursivelyQuietInsecurely(ds, stats);
+            return new DeleteStats(stats);
+        }
+    }
+
+    /**
+     * Attempt to recursively delete the file or directory at the given path.
+     * If the target path is a symbolic link, it will be removed.
+     * I/O errors will not be reported.
+     *
+     * @param path the file or directory to be removed (must not be {@code null})
+     * @return the deletion statistics (not {@code null})
+     * @throws UnsupportedOperationException if secure directory removal is unsupported
+     */
+    public static DeleteStats deleteRecursivelyQuiet(Path path) {
+        checkNotNullParam("path", path);
+        SecureDirectoryStream<Path> base = CWD_SDS;
+        if (base == null) {
+            throw Messages.log.secureDirectoryNotSupported(path.getFileSystem(), path);
+        }
+        return deleteRecursivelyQuiet(base, path);
+    }
+
+    /**
+     * Attempt to recursively delete all of the files returned by the given directory stream.
+     * If any of the target paths are symbolic links, they will be removed.
+     * I/O errors will not be reported.
+     * <p>
+     * The directory stream is not closed by this operation,
+     * but its iterator is consumed.
+     * The caller should ensure that the stream is closed at the appropriate time.
+     *
+     * @param sds the directory stream whose contents should be removed (must not be {@code null})
+     * @return the deletion statistics (not {@code null})
+     */
+    public static DeleteStats deleteRecursivelyQuiet(SecureDirectoryStream<Path> sds) {
+        checkNotNullParam("sds", sds);
+        long[] stats = new long[DeleteStats.STATS_SIZE];
+        deleteRecursivelyQuiet(sds, stats);
+        return new DeleteStats(stats);
+    }
+
+    /**
+     * Attempt to recursively delete the file or directory at the given directory and path.
+     * If the target path or any nested path is a symbolic link, it will be removed and will not be
+     * treated as a directory.
+     * If the target path is absolute, then {@code sds} is ignored and the absolute path is removed.
+     * I/O errors will not be reported.
+     * The caller should ensure that the given path is sanitized if needed (see {@link Path#normalize()}
+     * and {@link Path#isAbsolute()}).
+     * <p>
+     * The directory stream is not closed by this operation,
+     * and its iterator is not consumed.
+     * The caller should ensure that the stream is closed at the appropriate time.
+     *
+     * @param sds the directory stream containing the file (must not be {@code null})
+     * @param path the relative path of the file or directory to be removed (must not be {@code null})
+     * @return the deletion statistics (not {@code null})
+     */
+    public static DeleteStats deleteRecursivelyQuiet(SecureDirectoryStream<Path> sds, Path path) {
+        checkNotNullParam("sds", sds);
+        checkNotNullParam("path", path);
+        long[] stats = new long[DeleteStats.STATS_SIZE];
+        deleteRecursivelyQuiet(sds, path, stats);
+        return new DeleteStats(stats);
+    }
+
+    /**
      * Attempt to recursively clean the file or directory at the given path,
      * even if secure directory streams are not supported.
      * If the target path or any nested path is not a directory, it will be removed.
@@ -349,6 +464,68 @@ public final class Files2 {
             }
         }
         Files.delete(path);
+    }
+
+    private static void deleteRecursivelyQuiet(final SecureDirectoryStream<Path> sds, final Path path, final long[] stats) {
+        try {
+            if (sds.getFileAttributeView(path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS).readAttributes()
+                    .isDirectory()) {
+                stats[DeleteStats.DIR_FOUND]++;
+                try (SecureDirectoryStream<Path> subStream = sds.newDirectoryStream(path, LinkOption.NOFOLLOW_LINKS)) {
+                    log.tracef("Entering directory %s", path);
+                    deleteRecursivelyQuiet(subStream, stats);
+                    log.tracef("Exiting directory %s", path);
+                } catch (IOException ignored) {
+                }
+                try {
+                    sds.deleteDirectory(path);
+                    stats[DeleteStats.DIR_REMOVED]++;
+                } catch (IOException ignored) {
+                }
+            } else {
+                stats[DeleteStats.FILE_FOUND]++;
+                try {
+                    sds.deleteFile(path);
+                    stats[DeleteStats.FILE_REMOVED]++;
+                } catch (IOException ignored) {
+                }
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void deleteRecursivelyQuiet(final SecureDirectoryStream<Path> subStream, final long[] stats) {
+        for (Path path : subStream) {
+            deleteRecursivelyQuiet(subStream, path.getFileName(), stats);
+        }
+    }
+
+    private static void deleteRecursivelyQuietInsecurely(final Path path, final long[] stats) {
+        if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+            stats[DeleteStats.DIR_FOUND]++;
+            try (DirectoryStream<Path> ds = Files.newDirectoryStream(path)) {
+                deleteRecursivelyQuietInsecurely(ds, stats);
+            } catch (IOException ignored) {
+            }
+            try {
+                Files.delete(path);
+                stats[DeleteStats.DIR_REMOVED]++;
+            } catch (IOException ignored) {
+            }
+        } else {
+            stats[DeleteStats.FILE_FOUND]++;
+            try {
+                Files.delete(path);
+                stats[DeleteStats.FILE_REMOVED]++;
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    private static void deleteRecursivelyQuietInsecurely(final DirectoryStream<Path> ds, final long[] stats) {
+        for (Path path : ds) {
+            deleteRecursivelyQuietInsecurely(path, stats);
+        }
     }
 
     private static void cleanRecursivelyInsecurely(final DirectoryStream<Path> ds) throws IOException {

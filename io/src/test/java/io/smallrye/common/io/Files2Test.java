@@ -2,6 +2,7 @@ package io.smallrye.common.io;
 
 import static io.smallrye.common.constraint.Assert.assertFalse;
 import static io.smallrye.common.constraint.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
@@ -123,5 +124,55 @@ public class Files2Test {
         assertFalse(Files.exists(testArea.resolve("subDir").resolve("subfile")));
         Files2.deleteRecursivelyEvenIfInsecure(testArea);
         assertFalse(Files.exists(testArea));
+    }
+
+    @Test
+    public void testDeleteRecursivelyQuiet() {
+        assumeTrue(Files2.hasSecureDirectories());
+        Path testArea = Path.of("target/test-area");
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        // do it
+        DeleteStats stats = Files2.deleteRecursivelyQuiet(testArea);
+        assertFalse(Files.exists(testArea));
+        assertEquals(6, stats.filesFound());
+        assertEquals(6, stats.filesRemoved());
+        assertEquals(4, stats.directoriesFound());
+        assertEquals(4, stats.directoriesRemoved());
+    }
+
+    @Test
+    public void testDeleteRecursivelyQuietAbsolute() {
+        assumeTrue(Files2.hasSecureDirectories());
+        Path testArea = Path.of("target/test-area").toAbsolutePath();
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        // do it
+        DeleteStats stats = Files2.deleteRecursivelyQuiet(testArea);
+        assertFalse(Files.exists(testArea));
+        assertEquals(6, stats.filesFound());
+        assertEquals(6, stats.filesRemoved());
+        assertEquals(4, stats.directoriesFound());
+        assertEquals(4, stats.directoriesRemoved());
+    }
+
+    @Test
+    public void testDeleteRecursivelyQuietEvenIfInsecure() {
+        Path testArea = Path.of("target/test-area");
+        makeStructure(testArea);
+        // rough check to make sure things got created
+        assertTrue(Files.exists(testArea));
+        assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
+        // do it
+        DeleteStats stats = Files2.deleteRecursivelyQuietEvenIfInsecure(testArea);
+        assertFalse(Files.exists(testArea));
+        assertEquals(6, stats.filesFound());
+        assertEquals(6, stats.filesRemoved());
+        assertEquals(4, stats.directoriesFound());
+        assertEquals(4, stats.directoriesRemoved());
     }
 }
