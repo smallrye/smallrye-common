@@ -497,6 +497,9 @@ public final class Files2 {
             try {
                 sds.deleteFile(path);
                 stats[DeleteStats.FILE_REMOVED]++;
+            } catch (NoSuchFileException ignored) {
+                // correct the count for non-existent file
+                stats[DeleteStats.FILE_FOUND]--;
             } catch (IOException ignored) {
             }
         }
@@ -525,6 +528,9 @@ public final class Files2 {
             try {
                 Files.delete(path);
                 stats[DeleteStats.FILE_REMOVED]++;
+            } catch (NoSuchFileException ignored) {
+                // correct the count for non-existent file
+                stats[DeleteStats.FILE_FOUND]--;
             } catch (IOException ignored) {
             }
         }
