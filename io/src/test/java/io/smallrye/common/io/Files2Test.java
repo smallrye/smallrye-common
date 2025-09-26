@@ -39,8 +39,8 @@ public class Files2Test {
         assumeTrue(Files2.hasSecureDirectories());
         // first we have to create a bunch of files
         Path testArea = Path.of("target/test-area");
-        makeStructure(testArea);
         assumeFalse(Files.exists(testArea));
+        makeStructure(testArea);
         // rough check to make sure things got created
         assertTrue(Files.exists(testArea));
         assertTrue(Files.exists(testArea.resolve("subDir").resolve("subDir2")));
