@@ -1,17 +1,39 @@
 package io.smallrye.common.io;
 
+import static io.smallrye.common.constraint.Assert.checkNotNullArrayParam;
 import static io.smallrye.common.constraint.Assert.checkNotNullParam;
+import static io.smallrye.common.constraint.Assert.impossibleSwitchCase;
 import static io.smallrye.common.io.Messages.log;
 
 import java.io.IOException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.WritableByteChannel;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.CopyOption;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.SecureDirectoryStream;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributeView;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.DosFileAttributeView;
+import java.nio.file.attribute.DosFileAttributes;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Extra utilities for dealing with the filesystem which are missing from {@link Files}.
@@ -412,6 +434,376 @@ public final class Files2 {
     }
 
     /**
+     * Copy from one channel to another in the most efficient manner supported by the JDK.
+     * Neither channel is closed.
+     *
+     * @param in the input channel (must not be {@code null})
+     * @param out the output channel (must not be {@code null})
+     * @return the number of bytes copied
+     * @throws IOException if copying failed for some reason
+     */
+    public static long copy(ReadableByteChannel in, WritableByteChannel out) throws IOException {
+        checkNotNullParam("in", in);
+        checkNotNullParam("out", out);
+        if (in instanceof FileChannel fc) {
+            // zero-copy from source
+            long size = fc.size();
+            long cnt = 0;
+            while (cnt < size) {
+                long res = fc.transferTo(cnt, size - cnt, out);
+                if (res == 0) {
+                    throw log.partialCopy(fc, out, size, cnt);
+                }
+                cnt += res;
+            }
+            return cnt;
+        } else if (in instanceof SeekableByteChannel sc && out instanceof FileChannel fc) {
+            // zero-copy to dest
+            long size = sc.size();
+            long cnt = 0;
+            while (cnt < size) {
+                long res = fc.transferFrom(sc, cnt, size - cnt);
+                if (res == 0) {
+                    throw log.partialCopy(fc, out, size, cnt);
+                }
+                cnt += res;
+            }
+            return cnt;
+        } else {
+            // no zero-copy channel API, so try the zero-copy stream API instead
+            return Channels.newInputStream(in).transferTo(Channels.newOutputStream(out));
+        }
+    }
+
+    /**
+     * Equivalent to calling {@link #copy(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)} with no
+     * options.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during copy
+     *
+     * @see #copy(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void copy(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile) throws IOException {
+        copyOrMove(sourceDir, srcFile, destDir, destFile, 0);
+    }
+
+    /**
+     * Equivalent to calling {@link #copy(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)} with one
+     * option.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param option1 the copy option to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during copy
+     *
+     * @see #copy(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void copy(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption option1) throws IOException {
+        checkNotNullParam("option1", option1);
+        copyOrMove(sourceDir, srcFile, destDir, destFile, parseCopyOption(option1));
+    }
+
+    /**
+     * Equivalent to calling {@link #copy(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)} with two
+     * options.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param option1 the first copy option to use for the operation (must not be {@code null})
+     * @param option2 the second copy option to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during copy
+     *
+     * @see #copy(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void copy(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption option1, CopyOption option2) throws IOException {
+        checkNotNullParam("option1", option1);
+        checkNotNullParam("option2", option2);
+        copyOrMove(sourceDir, srcFile, destDir, destFile, parseCopyOption(option1) | parseCopyOption(option2));
+    }
+
+    /**
+     * Copy a file as securely as possible from one directory and path to another.
+     * If both {@code srcFile} and {@code destFile} are {@linkplain Path#isAbsolute() absolute paths},
+     * then this method behaves exactly the same as {@link Files#copy(Path, Path, CopyOption...)}.
+     * If {@code srcFile} and {@code destFile} are found to refer to the same file, then no action is taken
+     * and this method will return directly.
+     * <p>
+     * Otherwise, an attempt is made to:
+     * <ul>
+     * <li>Copy symbolic links as symbolic links (when {@link LinkOption#NOFOLLOW_LINKS} is given)</li>
+     * <li>Copy directories as directories (non-recursively)</li>
+     * <li>Preserve file attributes (when {@link StandardCopyOption#COPY_ATTRIBUTES} is given)</li>
+     * <li>Copy regular files using the most efficient JDK mechanism available</li>
+     * </ul>
+     * The operation may fail with a {@link IOException} if some part of the operation fails; in this case,
+     * the file may be partially copied.
+     * <p>
+     * If some aspect of the operation is not supported, {@link UnsupportedOperationException} will be thrown.
+     * Currently, the currently unsupported operations include:
+     * <ul>
+     * <li>Copying a symbolic link from or to a relative path (unsupported by the JDK as of JDK 25)</li>
+     * <li>Copying a directory into a relative path (unsupported by the JDK as of JDK 25)</li>
+     * </ul>
+     * The following copy options are allowed:
+     * <ul>
+     * <li>{@link LinkOption#NOFOLLOW_LINKS}</li>
+     * <li>{@link StandardCopyOption#COPY_ATTRIBUTES}</li>
+     * <li>{@link StandardCopyOption#REPLACE_EXISTING}</li>
+     * </ul>
+     * Giving any other option will cause a {@link IllegalArgumentException} to be thrown.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param options the copy options to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during copy
+     *
+     * @see SecureDirectoryStream#move(Object, SecureDirectoryStream, Object)
+     */
+    public static void copy(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption... options) throws IOException {
+        copyOrMove(sourceDir, srcFile, destDir, destFile, parseCopyOptions(options));
+    }
+
+    /**
+     * Equivalent to calling {@link #copyRecursively(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)}
+     * with no options.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during copy
+     *
+     * @see #copyRecursively(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void copyRecursively(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile) throws IOException {
+        copyOrMove(sourceDir, srcFile, destDir, destFile, OPT_RECURSIVE);
+    }
+
+    /**
+     * Equivalent to calling {@link #copyRecursively(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)}
+     * with one option.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param option1 the copy option to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during copy
+     *
+     * @see #copyRecursively(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void copyRecursively(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption option1) throws IOException {
+        checkNotNullParam("option1", option1);
+        copyOrMove(sourceDir, srcFile, destDir, destFile, parseCopyOption(option1) | OPT_RECURSIVE);
+    }
+
+    /**
+     * Equivalent to calling {@link #copyRecursively(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)}
+     * with two options.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param option1 the first copy option to use for the operation (must not be {@code null})
+     * @param option2 the second copy option to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during copy
+     *
+     * @see #copyRecursively(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void copyRecursively(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption option1, CopyOption option2) throws IOException {
+        checkNotNullParam("option1", option1);
+        checkNotNullParam("option2", option2);
+        copyOrMove(sourceDir, srcFile, destDir, destFile, parseCopyOption(option1) | parseCopyOption(option2) | OPT_RECURSIVE);
+    }
+
+    /**
+     * Recursively copy a file or directory as securely as possible from one directory and path to another.
+     * If {@code srcFile} and {@code destFile} are found to refer to the same file, then no action is taken
+     * and this method will return directly.
+     * <p>
+     * Otherwise, an attempt is made to:
+     * <ul>
+     * <li>Copy symbolic links as symbolic links (when {@link LinkOption#NOFOLLOW_LINKS} is given)</li>
+     * <li>Copy directories as directories (recursively)</li>
+     * <li>Preserve file attributes (when {@link StandardCopyOption#COPY_ATTRIBUTES} is given)</li>
+     * <li>Copy regular files using the most efficient JDK mechanism available</li>
+     * </ul>
+     * The operation may fail with a {@link IOException} if some part of the operation fails; in this case,
+     * the file or directory may be partially copied.
+     * <p>
+     * If some aspect of the operation is not supported, {@link UnsupportedOperationException} will be thrown.
+     * Currently, the currently unsupported operations include:
+     * <ul>
+     * <li>Copying a symbolic link from or to a relative path (unsupported by the JDK as of JDK 25)</li>
+     * <li>Copying a directory into a relative path (unsupported by the JDK as of JDK 25)</li>
+     * </ul>
+     * The following copy options are allowed:
+     * <ul>
+     * <li>{@link LinkOption#NOFOLLOW_LINKS}</li>
+     * <li>{@link StandardCopyOption#COPY_ATTRIBUTES}</li>
+     * <li>{@link StandardCopyOption#REPLACE_EXISTING}</li>
+     * </ul>
+     * Giving any other option will cause a {@link IllegalArgumentException} to be thrown.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param options the copy options to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during copy
+     */
+    public static void copyRecursively(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption... options) throws IOException {
+        copyOrMove(sourceDir, srcFile, destDir, destFile, parseCopyOptions(options) | OPT_RECURSIVE);
+    }
+
+    /**
+     * Equivalent to calling {@link #move(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)} with no
+     * options.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during move
+     *
+     * @see #move(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void move(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile) throws IOException {
+        copyOrMove(sourceDir, srcFile, destDir, destFile, OPT_MOVE | OPT_RECURSIVE);
+    }
+
+    /**
+     * Equivalent to calling {@link #move(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)} with one
+     * option.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param option1 the move option to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during move
+     *
+     * @see #move(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void move(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption option1) throws IOException {
+        checkNotNullParam("option1", option1);
+        copyOrMove(sourceDir, srcFile, destDir, destFile, parseCopyOption(option1) | OPT_MOVE | OPT_RECURSIVE);
+    }
+
+    /**
+     * Equivalent to calling {@link #move(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)} with two
+     * options.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param option1 the first move option to use for the operation (must not be {@code null})
+     * @param option2 the second move option to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during move
+     *
+     * @see #move(SecureDirectoryStream, Path, SecureDirectoryStream, Path, CopyOption...)
+     */
+    public static void move(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption option1, CopyOption option2) throws IOException {
+        checkNotNullParam("option1", option1);
+        checkNotNullParam("option2", option2);
+        copyOrMove(sourceDir, srcFile, destDir, destFile,
+                parseCopyOption(option1) | parseCopyOption(option2) | OPT_MOVE | OPT_RECURSIVE);
+    }
+
+    /**
+     * Move a file as securely as possible from one directory and path to another.
+     * If both {@code srcFile} and {@code destFile} are {@linkplain Path#isAbsolute() absolute paths},
+     * then this method behaves exactly the same as {@link Files#move(Path, Path, CopyOption...)}.
+     * If {@code srcFile} and {@code destFile} are found to refer to the same file, then no action is taken
+     * and this method will return directly.
+     * <p>
+     * Otherwise, an attempt is made to:
+     * <ul>
+     * <li>Move symbolic links as symbolic links (when {@link LinkOption#NOFOLLOW_LINKS} is given)</li>
+     * <li>Move directories as directories (including their contents)</li>
+     * <li>Preserve file attributes (when {@link StandardCopyOption#COPY_ATTRIBUTES} is given)</li>
+     * <li>Move regular files using the most efficient JDK mechanism available</li>
+     * </ul>
+     * The operation may fail with a {@link IOException} if some part of the operation fails; in this case,
+     * the file may be partially copied.
+     * <p>
+     * If some aspect of the operation is not supported, {@link UnsupportedOperationException} will be thrown.
+     * Currently, the currently unsupported operations include:
+     * <ul>
+     * <li>Copying a symbolic link from or to a relative path (unsupported by the JDK as of JDK 25)</li>
+     * <li>Copying a directory into a relative path (unsupported by the JDK as of JDK 25)</li>
+     * </ul>
+     * The following move options are allowed:
+     * <ul>
+     * <li>{@link LinkOption#NOFOLLOW_LINKS}</li>
+     * <li>{@link StandardCopyOption#COPY_ATTRIBUTES}</li>
+     * <li>{@link StandardCopyOption#REPLACE_EXISTING}</li>
+     * <li>{@link StandardCopyOption#ATOMIC_MOVE}</li>
+     * </ul>
+     * Giving any other option will cause a {@link IllegalArgumentException} to be thrown.
+     *
+     * @param sourceDir the directory stream of the source directory (must not be {@code null})
+     * @param srcFile the source path name (must not be {@code null})
+     * @param destDir the directory stream of the destination directory (must not be {@code null})
+     * @param destFile the destination path name (must not be {@code null})
+     * @param options the move options to use for the operation (must not be {@code null})
+     * @throws UnsupportedOperationException if the combination of options is unsupported by the source or destination
+     *         filesystem or the JDK itself
+     * @throws IOException if an I/O error occurs during move
+     *
+     * @see SecureDirectoryStream#move(Object, SecureDirectoryStream, Object)
+     */
+    public static void move(SecureDirectoryStream<Path> sourceDir, Path srcFile, SecureDirectoryStream<Path> destDir,
+            Path destFile, CopyOption... options) throws IOException {
+        copyOrMove(sourceDir, srcFile, destDir, destFile, parseCopyOptions(options) | OPT_MOVE | OPT_RECURSIVE);
+    }
+
+    /**
      * {@return the current working directory path at the time that this program was started (not {@code null})}
      * This path comes from the {@code user.dir} system property.
      */
@@ -557,6 +949,215 @@ public final class Files2 {
         } else {
             Files.delete(path);
         }
+    }
+
+    private static void copyOrMove(final SecureDirectoryStream<Path> srcDir, final Path srcFile,
+            final SecureDirectoryStream<Path> destDir, final Path destFile, final int opts) throws IOException {
+        if (has(opts, C_OPT_ATOMIC_MOVE) && !has(opts, OPT_MOVE)) {
+            throw log.unsupportedForOperation(StandardCopyOption.ATOMIC_MOVE);
+        }
+        if (srcFile.isAbsolute() && destFile.isAbsolute() && !has(opts, OPT_RECURSIVE)) {
+            // use the JDK methods
+            if (has(opts, OPT_MOVE)) {
+                Files.move(srcFile, destFile, ALL_COPY_OPTIONS[opts]);
+            } else {
+                Files.copy(srcFile, destFile, ALL_COPY_OPTIONS[opts]);
+            }
+            return;
+        }
+        // first, get attributes to ensure that the source file exists (throws here if not found)
+        PosixFileAttributeView srcPosixView = srcDir.getFileAttributeView(srcFile, PosixFileAttributeView.class,
+                ALL_LINK_OPTIONS[opts & OPT_NO_FOLLOW]);
+        PosixFileAttributes srcPosix = srcPosixView == null ? null : srcPosixView.readAttributes();
+        DosFileAttributeView srcDosView = srcPosix != null ? null
+                : srcDir.getFileAttributeView(srcFile, DosFileAttributeView.class, ALL_LINK_OPTIONS[opts & OPT_NO_FOLLOW]);
+        DosFileAttributes srcDos = srcDosView == null ? null : srcDosView.readAttributes();
+        BasicFileAttributes srcBasic = srcPosix != null ? srcPosix
+                : srcDos != null ? srcDos
+                        : srcDir.getFileAttributeView(srcFile, BasicFileAttributeView.class,
+                                ALL_LINK_OPTIONS[opts & OPT_NO_FOLLOW]).readAttributes();
+        // source file exists; continue
+        FileAttribute<?>[] attrs = has(opts, C_OPT_COPY_ATTRS) && srcPosix != null ? new FileAttribute[] {
+                PosixFilePermissions.asFileAttribute(srcPosix.permissions())
+        } : NO_FILE_ATTRS;
+        BasicFileAttributes oldDestBasic = null;
+        try {
+            // always use nofollow-links on the destination so we know what to do about it
+            oldDestBasic = destDir.getFileAttributeView(destFile, BasicFileAttributeView.class, ALL_LINK_OPTIONS[OPT_NO_FOLLOW])
+                    .readAttributes();
+        } catch (NoSuchFileException ignored) {
+        }
+        if (oldDestBasic != null) {
+            // try to determine if they are the same file
+            Object srcKey = srcBasic.fileKey();
+            if (srcKey != null && srcKey.equals(oldDestBasic.fileKey())) {
+                // same file; nothing to do
+                return;
+            }
+            // different file, or don't know
+            if (!has(opts, C_OPT_REPLACE)) {
+                throw log.copyFileExists(destFile);
+            }
+            // remove the dest. path
+            if (oldDestBasic.isDirectory()) {
+                // non-recursive removal; fails if directory is not empty
+                destDir.deleteDirectory(destFile);
+            } else {
+                destDir.deleteFile(destFile);
+            }
+        }
+        if (has(opts, OPT_MOVE)) {
+            try {
+                srcDir.move(srcFile, destDir, destFile);
+                return;
+            } catch (AtomicMoveNotSupportedException e) {
+                if (has(opts, C_OPT_ATOMIC_MOVE)) {
+                    throw e;
+                }
+                // else do a copy+delete instead
+            }
+        }
+        // now check the source type
+        boolean isDirectory = srcBasic.isDirectory();
+        if (isDirectory) {
+            JDKSpecificDirectoryActions.createDirectory(destDir, destFile, attrs);
+            if (has(opts, OPT_RECURSIVE)) {
+                try (SecureDirectoryStream<Path> srcFileSds = srcDir.newDirectoryStream(srcFile,
+                        ALL_LINK_OPTIONS[opts & OPT_NO_FOLLOW])) {
+                    try (SecureDirectoryStream<Path> destFileSds = destDir.newDirectoryStream(destFile,
+                            ALL_LINK_OPTIONS[OPT_NO_FOLLOW])) {
+                        for (Path subPath : srcFileSds) {
+                            Path fileName = subPath.getFileName();
+                            copyOrMove(srcFileSds, fileName, destFileSds, fileName, opts);
+                        }
+                    }
+                }
+            }
+        } else if (srcBasic.isSymbolicLink()) {
+            Path target = JDKSpecificDirectoryActions.readLink(srcDir, srcFile);
+            JDKSpecificDirectoryActions.createSymlink(destDir, destFile, target, attrs);
+        } else {
+            // regular file
+            Set<? extends OpenOption> destOpenOpts = ALL_OPEN_OPTIONS_FOR_COPY_WRITE.get(opts & OPT_NO_FOLLOW);
+            try (SeekableByteChannel destCh = destDir.newByteChannel(destFile, destOpenOpts, attrs)) {
+                // now open source channel
+                Set<? extends OpenOption> srcOpenOpts = ALL_OPEN_OPTIONS_FOR_COPY_READ.get(opts & OPT_NO_FOLLOW);
+                try (SeekableByteChannel srcCh = srcDir.newByteChannel(srcFile, srcOpenOpts)) {
+                    // do the copy
+                    copy(srcCh, destCh);
+                }
+            }
+        }
+        // copy attributes
+        if (has(opts, C_OPT_COPY_ATTRS)) {
+            PosixFileAttributeView newDestPosixView = destDir.getFileAttributeView(destFile, PosixFileAttributeView.class,
+                    ALL_LINK_OPTIONS[OPT_NO_FOLLOW]);
+            DosFileAttributeView newDestDosView = newDestPosixView != null ? null
+                    : destDir.getFileAttributeView(destFile, DosFileAttributeView.class, ALL_LINK_OPTIONS[OPT_NO_FOLLOW]);
+            BasicFileAttributeView newDestBasicView = newDestPosixView != null ? newDestPosixView
+                    : newDestDosView != null ? newDestDosView
+                            : destDir.getFileAttributeView(destFile, BasicFileAttributeView.class,
+                                    ALL_LINK_OPTIONS[OPT_NO_FOLLOW]);
+            if (srcPosix != null && newDestPosixView != null) {
+                // copy owner/group
+                newDestPosixView.setOwner(srcPosix.owner());
+                newDestPosixView.setGroup(srcPosix.group());
+            } else if (srcDos != null && newDestDosView != null) {
+                // copy RASH
+                newDestDosView.setReadOnly(srcDos.isReadOnly());
+                newDestDosView.setArchive(srcDos.isArchive());
+                newDestDosView.setSystem(srcDos.isSystem());
+                newDestDosView.setHidden(srcDos.isHidden());
+            }
+            // copy times
+            newDestBasicView.setTimes(srcBasic.lastModifiedTime(), srcBasic.lastAccessTime(), srcBasic.creationTime());
+        }
+        // remove old, if moving
+        if (has(opts, OPT_MOVE)) {
+            if (isDirectory) {
+                srcDir.deleteDirectory(srcFile);
+            } else {
+                srcDir.deleteFile(srcFile);
+            }
+        }
+    }
+
+    private static final int OPT_NO_FOLLOW = 1 << 0;
+
+    private static final int C_OPT_REPLACE = 1 << 1;
+    private static final int C_OPT_COPY_ATTRS = 1 << 2;
+    private static final int C_OPT_ATOMIC_MOVE = 1 << 3;
+
+    private static final int OPT_MOVE = 1 << 4;
+    private static final int OPT_RECURSIVE = 1 << 5;
+
+    private static int parseCopyOptions(final CopyOption... options) {
+        checkNotNullParam("options", options);
+        int opts = 0;
+        for (int i = 0; i < options.length; i++) {
+            final CopyOption option = options[i];
+            checkNotNullArrayParam("options", i, option);
+            opts |= parseCopyOption(option);
+        }
+        return opts;
+    }
+
+    private static int parseCopyOption(final CopyOption option) {
+        if (option instanceof StandardCopyOption o) {
+            return switch (o) {
+                case REPLACE_EXISTING -> C_OPT_REPLACE;
+                case COPY_ATTRIBUTES -> C_OPT_COPY_ATTRS;
+                case ATOMIC_MOVE -> C_OPT_ATOMIC_MOVE;
+                //noinspection UnnecessaryDefault
+                default -> throw log.unknownOption(o);
+            };
+        } else if (option instanceof LinkOption o) {
+            if (o == LinkOption.NOFOLLOW_LINKS) {
+                return OPT_NO_FOLLOW;
+            } else {
+                throw log.unknownOption(o);
+            }
+        } else {
+            throw log.unknownOption(option);
+        }
+    }
+
+    private static boolean has(int opts, int option) {
+        return (opts & option) != 0;
+    }
+
+    private static final LinkOption[][] ALL_LINK_OPTIONS = {
+            {},
+            { LinkOption.NOFOLLOW_LINKS }
+    };
+    private static final CopyOption[][] ALL_COPY_OPTIONS;
+    // order is significant
+    private static final List<Set<? extends OpenOption>> ALL_OPEN_OPTIONS_FOR_COPY_WRITE = List.of(
+            EnumSet.of(StandardOpenOption.CREATE_NEW),
+            Set.of(LinkOption.NOFOLLOW_LINKS, StandardOpenOption.CREATE_NEW));
+    private static final List<Set<? extends OpenOption>> ALL_OPEN_OPTIONS_FOR_COPY_READ = List.of(
+            EnumSet.noneOf(StandardOpenOption.class),
+            EnumSet.of(LinkOption.NOFOLLOW_LINKS));
+    private static final FileAttribute<?>[] NO_FILE_ATTRS = new FileAttribute[0];
+
+    static {
+        CopyOption[][] outer = new CopyOption[16][];
+        for (int i = 0; i < 16; i++) {
+            CopyOption[] inner = new CopyOption[Integer.bitCount(i)];
+            int bits = i, idx = 0;
+            while (bits != 0) {
+                inner[idx++] = switch (Integer.numberOfTrailingZeros(bits)) {
+                    case 0 -> LinkOption.NOFOLLOW_LINKS;
+                    case 1 -> StandardCopyOption.REPLACE_EXISTING;
+                    case 2 -> StandardCopyOption.COPY_ATTRIBUTES;
+                    case 3 -> StandardCopyOption.ATOMIC_MOVE;
+                    default -> throw impossibleSwitchCase(bits);
+                };
+                bits &= ~Integer.lowestOneBit(bits);
+            }
+            outer[i] = inner;
+        }
+        ALL_COPY_OPTIONS = outer;
     }
 
 }
