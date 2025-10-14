@@ -174,17 +174,17 @@ public final class Files2 {
      * @param path the path to delete (must not be {@code null})
      * @return the deletion statistics (not {@code null})
      *
-     * @see #deleteRecursivelyQuiet(Path)
+     * @see #deleteRecursivelyQuietly(Path)
      */
-    public static DeleteStats deleteRecursivelyQuietEvenIfInsecure(Path path) {
+    public static DeleteStats deleteRecursivelyQuietlyEvenIfInsecure(Path path) {
         checkNotNullParam("path", path);
         SecureDirectoryStream<Path> base = CWD_SDS;
         if (base != null) {
             // secure!
-            return deleteRecursivelyQuiet(base, path);
+            return deleteRecursivelyQuietly(base, path);
         } else {
             long[] stats = new long[DeleteStats.STATS_SIZE];
-            deleteRecursivelyQuietInsecurely(path, stats);
+            deleteRecursivelyQuietlyInsecurely(path, stats);
             return new DeleteStats(stats);
         }
     }
@@ -203,15 +203,15 @@ public final class Files2 {
      * @param ds the directory stream whose contents should be removed (must not be {@code null})
      * @return the deletion statistics (not {@code null})
      *
-     * @see #deleteRecursivelyQuiet(SecureDirectoryStream)
+     * @see #deleteRecursivelyQuietly(SecureDirectoryStream)
      */
-    public static DeleteStats deleteRecursivelyQuietEvenIfInsecure(DirectoryStream<Path> ds) {
+    public static DeleteStats deleteRecursivelyQuietlyEvenIfInsecure(DirectoryStream<Path> ds) {
         checkNotNullParam("ds", ds);
         if (ds instanceof SecureDirectoryStream<Path> sds) {
-            return deleteRecursivelyQuiet(sds);
+            return deleteRecursivelyQuietly(sds);
         } else {
             long[] stats = new long[DeleteStats.STATS_SIZE];
-            deleteRecursivelyQuietInsecurely(ds, stats);
+            deleteRecursivelyQuietlyInsecurely(ds, stats);
             return new DeleteStats(stats);
         }
     }
@@ -225,13 +225,13 @@ public final class Files2 {
      * @return the deletion statistics (not {@code null})
      * @throws UnsupportedOperationException if secure directory removal is unsupported
      */
-    public static DeleteStats deleteRecursivelyQuiet(Path path) {
+    public static DeleteStats deleteRecursivelyQuietly(Path path) {
         checkNotNullParam("path", path);
         SecureDirectoryStream<Path> base = CWD_SDS;
         if (base == null) {
             throw Messages.log.secureDirectoryNotSupported(path.getFileSystem(), path);
         }
-        return deleteRecursivelyQuiet(base, path);
+        return deleteRecursivelyQuietly(base, path);
     }
 
     /**
@@ -246,10 +246,10 @@ public final class Files2 {
      * @param sds the directory stream whose contents should be removed (must not be {@code null})
      * @return the deletion statistics (not {@code null})
      */
-    public static DeleteStats deleteRecursivelyQuiet(SecureDirectoryStream<Path> sds) {
+    public static DeleteStats deleteRecursivelyQuietly(SecureDirectoryStream<Path> sds) {
         checkNotNullParam("sds", sds);
         long[] stats = new long[DeleteStats.STATS_SIZE];
-        deleteRecursivelyQuiet(sds, stats);
+        deleteRecursivelyQuietly(sds, stats);
         return new DeleteStats(stats);
     }
 
@@ -270,11 +270,11 @@ public final class Files2 {
      * @param path the relative path of the file or directory to be removed (must not be {@code null})
      * @return the deletion statistics (not {@code null})
      */
-    public static DeleteStats deleteRecursivelyQuiet(SecureDirectoryStream<Path> sds, Path path) {
+    public static DeleteStats deleteRecursivelyQuietly(SecureDirectoryStream<Path> sds, Path path) {
         checkNotNullParam("sds", sds);
         checkNotNullParam("path", path);
         long[] stats = new long[DeleteStats.STATS_SIZE];
-        deleteRecursivelyQuiet(sds, path, stats);
+        deleteRecursivelyQuietly(sds, path, stats);
         return new DeleteStats(stats);
     }
 
@@ -467,7 +467,7 @@ public final class Files2 {
         Files.delete(path);
     }
 
-    private static void deleteRecursivelyQuiet(final SecureDirectoryStream<Path> sds, final Path path, final long[] stats) {
+    private static void deleteRecursivelyQuietly(final SecureDirectoryStream<Path> sds, final Path path, final long[] stats) {
         boolean isDirectory;
         try {
             isDirectory = sds.getFileAttributeView(path, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS)
@@ -483,7 +483,7 @@ public final class Files2 {
             stats[DeleteStats.DIR_FOUND]++;
             try (SecureDirectoryStream<Path> subStream = sds.newDirectoryStream(path, LinkOption.NOFOLLOW_LINKS)) {
                 log.tracef("Entering directory %s", path);
-                deleteRecursivelyQuiet(subStream, stats);
+                deleteRecursivelyQuietly(subStream, stats);
                 log.tracef("Exiting directory %s", path);
             } catch (IOException ignored) {
             }
@@ -505,17 +505,17 @@ public final class Files2 {
         }
     }
 
-    private static void deleteRecursivelyQuiet(final SecureDirectoryStream<Path> subStream, final long[] stats) {
+    private static void deleteRecursivelyQuietly(final SecureDirectoryStream<Path> subStream, final long[] stats) {
         for (Path path : subStream) {
-            deleteRecursivelyQuiet(subStream, path.getFileName(), stats);
+            deleteRecursivelyQuietly(subStream, path.getFileName(), stats);
         }
     }
 
-    private static void deleteRecursivelyQuietInsecurely(final Path path, final long[] stats) {
+    private static void deleteRecursivelyQuietlyInsecurely(final Path path, final long[] stats) {
         if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
             stats[DeleteStats.DIR_FOUND]++;
             try (DirectoryStream<Path> ds = Files.newDirectoryStream(path)) {
-                deleteRecursivelyQuietInsecurely(ds, stats);
+                deleteRecursivelyQuietlyInsecurely(ds, stats);
             } catch (IOException ignored) {
             }
             try {
@@ -536,9 +536,9 @@ public final class Files2 {
         }
     }
 
-    private static void deleteRecursivelyQuietInsecurely(final DirectoryStream<Path> ds, final long[] stats) {
+    private static void deleteRecursivelyQuietlyInsecurely(final DirectoryStream<Path> ds, final long[] stats) {
         for (Path path : ds) {
-            deleteRecursivelyQuietInsecurely(path, stats);
+            deleteRecursivelyQuietlyInsecurely(path, stats);
         }
     }
 
