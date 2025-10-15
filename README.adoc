@@ -25,22 +25,240 @@ Add the `io.smallrye.common:smallrye-common-bom` to your `<dependencyManagement>
 </dependency>
 ----
 
-Now you can add the dependencies you need without worrying about the versions.
+Now you can add the dependencies you need without worrying about the versions. See the submodule documentation below for information on including the component(s) that you need for your project.
 
-For example:
+=== Submodules
+
+The SmallRye Common library contains a number of separate submodules.
+
+==== SmallRye Common Annotation
+
+This library contains annotations which are commonly used by SmallRye and other projects.
+
+Include it by adding the following to your POM's `<dependencies>` section:
 
 [source,xml]
 ----
-<!-- Add a dependency to the SmallRye Common IO module -->
+<!-- Add a dependency to the SmallRye Common Annotation module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-annotation</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Classloader
+
+This library contains useful utilities for managing class paths and class loaders.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Classloader module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-classloader</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Constraint
+
+This library contains validation functions which can check arguments for nullity, emptiness, value ranges, and more.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Constraint module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-constraint</artifactId>
+</dependency>
+----
+
+==== SmallRye Common CPU
+
+This library contains utilities to determine the current CPU architecture type and information such as cache line size.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common CPU module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-cpu</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Expression
+
+This library provides a means to efficiently evaluate Apache-style `${...}` expressions in strings.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Expression module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-expression</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Function
+
+This library contains functional interfaces and utilities for functions which can throw exceptions.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Function module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-function</artifactId>
+</dependency>
+----
+
+==== SmallRye Common I/O
+
+This library contains utilities for filesystem and JAR manipulation.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common I/O module -->
 <dependency>
     <groupId>io.smallrye.common</groupId>
     <artifactId>smallrye-common-io</artifactId>
 </dependency>
 ----
 
+==== SmallRye Common Net
+
+This library contains utilities to read the host name, and model and create IP addresses and CIDR addresses, as well as for manipulation of URIs.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Net module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-net</artifactId>
+</dependency>
+----
+
+==== SmallRye Common OS
+
+This library contains utilities to determine information about the current operating system.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common OS module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-os</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Process
+
+This library contains utilities to safely launch processes and manage I/O with them, and also contains utility methods which provide information about the current Java process.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Process module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-process</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Ref
+
+This library contains an enhanced set of classes for implementing strong, weak, soft, and phantom references.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Ref module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-ref</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Resource
+
+This library contains abstractions relating to loading resources for class loading and related purposes.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Resource module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-resource</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Search
+
+This library facilitates search algorithms such as binary search across arbitrary spaces.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Search module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-search</artifactId>
+</dependency>
+----
+
+==== SmallRye Common Version
+
+This library provides the ability to parse, validate, and compare version strings under a variety of versioning schemes.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Version module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-version</artifactId>
+</dependency>
+----
+
+==== SmallRye Vert.x Context
+
+This library contains classes for the purpose of managing, duplicating, and nesting Vert.x contexts.
+
+Include it by adding the following to your POM's `<dependencies>` section:
+
+[source,xml]
+----
+<!-- Add a dependency to the SmallRye Common Vert.x Context module -->
+<dependency>
+    <groupId>io.smallrye.common</groupId>
+    <artifactId>smallrye-common-vertx-context</artifactId>
+</dependency>
+----
+
 === Development
 
-Compile and test the project:
+Compile and test the project using Maven and a recent JDK:
 
 [source,bash]
 ----
