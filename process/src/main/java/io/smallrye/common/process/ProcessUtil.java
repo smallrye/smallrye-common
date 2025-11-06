@@ -92,9 +92,6 @@ public final class ProcessUtil {
         }
         for (Path segment : searchPath()) {
             Path execPath = segment.resolve(path);
-            if (Files.isExecutable(execPath)) {
-                return Optional.of(execPath);
-            }
             if (OS.current() == OS.WINDOWS) {
                 for (String ext : Windows.pathExt) {
                     Path execPathExt = execPath.getParent().resolve(execPath.getFileName() + ext);
@@ -102,6 +99,9 @@ public final class ProcessUtil {
                         return Optional.of(execPathExt);
                     }
                 }
+            }
+            if (Files.isExecutable(execPath)) {
+                return Optional.of(execPath);
             }
         }
         return Optional.empty();
