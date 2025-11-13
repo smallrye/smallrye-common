@@ -78,7 +78,10 @@ public enum CPU {
      */
     wasm32(4, ByteOrder.LITTLE_ENDIAN, Set.of("wasm"), false),
 
-    // todo: s390
+    /**
+     * S390.
+     */
+    s390(8, ByteOrder.BIG_ENDIAN, Set.of("s390x"), false),
 
     /**
      * MIPS 32-bit (big-endian).
