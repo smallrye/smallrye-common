@@ -83,7 +83,7 @@ public enum CPU {
     /**
      * MIPS 32-bit (big-endian).
      */
-    mips(4, ByteOrder.BIG_ENDIAN, Set.of("mips32, mipsbe, mips32be"), false),
+    mips(4, ByteOrder.BIG_ENDIAN, Set.of("mips32", "mipsbe", "mips32be"), false),
     /**
      * MIPS 32-bit (little-endian).
      */
