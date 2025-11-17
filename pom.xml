@@ -66,7 +66,7 @@
     </developers>
 
     <modules>
-        <!-- implementations -->
+        <!-- Submodule list. Keep alphabetical. Also, add submodules to README.md. -->
         <module>annotation</module>
         <module>classloader</module>
         <module>constraint</module>
