@@ -33,6 +33,11 @@ public enum OS {
     WINDOWS,
 
     /**
+     * IBM z/OS.
+     */
+    Z,
+
+    /**
      * Anything else different from the above.
      */
     OTHER;
@@ -60,6 +65,9 @@ public enum OS {
         }
         if (osName.contains("aix")) {
             return AIX;
+        }
+        if (osName.contains("z/os")) {
+            return Z;
         }
         return OTHER;
     }
