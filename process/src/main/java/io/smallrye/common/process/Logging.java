@@ -14,6 +14,6 @@ interface Logging extends BasicLogger {
     Logging log = Logger.getMessageLogger(MethodHandles.lookup(), Logging.class, Logging.class.getPackageName());
 
     @LogMessage(level = Logger.Level.WARN)
-    @Message(id = 5000, value = "Command %s (pid %d) completed but logged errors:%s")
+    @Message(id = 5000, value = "Command %s (pid %d) completed successfully but logged on stderr:%s")
     void logErrors(Path command, long pid, StringBuilder errors);
 }
