@@ -26,14 +26,16 @@
         <!-- Dependencies -->
         <version.classfile.api>25.1</version.classfile.api>
         <version.graalvm>25.0.2</version.graalvm>
-        <version.vertx>4.5.25</version.vertx>
+        <version.vertx4>4.5.25</version.vertx4>
+        <version.vertx5>5.0.8</version.vertx5>
         <version.maven-resolver>1.9.22</version.maven-resolver>
-        <version.shrinkwrap>1.2.6</version.shrinkwrap>
+        <version.shrinkwrap>${module-services-plugin.version}.6</version.shrinkwrap>
         <version.org.jboss.logging>3.6.0.Final</version.org.jboss.logging>
 
         <!-- Sonar settings -->
         <sonar.projectName>SmallRye Common</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <module-services-plugin.version>1.2</module-services-plugin.version>
     </properties>
 
     <licenses>
@@ -81,7 +83,8 @@
         <module>resource</module>
         <module>search</module>
         <module>version</module>
-        <module>vertx-context</module>
+        <module>vertx4-context</module>
+        <module>vertx5-context</module>
     </modules>
 
     <dependencyManagement>
@@ -186,6 +189,19 @@
                         <!-- work around problem when the generated sources are included -->
                         <sourcepath>${project.build.sourceDirectory}</sourcepath>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>io.github.dmlloyd.maven</groupId>
+                    <artifactId>module-services-plugin</artifactId>
+                    <version>${module-services-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>generate-services</id>
+                            <goals>
+                                <goal>generate</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>
