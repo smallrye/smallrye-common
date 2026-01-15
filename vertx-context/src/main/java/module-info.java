@@ -1,3 +1,4 @@
+
 /**
  * Utility classes relating to Vert.x context manipulation.
  */
@@ -6,4 +7,7 @@ module io.smallrye.common.vertx {
     requires io.vertx.core;
 
     exports io.smallrye.common.vertx;
+
+    provides io.vertx.core.spi.VertxServiceProvider
+            with io.smallrye.common.vertx.ContextLocalLoader;
 }
