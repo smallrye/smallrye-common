@@ -6,7 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
-import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.internal.ContextInternal;
 import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -54,8 +54,11 @@ public class ContextLocalsTest {
     public void assertAccessFromDuplicatedContext(Vertx vertx, VertxTestContext tc) {
         Checkpoint checkpoint = tc.checkpoint(2);
 
-        Context dup1 = VertxContext.getOrCreateDuplicatedContext(vertx);
-        Context dup2 = VertxContext.getOrCreateDuplicatedContext(vertx);
+        // In Vert.x 5, getOrCreateContext() from a non-Vert.x thread creates a new context each time
+        // So we need to get the context once and reuse it
+        Context root = vertx.getOrCreateContext();
+        Context dup1 = VertxContext.getOrCreateDuplicatedContext(root);
+        Context dup2 = VertxContext.getOrCreateDuplicatedContext(root);
         Assertions.assertThat(((ContextInternal) dup1).unwrap())
                 .isSameAs(((ContextInternal) dup2).unwrap());
 

@@ -7,7 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
-import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.internal.ContextInternal;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 
@@ -164,13 +164,13 @@ public class VertxContextTest {
                 assertThat(VertxContext.isDuplicatedContext(duplicated1)).isTrue();
                 assertThat(VertxContext.getRootContext(duplicated1)).isSameAs(root);
 
-                duplicated1.putLocal("duplicated1-data", "duplicated1-value");
+                VertxContext.localContextData(duplicated1).put("duplicated1-data", "duplicated1-value");
 
                 var duplicated2 = VertxContext.createNewDuplicatedContext(duplicated1);
                 duplicated2.runOnContext(ignored3 -> {
                     assertThat(VertxContext.isDuplicatedContext(duplicated2)).isTrue();
                     assertThat(VertxContext.getRootContext(duplicated2)).isSameAs(root);
-                    assertThat((String) duplicated2.getLocal("duplicated1-data")).isNull();
+                    assertThat((String) VertxContext.localContextData(duplicated2).get("duplicated1-data")).isNull();
                     assertThat(VertxContext.getRootContext(duplicated2)).isSameAs(root);
                     tc.completeNow();
                 });
@@ -190,15 +190,13 @@ public class VertxContextTest {
                 assertThat(VertxContext.isDuplicatedContext(duplicated1)).isTrue();
                 assertThat(VertxContext.getRootContext(duplicated1)).isSameAs(root);
 
-                //noinspection deprecation
-                duplicated1.putLocal("duplicated1-data", "duplicated1-value");
+                VertxContext.localContextData(duplicated1).put("duplicated1-data", "duplicated1-value");
 
                 var duplicated2 = ((ContextInternal) root).duplicate();
                 duplicated2.runOnContext(ignored3 -> {
                     assertThat(VertxContext.isDuplicatedContext(duplicated2)).isTrue();
                     assertThat(VertxContext.getRootContext(duplicated2)).isSameAs(root);
-                    //noinspection deprecation
-                    assertThat((String) duplicated2.getLocal("duplicated1-data")).isNull();
+                    assertThat((String) VertxContext.localContextData(duplicated2).get("duplicated1-data")).isNull();
                     assertThat(VertxContext.getRootContext(duplicated2)).isSameAs(root);
                     tc.completeNow();
                 });

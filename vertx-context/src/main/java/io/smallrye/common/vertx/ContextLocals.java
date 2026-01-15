@@ -5,7 +5,7 @@ import java.util.Optional;
 import io.smallrye.common.constraint.Assert;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
-import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.internal.ContextInternal;
 
 /**
  * Utilities to access Vert.x Context locals.
@@ -33,9 +33,11 @@ public class ContextLocals {
      * @param <T> the expected type of the associated value
      * @return an optional containing the associated value if any, empty otherwise.
      */
+    @SuppressWarnings("unchecked")
     public static <T> Optional<T> get(String key) {
         Context current = ensureDuplicatedContext();
-        return Optional.ofNullable(current.getLocal(Assert.checkNotNullParam("key", key)));
+        var map = VertxContext.localContextData(current);
+        return Optional.ofNullable((T) map.get(Assert.checkNotNullParam("key", key)));
     }
 
     /**
@@ -48,9 +50,11 @@ public class ContextLocals {
      * @param <T> the expected type of the associated value
      * @return the associated value if any, the given default otherwise.
      */
+    @SuppressWarnings("unchecked")
     public static <T> T get(String key, T def) {
         Context current = ensureDuplicatedContext();
-        T local = current.getLocal(Assert.checkNotNullParam("key", key));
+        var map = VertxContext.localContextData(current);
+        T local = (T) map.get(Assert.checkNotNullParam("key", key));
         if (local == null) {
             return def;
         }
@@ -67,7 +71,8 @@ public class ContextLocals {
      */
     public static <T> void put(String key, T value) {
         Context current = ensureDuplicatedContext();
-        current.putLocal(
+        var map = VertxContext.localContextData(current);
+        map.put(
                 Assert.checkNotNullParam("key", key),
                 Assert.checkNotNullParam("value", value));
     }
@@ -80,7 +85,8 @@ public class ContextLocals {
      */
     public static boolean remove(String key) {
         Context current = ensureDuplicatedContext();
-        return current.removeLocal(Assert.checkNotNullParam("key", key));
+        var map = VertxContext.localContextData(current);
+        return map.remove(Assert.checkNotNullParam("key", key)) != null;
     }
 
     /**
@@ -90,8 +96,7 @@ public class ContextLocals {
      */
     public static Context getParentContext() {
         var current = ensureDuplicatedContext();
-        //noinspection deprecation
-        return current.getLocal(VertxContext.PARENT_CONTEXT);
+        return current.getLocal(VertxContext.PARENT_CONTEXT_LOCAL);
     }
 
     /**
@@ -119,7 +124,8 @@ public class ContextLocals {
             throw new IllegalStateException("Parent context is not set");
         }
         if (VertxContext.isDuplicatedContext(parent)) {
-            return ((ContextInternal) parent).localContextData().putIfAbsent(k, v) == null;
+            var map = VertxContext.localContextData(parent);
+            return map.putIfAbsent(k, v) == null;
         } else {
             throw new IllegalStateException("The parent context is a root context");
         }
@@ -134,13 +140,15 @@ public class ContextLocals {
      * @param <T> the expected type of the associated value
      * @return an optional containing the associated value if any, empty otherwise.
      */
+    @SuppressWarnings("unchecked")
     public static <T> Optional<T> getFromParent(String key) {
         var k = Assert.checkNotNullParam("key", key);
         var parent = getParentContext();
         if (parent == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(parent.getLocal(k));
+        var map = VertxContext.localContextData(parent);
+        return Optional.ofNullable((T) map.get(k));
     }
 
     /**
@@ -154,13 +162,15 @@ public class ContextLocals {
      * @param <T> the expected type of the associated value
      * @return the associated value if any, the given default otherwise.
      */
+    @SuppressWarnings("unchecked")
     public static <T> T getFromParent(String key, T def) {
         var k = Assert.checkNotNullParam("key", key);
         var parent = getParentContext();
         if (parent == null) {
             return def;
         }
-        T local = parent.getLocal(k);
+        var map = VertxContext.localContextData(parent);
+        T local = (T) map.get(k);
         if (local == null) {
             return def;
         }
