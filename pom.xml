@@ -26,7 +26,8 @@
         <!-- Dependencies -->
         <version.classfile.api>25.1</version.classfile.api>
         <version.graalvm>25.0.1</version.graalvm>
-        <version.vertx>5.0.6</version.vertx>
+        <version.vertx4>4.5.24</version.vertx4>
+        <version.vertx5>5.0.6</version.vertx5>
         <version.maven-resolver>1.9.22</version.maven-resolver>
         <version.shrinkwrap>1.2.6</version.shrinkwrap>
         <version.org.jboss.logging>3.6.0.Final</version.org.jboss.logging>
@@ -81,7 +82,8 @@
         <module>resource</module>
         <module>search</module>
         <module>version</module>
-        <module>vertx-context</module>
+        <module>vertx4-context</module>
+        <module>vertx5-context</module>
     </modules>
 
     <dependencyManagement>
