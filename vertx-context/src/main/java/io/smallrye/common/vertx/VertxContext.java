@@ -1,12 +1,13 @@
 package io.smallrye.common.vertx;
 
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.smallrye.common.constraint.Assert;
 import io.smallrye.common.constraint.Nullable;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
-import io.vertx.core.impl.ContextInternal;
+import io.vertx.core.internal.ContextInternal;
+import io.vertx.core.spi.context.storage.ContextLocal;
 
 /**
  * Utility classes allowing to create duplicated and nested contexts.
@@ -85,12 +86,30 @@ import io.vertx.core.impl.ContextInternal;
 public class VertxContext {
 
     /**
-     * The key used to store the parent context in a nested context.
+     * The ContextLocal used to store the parent context in a nested context.
      */
-    public static final String PARENT_CONTEXT = "__PARENT_CONTEXT__";
+    public static final ContextLocal<Context> PARENT_CONTEXT_LOCAL = ContextLocal.registerLocal(Context.class);
+
+    /**
+     * The ContextLocal used to store arbitrary key-value data in a context.
+     */
+    @SuppressWarnings("unchecked")
+    public static final ContextLocal<ConcurrentHashMap<String, Object>> DATA_MAP_LOCAL = (ContextLocal<ConcurrentHashMap<String, Object>>) (ContextLocal<?>) ContextLocal
+            .registerLocal(ConcurrentHashMap.class);
 
     private VertxContext() {
         // Avoid direct instantiation
+    }
+
+    /**
+     * Gets or creates the local context data map for the given context.
+     * This map is used to store arbitrary key-value pairs.
+     *
+     * @param context the context, must not be {@code null}
+     * @return the local context data map, never {@code null}
+     */
+    public static ConcurrentHashMap<String, Object> localContextData(Context context) {
+        return context.getLocal(DATA_MAP_LOCAL, ConcurrentHashMap::new);
     }
 
     /**
@@ -245,7 +264,6 @@ public class VertxContext {
      * @param context the context, must not be {@code null}
      * @return a new nested context from the given context.
      */
-    @SuppressWarnings("deprecation")
     public static Context newNestedContext(Context context) {
         if (context == null) {
             throw new IllegalStateException("Cannot create a nested context from a `null` context");
@@ -253,17 +271,23 @@ public class VertxContext {
         if (!isDuplicatedContext(context)) {
             // We are on the root context, so, just do regular duplication
             var nested = ((ContextInternal) context).duplicate();
-            nested.putLocal(PARENT_CONTEXT, context);
+            nested.putLocal(PARENT_CONTEXT_LOCAL, context);
             return nested;
         }
         // We are on a duplicated context, so, we create a new nested context.
         // Step 1 - create a new duplicated context from the root context
-        // Step 2 - copy the context locals
+        // Step 2 - copy the context data map
         // Step 3 - add links to the current context (the duplicated one)
         var nested = ((ContextInternal) context).duplicate();
-        ConcurrentMap<Object, Object> map = ((ContextInternal) context).localContextData();
-        nested.localContextData().putAll(map);
-        nested.putLocal(PARENT_CONTEXT, context);
+
+        // Copy the data map from parent context if it exists
+        ConcurrentHashMap<String, Object> parentMap = context.getLocal(DATA_MAP_LOCAL);
+        if (parentMap != null && !parentMap.isEmpty()) {
+            ConcurrentHashMap<String, Object> nestedMap = new ConcurrentHashMap<>(parentMap);
+            nested.putLocal(DATA_MAP_LOCAL, nestedMap);
+        }
+
+        nested.putLocal(PARENT_CONTEXT_LOCAL, context);
         return nested;
     }
 

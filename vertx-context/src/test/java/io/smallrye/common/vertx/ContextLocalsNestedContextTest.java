@@ -90,7 +90,7 @@ class ContextLocalsNestedContextTest {
                 nested.runOnContext(n -> {
                     Context parent = ContextLocals.getParentContext();
                     assertThat(parent).isNotNull();
-                    assertThat((String) parent.getLocal("level")).isEqualTo("1");
+                    assertThat(ContextLocals.getFromParent("level")).hasValue("1");
                     testContext.completeNow();
                 });
             });
