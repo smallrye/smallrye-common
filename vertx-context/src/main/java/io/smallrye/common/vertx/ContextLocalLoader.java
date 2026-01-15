@@ -28,4 +28,11 @@ public class ContextLocalLoader implements VertxServiceProvider {
     public void init(VertxBootstrap bootstrap) {
         // No-op - we just need the class to be loaded via the static initializer
     }
+
+    /**
+     * Ensures {@link VertxContext} is loaded before the first {@link io.vertx.core.Vertx} context is ready.
+     */
+    public ContextLocalLoader() {
+        // Nothing
+    }
 }
