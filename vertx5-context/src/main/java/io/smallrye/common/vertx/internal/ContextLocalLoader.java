@@ -1,5 +1,6 @@
-package io.smallrye.common.vertx;
+package io.smallrye.common.vertx.internal;
 
+import io.smallrye.common.vertx.VertxContext;
 import io.vertx.core.internal.VertxBootstrap;
 import io.vertx.core.spi.VertxServiceProvider;
 

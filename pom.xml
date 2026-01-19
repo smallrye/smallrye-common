@@ -29,12 +29,13 @@
         <version.vertx4>4.5.24</version.vertx4>
         <version.vertx5>5.0.6</version.vertx5>
         <version.maven-resolver>1.9.22</version.maven-resolver>
-        <version.shrinkwrap>1.2.6</version.shrinkwrap>
+        <version.shrinkwrap>${module-services-plugin.version}.6</version.shrinkwrap>
         <version.org.jboss.logging>3.6.0.Final</version.org.jboss.logging>
 
         <!-- Sonar settings -->
         <sonar.projectName>SmallRye Common</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <module-services-plugin.version>1.2</module-services-plugin.version>
     </properties>
 
     <licenses>
@@ -188,6 +189,19 @@
                         <!-- work around problem when the generated sources are included -->
                         <sourcepath>${project.build.sourceDirectory}</sourcepath>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>io.github.dmlloyd.maven</groupId>
+                    <artifactId>module-services-plugin</artifactId>
+                    <version>${module-services-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>generate-services</id>
+                            <goals>
+                                <goal>generate</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>
