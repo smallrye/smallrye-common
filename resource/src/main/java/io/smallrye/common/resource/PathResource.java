@@ -1,5 +1,6 @@
 package io.smallrye.common.resource;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -10,6 +11,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -46,6 +48,23 @@ public final class PathResource extends Resource {
      */
     public Path path() {
         return path;
+    }
+
+    /**
+     * {@return {@code true} if the resource has a physical {@code File}, or {@code false} if it does not}
+     */
+    public boolean hasFile() {
+        return path.getFileSystem() == FileSystems.getDefault();
+    }
+
+    /**
+     * {@return the physical {@code File}, if there is one}
+     * Use {@link #hasFile()} to determine whether there is a physical file.
+     *
+     * @throws UnsupportedOperationException if the path does not have a physical file
+     */
+    public File file() {
+        return path.toFile();
     }
 
     public URL url() {

@@ -36,19 +36,14 @@ public final class JarFileResourceLoader implements ResourceLoader {
     public JarFileResourceLoader(final Resource resource) throws IOException {
         // todo: this will be replaced with a version which opens the file in-place from a buffer
         base = resource.url();
-        JarFile jf = null;
-        if (resource instanceof PathResource pr) {
-            try {
-                // avoid using a temp file, if possible
-                jf = new JarFile(pr.path().toFile(), true, JarFile.OPEN_READ, JarFile.runtimeVersion());
-            } catch (UnsupportedOperationException ignored) {
-            }
-        }
-        if (jf == null) {
+        if (resource instanceof PathResource pr && pr.hasFile()) {
+            // avoid using a temp file, if possible
+            jarFile = new JarFile(pr.file(), true, JarFile.OPEN_READ, JarFile.runtimeVersion());
+        } else {
             tempFile = Files.createTempFile("srcr-tmp-", ".jar");
             try {
                 resource.copyTo(tempFile);
-                jf = new JarFile(tempFile.toFile(), true, JarFile.OPEN_READ, JarFile.runtimeVersion());
+                jarFile = new JarFile(tempFile.toFile(), true, JarFile.OPEN_READ, JarFile.runtimeVersion());
             } catch (Throwable t) {
                 try {
                     Files.delete(tempFile);
@@ -58,7 +53,6 @@ public final class JarFileResourceLoader implements ResourceLoader {
                 throw t;
             }
         }
-        jarFile = jf;
     }
 
     public Resource findResource(final String path) {
