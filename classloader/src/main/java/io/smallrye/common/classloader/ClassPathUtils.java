@@ -112,28 +112,6 @@ public class ClassPathUtils {
         });
     }
 
-    private static final FileSystemProvider JAR_PROVIDER;
-
-    static {
-        final ClassLoader ccl = Thread.currentThread().getContextClassLoader();
-        FileSystemProvider provider = null;
-        try {
-            Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
-            for (FileSystemProvider p : FileSystemProvider.installedProviders()) {
-                if (p.getScheme().equals("jar")) {
-                    provider = p;
-                    break;
-                }
-            }
-            if (provider == null) {
-                throw new NoSuchElementException("Unable to find provider supporting jar scheme");
-            }
-            JAR_PROVIDER = provider;
-        } finally {
-            Thread.currentThread().setContextClassLoader(ccl);
-        }
-    }
-
     /**
      * Attempts to represent a resource as a local file system path to be processed by a function.
      * If a resource appears to be an actual file or a directory, it is simply passed to the function as-is.
@@ -189,7 +167,7 @@ public class ClassPathUtils {
     }
 
     private static <R> R processAsJarPath(Path jarPath, String path, Function<Path, R> function) {
-        try (FileSystem jarFs = JAR_PROVIDER.newFileSystem(jarPath, Map.of())) {
+        try (FileSystem jarFs = JarProviderHolder.JAR_PROVIDER.newFileSystem(jarPath, Map.of())) {
             Path localPath = jarFs.getPath("/");
             int start = 0;
             for (;;) {
@@ -277,6 +255,31 @@ public class ClassPathUtils {
             return Paths.get(url.toURI());
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Failed to translate " + url + " to local path", e);
+        }
+    }
+
+    // Avoids initialization when processAsJarPath is not called
+    private static final class JarProviderHolder {
+        private static final FileSystemProvider JAR_PROVIDER;
+
+        static {
+            final ClassLoader ccl = Thread.currentThread().getContextClassLoader();
+            FileSystemProvider provider = null;
+            try {
+                Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
+                for (FileSystemProvider p : FileSystemProvider.installedProviders()) {
+                    if (p.getScheme().equals("jar")) {
+                        provider = p;
+                        break;
+                    }
+                }
+                if (provider == null) {
+                    throw new NoSuchElementException("Unable to find provider supporting jar scheme");
+                }
+                JAR_PROVIDER = provider;
+            } finally {
+                Thread.currentThread().setContextClassLoader(ccl);
+            }
         }
     }
 }
