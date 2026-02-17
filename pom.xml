@@ -26,7 +26,7 @@
         <!-- Dependencies -->
         <version.classfile.api>25.1</version.classfile.api>
         <version.graalvm>25.0.2</version.graalvm>
-        <version.vertx>4.5.24</version.vertx>
+        <version.vertx>4.5.25</version.vertx>
         <version.maven-resolver>1.9.22</version.maven-resolver>
         <version.shrinkwrap>1.2.6</version.shrinkwrap>
         <version.org.jboss.logging>3.6.0.Final</version.org.jboss.logging>
