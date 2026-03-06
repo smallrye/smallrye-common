@@ -107,8 +107,18 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
      * Run the process or pipeline asynchronously.
      *
      * @return the asynchronous result (not {@code null} but may yield {@code null})
+     * @deprecated Use {@link #start} instead.
      */
+    @Deprecated
     CompletableFuture<O> runAsync();
+
+    /**
+     * Start the process or pipeline asynchronously, returning its handle.
+     * The returned handle is suitable for usage with a {@code try}-with-resources block.
+     *
+     * @return the waitable process handle (not {@code null})
+     */
+    WaitableProcessHandle<O> start();
 
     /**
      * Add a failure exit code checker.
@@ -128,7 +138,7 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
      * @param action the action to run (must not be {@code null})
      * @return this builder
      */
-    PipelineBuilder<O> whileRunning(Consumer<WaitableProcessHandle> action);
+    PipelineBuilder<O> whileRunning(Consumer<WaitableProcessHandle<?>> action);
 
     /**
      * The output handling aspect of the process builder.

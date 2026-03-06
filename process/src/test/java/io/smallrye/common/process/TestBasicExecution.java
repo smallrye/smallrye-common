@@ -1,6 +1,7 @@
 package io.smallrye.common.process;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -12,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -52,6 +54,38 @@ public class TestBasicExecution {
                 .runAsync();
         List<String> result = future.get();
         assertEquals(strings, result);
+    }
+
+    @Test
+    public void testSimpleCatAsyncStart() throws Exception {
+        List<String> strings = List.of("Hello", "world", "foo", "bar");
+        Iterator<String> iter = strings.iterator();
+        try (WaitableProcessHandle<Void> wph = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .input()
+                .fromStrings(strings)
+                .output()
+                .consumeLinesWith(10, c -> assertEquals(iter.next(), c))
+                .start()) {
+            assertThrows(IllegalStateException.class, wph::result);
+            wph.waitUninterruptiblyFor();
+            assertNull(wph.result());
+        }
+    }
+
+    @Test
+    public void testSimpleCatAsyncStartString() throws Exception {
+        List<String> strings = List.of("Hello", "world", "foo", "bar");
+        try (WaitableProcessHandle<String> wph = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .input()
+                .fromStrings(strings)
+                .output()
+                .toSingleString(500)
+                .start()) {
+            assertThrows(IllegalStateException.class, wph::result);
+            wph.waitUninterruptiblyFor();
+            String result = wph.result();
+            assertEquals(String.join(System.lineSeparator(), strings) + System.lineSeparator(), result);
+        }
     }
 
     @Test

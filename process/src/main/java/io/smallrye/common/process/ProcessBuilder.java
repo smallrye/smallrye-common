@@ -369,7 +369,7 @@ public sealed interface ProcessBuilder<O>
     ProcessBuilder<O> exitCodeChecker(IntPredicate checker);
 
     @Override
-    ProcessBuilder<O> whileRunning(Consumer<WaitableProcessHandle> action);
+    ProcessBuilder<O> whileRunning(Consumer<WaitableProcessHandle<?>> action);
 
     /**
      * Configure the input handling of the process.

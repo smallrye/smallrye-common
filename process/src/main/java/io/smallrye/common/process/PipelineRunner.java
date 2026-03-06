@@ -62,6 +62,12 @@ class PipelineRunner<O> {
     private Gatherer errorGatherer;
     private Gatherer outputGatherer;
     private ProcessBuilder pb;
+    private WaitableProcessHandleImpl<O> handle;
+
+    /**
+     * The process runner for this pipeline execution.
+     */
+    private ProcessRunner<O> runner;
 
     PipelineRunner(final ProcessBuilderImpl<O> processBuilder, final PipelineRunner<O> prev) {
         this.processBuilder = processBuilder;
@@ -380,15 +386,14 @@ class PipelineRunner<O> {
     }
 
     int createWhileRunningThread(ThreadFactory tf, ProcessRunner<?> runner) throws IOException {
-        Consumer<WaitableProcessHandle> whileRunning = processBuilder.whileRunning;
+        Consumer<WaitableProcessHandle<?>> whileRunning = processBuilder.whileRunning;
         if (whileRunning != null) {
             whileRunningThread = tf.newThread(() -> {
                 if (runner.awaitOk()) {
                     Thread.currentThread().setName("process-while-running-\"%s\"-%d"
                             .formatted(processBuilder.command.getFileName(), process.pid()));
                     try {
-                        whileRunning.accept(
-                                new WaitableProcessHandleImpl(process, processBuilder.command, processBuilder.arguments));
+                        whileRunning.accept(handle);
                     } catch (ProcessHandlerException phe) {
                         whileRunningProblem = phe;
                     } catch (Throwable t) {
@@ -595,6 +600,7 @@ class PipelineRunner<O> {
 
     int createThreads(final ThreadFactory tf, final ProcessRunner<O> runner, final PipelineRunner<O> nextRunner)
             throws IOException {
+        this.runner = runner;
         pb = processBuilder.pb;
         pb.command(processBuilder.argumentRule.formatArguments(processBuilder.command, processBuilder.arguments,
                 processBuilder.specialQuoting));
@@ -631,5 +637,10 @@ class PipelineRunner<O> {
             }
         }
         process = processes.get(index);
+        handle = new WaitableProcessHandleImpl<>(process, processBuilder.command, processBuilder.arguments, runner);
+    }
+
+    WaitableProcessHandleImpl<O> handle() {
+        return handle;
     }
 }

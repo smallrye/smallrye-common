@@ -89,7 +89,7 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     int errorHeadLines = 5;
     int errorTailLines = 5;
     File errorFile;
-    Consumer<WaitableProcessHandle> whileRunning;
+    Consumer<WaitableProcessHandle<?>> whileRunning;
     // we create this very early so we can access the env map
     final java.lang.ProcessBuilder pb = new java.lang.ProcessBuilder();
 
@@ -187,7 +187,7 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         return this;
     }
 
-    public ProcessBuilder<O> whileRunning(final Consumer<WaitableProcessHandle> action) {
+    public ProcessBuilder<O> whileRunning(final Consumer<WaitableProcessHandle<?>> action) {
         check();
         this.whileRunning = Assert.checkNotNullParam("action", action);
         return this;
@@ -203,6 +203,12 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         check();
         locked = true;
         return makeRunner().runAsync();
+    }
+
+    public WaitableProcessHandle<O> start() {
+        check();
+        locked = true;
+        return makeRunner().start();
     }
 
     private ProcessRunner<O> makeRunner() {
@@ -272,6 +278,10 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
             return ProcessBuilderImpl.this.runAsync();
         }
 
+        public WaitableProcessHandle<O> start() {
+            return ProcessBuilderImpl.this.start();
+        }
+
         public ProcessBuilder<O> exitCodeChecker(final IntPredicate checker) {
             return ProcessBuilderImpl.this.exitCodeChecker(checker);
         }
@@ -284,7 +294,7 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
             return ProcessBuilderImpl.this.hardExitTimeout(duration);
         }
 
-        public ProcessBuilder<O> whileRunning(final Consumer<WaitableProcessHandle> action) {
+        public ProcessBuilder<O> whileRunning(final Consumer<WaitableProcessHandle<?>> action) {
             return ProcessBuilderImpl.this.whileRunning(action);
         }
     }
