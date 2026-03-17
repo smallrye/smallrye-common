@@ -12,6 +12,10 @@
 
   <name>SmallRye Common: Annotations</name>
 
+  <properties>
+    <bnd-bundle-name>io.smallrye.common.annotation</bnd-bundle-name>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>jakarta.enterprise</groupId>
