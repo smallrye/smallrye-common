@@ -1,6 +1,6 @@
 name: SmallRye Build
 env:
-  MAVEN_VERSION: 3.9.9
+  MAVEN_VERSION: 3.9.13
   IO_TAKARI_MAVEN_WRAPPER_VERSION: 0.7.7
 
 on:
