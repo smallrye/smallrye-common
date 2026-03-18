@@ -12,6 +12,10 @@
 
   <name>SmallRye Common: Annotations</name>
 
+  <properties>
+    <bnd-bundle-name>io.smallrye.common.annotation</bnd-bundle-name>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>jakarta.enterprise</groupId>
@@ -22,6 +26,39 @@
 
   <build>
     <plugins>
+	  <plugin>
+	    <groupId>biz.aQute.bnd</groupId>
+	    <artifactId>bnd-maven-plugin</artifactId>
+        <version>${bnd-maven-plugin.version}</version>
+	    <executions>
+	      <execution>
+		    <id>bnd-process</id>
+		    <goals>
+		      <goal>bnd-process</goal>
+		    </goals>
+	      </execution>
+        </executions>
+	    <configuration>
+	      <bnd><![CDATA[
+			Bundle-Name:            Bundle ${project.groupId} : ${project.artifactId}
+			Bundle-SymbolicName:    ${bnd-bundle-name}
+			Export-Package: 		${bnd-bundle-name}.*
+			Bundle-Version:         ${project.version}
+			-noimportjava:          true;
+			-nouses:                true;
+			]]>
+	      </bnd>
+	    </configuration>
+	 </plugin>
+	 <plugin>
+	   <groupId>org.apache.maven.plugins</groupId>
+	   <artifactId>maven-jar-plugin</artifactId>
+	   <configuration>
+	     <archive>
+	       <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+	     </archive>
+	   </configuration>
+	 </plugin>
       <plugin>
         <groupId>io.smallrye</groupId>
         <artifactId>jandex-maven-plugin</artifactId>
