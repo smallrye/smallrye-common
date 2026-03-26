@@ -1,5 +1,5 @@
 /**
- * Utilities for managing JAR files.
+ * Utilities for file I/O and JAR file management.
  */
 module io.smallrye.common.io {
     requires io.smallrye.common.constraint;
@@ -8,5 +8,6 @@ module io.smallrye.common.io {
 
     requires static org.jboss.logging.annotations;
 
+    exports io.smallrye.common.io;
     exports io.smallrye.common.io.jar;
 }
