@@ -31,6 +31,7 @@
         <version.vertx5>5.0.8</version.vertx5>
         <version.maven-resolver>1.9.22</version.maven-resolver>
         <version.shrinkwrap>1.2.6</version.shrinkwrap>
+        <version.smallrye-ffm>0.1</version.smallrye-ffm>
         <version.org.jboss.logging>3.6.0.Final</version.org.jboss.logging>
 
         <!-- Sonar settings -->
@@ -97,6 +98,11 @@
                 <version>${version.graalvm}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>io.smallrye.ffm</groupId>
+                <artifactId>smallrye-ffm</artifactId>
+                <version>${version.smallrye-ffm}</version>
+            </dependency>
 
             <!-- External test dependencies -->
             <dependency>
@@ -114,6 +120,11 @@
             </dependency>
 
             <!-- Internal module dependencies -->
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-annotation</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-constraint</artifactId>
@@ -150,6 +161,19 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>io.smallrye.ffm</groupId>
+                    <artifactId>smallrye-ffm-maven-plugin</artifactId>
+                    <version>${version.smallrye-ffm}</version>
+                    <executions>
+                        <execution>
+                            <id>process-ffm</id>
+                            <goals>
+                                <goal>transform</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
                 <plugin>
                     <groupId>io.smallrye</groupId>
                     <artifactId>jandex-maven-plugin</artifactId>
