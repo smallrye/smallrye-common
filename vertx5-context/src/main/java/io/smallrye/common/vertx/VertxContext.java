@@ -7,6 +7,8 @@ import io.smallrye.common.constraint.Nullable;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.internal.ContextInternal;
+import io.vertx.core.internal.VertxBootstrap;
+import io.vertx.core.spi.VertxServiceProvider;
 import io.vertx.core.spi.context.storage.ContextLocal;
 
 /**
@@ -84,6 +86,26 @@ import io.vertx.core.spi.context.storage.ContextLocal;
  * </ul>
  */
 public class VertxContext {
+
+    /**
+     * Service loader to ensure {@link ContextLocal} references get registered before a {@link Vertx} context is ready.
+     */
+    public static class Loader implements VertxServiceProvider {
+
+        /**
+         * Service loader.
+         */
+        public Loader() {
+            // no-op
+        }
+
+        @Override
+        public void init(VertxBootstrap builder) {
+            // Mostly no-op to ensure `ContextLocal` references are registered
+            PARENT_CONTEXT_LOCAL.hashCode();
+            DATA_MAP_LOCAL.hashCode();
+        }
+    }
 
     /**
      * The ContextLocal used to store the parent context in a nested context.
@@ -289,5 +311,4 @@ public class VertxContext {
     public static Context newNestedContext() {
         return newNestedContext(Vertx.currentContext());
     }
-
 }
