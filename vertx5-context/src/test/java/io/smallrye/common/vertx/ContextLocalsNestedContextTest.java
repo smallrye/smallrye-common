@@ -99,6 +99,23 @@ class ContextLocalsNestedContextTest {
 
     @Test
     @Timeout(value = 2000)
+    void testGetParentContextWithExplicitContext(Vertx vertx, VertxTestContext testContext) {
+        vertx.runOnContext(v -> {
+            Context base = VertxContext.getOrCreateDuplicatedContext(vertx);
+            base.runOnContext(r -> {
+                Context nested = VertxContext.newNestedContext(base);
+                nested.runOnContext(n -> {
+                    Context parent = ContextLocals.getParentContext(nested);
+                    assertThat(parent).isNotNull();
+                    assertThat(parent).isSameAs(base);
+                    testContext.completeNow();
+                });
+            });
+        });
+    }
+
+    @Test
+    @Timeout(value = 2000)
     void testGetFromParentWithDefault(Vertx vertx, VertxTestContext testContext) {
         vertx.runOnContext(v -> {
             Context parent = VertxContext.getOrCreateDuplicatedContext(vertx);
@@ -208,6 +225,66 @@ class ContextLocalsNestedContextTest {
                     assertThat(ContextLocals.getFromParent("key")).isEmpty();
                     testContext.completeNow();
                 });
+            });
+        });
+    }
+
+    @Test
+    @Timeout(value = 2000)
+    void testPutInParentWithExplicitContext(Vertx vertx, VertxTestContext testContext) {
+        vertx.runOnContext(v -> {
+            Context parent = VertxContext.getOrCreateDuplicatedContext(vertx);
+            parent.runOnContext(p -> {
+                Context nested = VertxContext.newNestedContext(parent);
+                nested.runOnContext(n -> {
+                    boolean result = ContextLocals.putInParent(nested, "key", "value");
+                    assertThat(result).isTrue();
+
+                    // Verify via parent context directly
+                    var parentCtx = ContextLocals.getParentContext(nested);
+                    var map = VertxContext.localContextData(parentCtx);
+                    assertThat(map.get("key")).isEqualTo("value");
+
+                    boolean secondResult = ContextLocals.putInParent(nested, "key", "override");
+                    assertThat(secondResult).isFalse();
+
+                    testContext.completeNow();
+                });
+            });
+        });
+    }
+
+    @Test
+    @Timeout(value = 2000)
+    void testGetFromParentWithExplicitContext(Vertx vertx, VertxTestContext testContext) {
+        vertx.runOnContext(v -> {
+            Context parent = VertxContext.getOrCreateDuplicatedContext(vertx);
+            parent.runOnContext(p -> {
+                ContextLocals.put("key", "parentValue");
+
+                Context nested = VertxContext.newNestedContext(parent);
+                nested.runOnContext(n -> {
+                    assertThat(ContextLocals.getFromParent(nested, "key")).hasValue("parentValue");
+                    assertThat(ContextLocals.getFromParent(nested, "missing")).isEmpty();
+
+                    assertThat(ContextLocals.getFromParent(nested, "key", "default")).isEqualTo("parentValue");
+                    assertThat(ContextLocals.getFromParent(nested, "missing", "default")).isEqualTo("default");
+
+                    testContext.completeNow();
+                });
+            });
+        });
+    }
+
+    @Test
+    @Timeout(value = 2000)
+    void testGetFromParentWithExplicitContextNoParent(Vertx vertx, VertxTestContext testContext) {
+        vertx.runOnContext(v -> {
+            Context dup = VertxContext.getOrCreateDuplicatedContext(vertx);
+            dup.runOnContext(d -> {
+                assertThat(ContextLocals.getFromParent(dup, "key")).isEmpty();
+                assertThat(ContextLocals.getFromParent(dup, "key", "default")).isEqualTo("default");
+                testContext.completeNow();
             });
         });
     }
