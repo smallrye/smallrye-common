@@ -20,7 +20,7 @@
     <properties>
         <!-- Plugins -->
         <version.bridger>1.6.Final</version.bridger>
-        <version.sundrio>0.240.1</version.sundrio>
+        <version.sundrio>0.300.0</version.sundrio>
         <version.jandex>3.5.3</version.jandex>
 		<bnd-maven-plugin.version>7.2.3</bnd-maven-plugin.version>
 
