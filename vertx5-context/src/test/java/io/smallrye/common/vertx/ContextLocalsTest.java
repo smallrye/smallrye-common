@@ -95,4 +95,74 @@ public class ContextLocalsTest {
             });
         });
     }
+
+    @Test
+    public void assertGetWithExplicitContext(Vertx vertx, VertxTestContext tc) {
+        Checkpoint checkpoint = tc.checkpoint(1);
+
+        Context root = vertx.getOrCreateContext();
+        Context dup = VertxContext.getOrCreateDuplicatedContext(root);
+
+        dup.runOnContext(x -> {
+            Assertions.assertThat(ContextLocals.get(dup, "foo")).isEmpty();
+            ContextLocals.put("foo", "bar");
+            Assertions.assertThat(ContextLocals.get(dup, "foo")).contains("bar");
+            Assertions.assertThat(ContextLocals.get(dup, "missing")).isEmpty();
+            Assertions.assertThat(ContextLocals.get(dup, "foo", "default")).isEqualTo("bar");
+            Assertions.assertThat(ContextLocals.get(dup, "missing", 42)).isEqualTo(42);
+            checkpoint.flag();
+        });
+    }
+
+    @Test
+    public void assertGetWithExplicitContextRejectsRootContext(Vertx vertx, VertxTestContext tc) {
+        Checkpoint checkpoint = tc.checkpoint(1);
+
+        vertx.runOnContext(x -> {
+            Context root = Vertx.currentContext();
+            Assertions.assertThatThrownBy(() -> ContextLocals.get(root, "foo"))
+                    .isInstanceOf(UnsupportedOperationException.class);
+            Assertions.assertThatThrownBy(() -> ContextLocals.get(root, "foo", "def"))
+                    .isInstanceOf(UnsupportedOperationException.class);
+            checkpoint.flag();
+        });
+    }
+
+    @Test
+    public void assertGetWithNullContextFails() {
+        Assertions.assertThatThrownBy(() -> ContextLocals.get((Context) null, "foo"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    public void assertPutAndRemoveWithExplicitContext(Vertx vertx, VertxTestContext tc) {
+        Checkpoint checkpoint = tc.checkpoint(1);
+
+        Context root = vertx.getOrCreateContext();
+        Context dup = VertxContext.getOrCreateDuplicatedContext(root);
+
+        dup.runOnContext(x -> {
+            ContextLocals.put(dup, "foo", "bar");
+            Assertions.assertThat(ContextLocals.get(dup, "foo")).contains("bar");
+
+            Assertions.assertThat(ContextLocals.remove(dup, "foo")).isTrue();
+            Assertions.assertThat(ContextLocals.get(dup, "foo")).isEmpty();
+            Assertions.assertThat(ContextLocals.remove(dup, "foo")).isFalse();
+            checkpoint.flag();
+        });
+    }
+
+    @Test
+    public void assertPutWithExplicitContextRejectsRootContext(Vertx vertx, VertxTestContext tc) {
+        Checkpoint checkpoint = tc.checkpoint(1);
+
+        vertx.runOnContext(x -> {
+            Context root = Vertx.currentContext();
+            Assertions.assertThatThrownBy(() -> ContextLocals.put(root, "foo", "bar"))
+                    .isInstanceOf(UnsupportedOperationException.class);
+            Assertions.assertThatThrownBy(() -> ContextLocals.remove(root, "foo"))
+                    .isInstanceOf(UnsupportedOperationException.class);
+            checkpoint.flag();
+        });
+    }
 }
