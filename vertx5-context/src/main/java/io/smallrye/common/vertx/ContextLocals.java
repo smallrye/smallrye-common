@@ -50,7 +50,6 @@ public class ContextLocals {
      * @param <T> the expected type of the associated value
      * @return an optional containing the associated value if any, empty otherwise.
      */
-    @SuppressWarnings("unchecked")
     public static <T> Optional<T> get(String key) {
         return get(Vertx.currentContext(), key);
     }
@@ -87,7 +86,6 @@ public class ContextLocals {
      * @param <T> the expected type of the associated value
      * @return the associated value if any, the given default otherwise.
      */
-    @SuppressWarnings("unchecked")
     public static <T> T get(String key, T def) {
         return get(Vertx.currentContext(), key, def);
     }
@@ -247,7 +245,6 @@ public class ContextLocals {
      * @param <T> the expected type of the associated value
      * @return an optional containing the associated value if any, empty otherwise.
      */
-    @SuppressWarnings("unchecked")
     public static <T> Optional<T> getFromParent(String key) {
         return getFromParent(Vertx.currentContext(), key);
     }
@@ -290,7 +287,6 @@ public class ContextLocals {
      * @param <T> the expected type of the associated value
      * @return the associated value if any, the given default otherwise.
      */
-    @SuppressWarnings("unchecked")
     public static <T> T getFromParent(String key, T def) {
         return getFromParent(Vertx.currentContext(), key, def);
     }
