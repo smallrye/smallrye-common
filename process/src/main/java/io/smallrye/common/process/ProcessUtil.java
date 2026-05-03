@@ -223,6 +223,7 @@ public final class ProcessUtil {
         private static final List<String> pathExt = Stream
                 .of(getenv("PATHEXT").split(File.pathSeparator))
                 .filter(s -> !s.isEmpty())
+                .map(String::toLowerCase)
                 .toList();
     }
 
