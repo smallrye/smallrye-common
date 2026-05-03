@@ -18,9 +18,8 @@
 
 package io.smallrye.common.os;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Utilities for getting information about the current process.
@@ -29,10 +28,9 @@ import java.util.List;
  */
 @SuppressWarnings("removal")
 public final class Process {
-    private static final ProcessHandle current = AccessController
-            .doPrivileged((PrivilegedAction<ProcessHandle>) ProcessHandle::current);
+    private static final ProcessHandle current = ProcessHandle.current();
     private static final ProcessHandle.Info currentInfo = current.info();
-    private static final String name = AccessController.doPrivileged((PrivilegedAction<String>) Process::computeProcessName);
+    private static final String name = Process.computeProcessName();
 
     private Process() {
     }
@@ -89,6 +87,8 @@ public final class Process {
      */
     @Deprecated(since = "2.4", forRemoval = true)
     public static List<ProcessInfo> getAllProcesses() {
-        return AccessController.doPrivileged(new GetAllProcessesInfoAction());
+        return ProcessHandle.allProcesses()
+                .map(processHandle -> new ProcessInfo(processHandle.pid(), processHandle.info().command().orElse(null)))
+                .collect(Collectors.toList());
     }
 }
