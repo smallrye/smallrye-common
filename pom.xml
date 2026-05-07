@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.smallrye</groupId>
         <artifactId>smallrye-parent</artifactId>
-        <version>50</version>
+        <version>51-SNAPSHOT</version>
     </parent>
 
     <groupId>io.smallrye.common</groupId>
@@ -82,6 +82,7 @@
         <module>ref</module>
         <module>resource</module>
         <module>search</module>
+        <module>serial</module>
         <module>version</module>
         <module>vertx4-context</module>
         <module>vertx5-context</module>
