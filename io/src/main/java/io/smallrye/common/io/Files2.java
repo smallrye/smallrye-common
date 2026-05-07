@@ -4,14 +4,21 @@ import static io.smallrye.common.constraint.Assert.checkNotNullParam;
 import static io.smallrye.common.io.Messages.log;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteOrder;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.NotDirectoryException;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.SecureDirectoryStream;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributeView;
+import java.util.Collection;
+import java.util.Set;
 
 /**
  * Extra utilities for dealing with the filesystem which are missing from {@link Files}.
@@ -425,6 +432,142 @@ public final class Files2 {
      */
     public static boolean hasSecureDirectories() {
         return CWD_SDS != null;
+    }
+
+    // ── BufferedFile factory methods ───────────────────────────────────
+
+    /**
+     * Open a buffered random-access file at the given path.
+     * <p>
+     * The options may include most {@link StandardOpenOption} values, as well as
+     * {@link BufferSizeOption} and {@link ByteOrderOption} to configure the buffer size
+     * and default byte order respectively. If no {@code BufferSizeOption} is given,
+     * a default of {@link BufferSizeOption#DEFAULT_BUFFER_SIZE} is used. If no
+     * {@code ByteOrderOption} is given, the {@linkplain ByteOrder#nativeOrder() native
+     * byte order} is used. If neither {@link StandardOpenOption#READ READ} nor
+     * {@link StandardOpenOption#WRITE WRITE} is specified, the file is opened for reading only.
+     * <p>
+     * Note that {@link StandardOpenOption#APPEND APPEND} mode is not supported for
+     * random-access buffered files.
+     *
+     * @param path the path to the file (must not be {@code null})
+     * @param options the open options (must not be {@code null}, and must not contain {@code null} elements)
+     * @return a new {@link BufferedFile} instance
+     * @throws IOException if an I/O error occurs
+     * @throws FileAlreadyExistsException if {@link StandardOpenOption#CREATE_NEW CREATE_NEW} is specified
+     *         and the file already exists
+     * @throws IllegalArgumentException if conflicting options are specified (e.g., both
+     *         {@link ByteOrderOption#BIG_ENDIAN} and {@link ByteOrderOption#LITTLE_ENDIAN})
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public static BufferedFile openBuffered(Path path, OpenOption... options) throws IOException {
+        return openBuffered(path, Set.of(options));
+    }
+
+    /**
+     * Open a buffered random-access file at the given path.
+     * <p>
+     * The options may include most {@link StandardOpenOption} values, as well as
+     * {@link BufferSizeOption} and {@link ByteOrderOption} to configure the buffer size
+     * and default byte order respectively. If no {@code BufferSizeOption} is given,
+     * a default of {@link BufferSizeOption#DEFAULT_BUFFER_SIZE} is used. If no
+     * {@code ByteOrderOption} is given, the {@linkplain ByteOrder#nativeOrder() native
+     * byte order} is used. If neither {@link StandardOpenOption#READ READ} nor
+     * {@link StandardOpenOption#WRITE WRITE} is specified, the file is opened for reading only.
+     * <p>
+     * Note that {@link StandardOpenOption#APPEND APPEND} mode is not supported for
+     * random-access buffered files.
+     *
+     * @param path the path to the file (must not be {@code null})
+     * @param options the open options (must not be {@code null}, and must not contain {@code null} elements)
+     * @return a new {@link BufferedFile} instance
+     * @throws IOException if an I/O error occurs
+     * @throws FileAlreadyExistsException if {@link StandardOpenOption#CREATE_NEW CREATE_NEW} is specified
+     *         and the file already exists
+     * @throws IllegalArgumentException if conflicting options are specified (e.g., both
+     *         {@link ByteOrderOption#BIG_ENDIAN} and {@link ByteOrderOption#LITTLE_ENDIAN})
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public static BufferedFile openBuffered(Path path, Collection<? extends OpenOption> options) throws IOException {
+        checkNotNullParam("path", path);
+        checkNotNullParam("options", options);
+
+        boolean read = false, write = false;
+        boolean create = false, createNew = false, truncate = false;
+        boolean sync = false, dsync = false;
+        int bufferSize = BufferSizeOption.DEFAULT_BUFFER_SIZE;
+        ByteOrderOption byteOrderOption = null;
+
+        for (OpenOption opt : options) {
+            if (opt instanceof StandardOpenOption soo) {
+                switch (soo) {
+                    case READ -> read = true;
+                    case WRITE -> write = true;
+                    case CREATE -> create = true;
+                    case CREATE_NEW -> createNew = true;
+                    case TRUNCATE_EXISTING -> truncate = true;
+                    case SYNC -> sync = true;
+                    case DSYNC -> dsync = true;
+                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
+                }
+            } else if (opt instanceof BufferSizeOption bso) {
+                bufferSize = bso.bufferSize();
+            } else if (opt instanceof ByteOrderOption boo) {
+                if (byteOrderOption != null && byteOrderOption != boo) {
+                    throw new IllegalArgumentException("Conflicting byte order options: " + byteOrderOption + " and " + boo);
+                }
+                byteOrderOption = boo;
+            } else {
+                throw new UnsupportedOperationException("Unsupported option: " + opt);
+            }
+        }
+
+        // Defaults
+        if (!read && !write) {
+            read = true;
+        }
+
+        ByteOrder byteOrder = byteOrderOption != null ? byteOrderOption.byteOrder() : ByteOrder.nativeOrder();
+
+        // Determine RAF mode
+        String mode;
+        if (write) {
+            if (sync) {
+                mode = "rws";
+            } else if (dsync) {
+                mode = "rwd";
+            } else {
+                mode = "rw";
+            }
+        } else {
+            mode = "r";
+        }
+
+        // Handle file creation options
+        java.io.File file = path.toFile();
+        if (createNew) {
+            if (!file.createNewFile()) {
+                throw new FileAlreadyExistsException(path.toString());
+            }
+        } else if (!create && !file.exists()) {
+            throw new NoSuchFileException(path.toString());
+        }
+
+        RandomAccessFile raf = new RandomAccessFile(file, mode);
+        try {
+            if (truncate && write) {
+                raf.setLength(0);
+            }
+
+            return new BufferedFile(raf, bufferSize, byteOrder, read, write);
+        } catch (Throwable t) {
+            try {
+                raf.close();
+            } catch (IOException e) {
+                t.addSuppressed(e);
+            }
+            throw t;
+        }
     }
 
     // -- private --
