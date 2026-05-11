@@ -3278,12 +3278,17 @@ public final class BufferedFile implements Closeable, Flushable {
             }
             // now copy the remaining file content
             if (out instanceof FileOutputStream fos) {
-                long cnt = fos.getChannel().transferFrom(raf.getChannel(), position, Long.MAX_VALUE);
+                raf.seek(position);
+                FileChannel destCh = fos.getChannel();
+                long destPos = destCh.position();
+                long cnt = destCh.transferFrom(raf.getChannel(), destPos, Long.MAX_VALUE);
                 while (cnt > 0) {
                     total += cnt;
                     relSeekInternal(cnt);
-                    cnt = fos.getChannel().transferFrom(raf.getChannel(), position, Long.MAX_VALUE);
+                    destPos += cnt;
+                    cnt = destCh.transferFrom(raf.getChannel(), destPos, Long.MAX_VALUE);
                 }
+                destCh.position(destPos);
             } else {
                 // slow path
                 int n = fill(buffer.length);
@@ -3331,12 +3336,17 @@ public final class BufferedFile implements Closeable, Flushable {
             }
             // now copy the remaining file content
             if (out instanceof FileOutputStream fos) {
-                long cnt = fos.getChannel().transferFrom(raf.getChannel(), position, length - total);
+                raf.seek(position);
+                FileChannel destCh = fos.getChannel();
+                long destPos = destCh.position();
+                long cnt = destCh.transferFrom(raf.getChannel(), destPos, length - total);
                 while (cnt > 0) {
                     total += cnt;
                     relSeekInternal(cnt);
-                    cnt = fos.getChannel().transferFrom(raf.getChannel(), position, length - total);
+                    destPos += cnt;
+                    cnt = destCh.transferFrom(raf.getChannel(), destPos, length - total);
                 }
+                destCh.position(destPos);
             } else {
                 // slow path
                 int n = fill((int) Math.min(buffer.length, length - total));
@@ -3389,12 +3399,17 @@ public final class BufferedFile implements Closeable, Flushable {
             long total = 0;
             // now copy the file content
             if (out instanceof FileOutputStream fos) {
-                long cnt = fos.getChannel().transferFrom(raf.getChannel(), pos, length - total);
+                raf.seek(pos);
+                FileChannel destCh = fos.getChannel();
+                long destPos = destCh.position();
+                long cnt = destCh.transferFrom(raf.getChannel(), destPos, length - total);
                 while (cnt > 0) {
                     total += cnt;
                     pos += cnt;
-                    cnt = fos.getChannel().transferFrom(raf.getChannel(), pos, length - total);
+                    destPos += cnt;
+                    cnt = destCh.transferFrom(raf.getChannel(), destPos, length - total);
                 }
+                destCh.position(destPos);
             } else {
                 // slow path; we must allocate a buffer
                 byte[] buffer = new byte[(int) Math.min(length, this.buffer.length)];

@@ -2738,6 +2738,228 @@ class BufferedFileTest {
         }
     }
 
+    // ── transferTo FileOutputStream fast-path bugs ──────────────────────
+
+    /**
+     * Reproduce bug: transferTo(OutputStream) passes the source position as the
+     * destination position in the FileOutputStream fast path, and the source
+     * RAF channel may not be seeked to this.position.
+     *
+     * Scenario: source file has [1,2,3,4,5]. Destination file already has [10,20]
+     * written at the start, with the dest position at 2. We seek the source to 0
+     * and transferTo the dest's outputStream. Expected: dest = [10,20,1,2,3,4,5].
+     * Bug: dest position 0 is used (the source position), overwriting [10,20].
+     */
+    @Test
+    void transferToFileOutputStreamDestPosition() throws IOException {
+        Path srcPath = tempDir.resolve("src.bin");
+        Path dstPath = tempDir.resolve("dst.bin");
+        try (Closeable ignored = tempFile(srcPath); Closeable ignored2 = tempFile(dstPath)) {
+            Files.write(srcPath, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile src = Files2.openBuffered(srcPath, READ);
+                    BufferedFile dst = Files2.openBuffered(dstPath, READ, WRITE, CREATE)) {
+                // write some initial data into dest
+                dst.write(new byte[] { 10, 20 });
+                // now transfer all of src into dst (should append after [10,20])
+                long n = src.transferTo(dst.outputStream());
+                assertEquals(5, n);
+                dst.flush();
+                // dest should be [10, 20, 1, 2, 3, 4, 5]
+                byte[] result = Files.readAllBytes(dstPath);
+                assertArrayEquals(new byte[] { 10, 20, 1, 2, 3, 4, 5 }, result);
+            }
+        }
+    }
+
+    /**
+     * Reproduce bug: transferTo(OutputStream, length) has the same
+     * source-as-destination position issue in the FileOutputStream fast path.
+     */
+    @Test
+    void transferToFileOutputStreamWithLengthDestPosition() throws IOException {
+        Path srcPath = tempDir.resolve("src.bin");
+        Path dstPath = tempDir.resolve("dst.bin");
+        try (Closeable ignored = tempFile(srcPath); Closeable ignored2 = tempFile(dstPath)) {
+            Files.write(srcPath, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile src = Files2.openBuffered(srcPath, READ);
+                    BufferedFile dst = Files2.openBuffered(dstPath, READ, WRITE, CREATE)) {
+                dst.write(new byte[] { 10, 20 });
+                long n = src.transferTo(dst.outputStream(), 3);
+                assertEquals(3, n);
+                dst.flush();
+                byte[] result = Files.readAllBytes(dstPath);
+                assertArrayEquals(new byte[] { 10, 20, 1, 2, 3 }, result);
+            }
+        }
+    }
+
+    /**
+     * Reproduce bug: transferTo(pos, OutputStream, length) has the same
+     * source-as-destination position issue in the FileOutputStream fast path.
+     */
+    @Test
+    void transferToFileOutputStreamFromPositionDestPosition() throws IOException {
+        Path srcPath = tempDir.resolve("src.bin");
+        Path dstPath = tempDir.resolve("dst.bin");
+        try (Closeable ignored = tempFile(srcPath); Closeable ignored2 = tempFile(dstPath)) {
+            Files.write(srcPath, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile src = Files2.openBuffered(srcPath, READ);
+                    BufferedFile dst = Files2.openBuffered(dstPath, READ, WRITE, CREATE)) {
+                dst.write(new byte[] { 10, 20 });
+                // transfer 2 bytes starting at source position 2 => [3, 4]
+                long n = src.transferTo(2, dst.outputStream(), 2);
+                assertEquals(2, n);
+                dst.flush();
+                byte[] result = Files.readAllBytes(dstPath);
+                assertArrayEquals(new byte[] { 10, 20, 3, 4 }, result);
+                // source position should be unchanged
+                assertEquals(0, src.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Reproduce bug: source RAF channel position is not synced after seek.
+     * After reading some data and then seeking back, the RAF channel is still
+     * at the old position, so transferFrom reads from the wrong source offset.
+     */
+    @Test
+    void transferToFileOutputStreamAfterSeek() throws IOException {
+        Path srcPath = tempDir.resolve("src.bin");
+        Path dstPath = tempDir.resolve("dst.bin");
+        try (Closeable ignored = tempFile(srcPath); Closeable ignored2 = tempFile(dstPath)) {
+            Files.write(srcPath, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile src = Files2.openBuffered(srcPath, READ);
+                    BufferedFile dst = Files2.openBuffered(dstPath, READ, WRITE, CREATE)) {
+                // read a few bytes to advance the RAF channel position
+                src.readByte();
+                src.readByte();
+                // now seek back to 0
+                src.seek(0);
+                assertEquals(0, src.filePosition());
+                long n = src.transferTo(dst.outputStream());
+                assertEquals(5, n);
+                dst.flush();
+                byte[] result = Files.readAllBytes(dstPath);
+                // should get all 5 bytes from the start
+                assertArrayEquals(new byte[] { 1, 2, 3, 4, 5 }, result);
+            }
+        }
+    }
+
+    // ── transferTo destination position tracking ────────────────────────
+
+    /**
+     * Verify that the destination BufferedFile position is updated after
+     * transferTo(OutputStream) via the FileOutputStream fast path.
+     */
+    @Test
+    void transferToFileOutputStreamUpdatesDestPosition() throws IOException {
+        Path srcPath = tempDir.resolve("src.bin");
+        Path dstPath = tempDir.resolve("dst.bin");
+        try (Closeable ignored = tempFile(srcPath); Closeable ignored2 = tempFile(dstPath)) {
+            Files.write(srcPath, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile src = Files2.openBuffered(srcPath, READ);
+                    BufferedFile dst = Files2.openBuffered(dstPath, READ, WRITE, CREATE)) {
+                dst.write(new byte[] { 10, 20 });
+                src.transferTo(dst.outputStream());
+                assertEquals(7, dst.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Verify that the destination BufferedFile position is updated after
+     * transferTo(OutputStream, length) via the FileOutputStream fast path.
+     */
+    @Test
+    void transferToFileOutputStreamWithLengthUpdatesDestPosition() throws IOException {
+        Path srcPath = tempDir.resolve("src.bin");
+        Path dstPath = tempDir.resolve("dst.bin");
+        try (Closeable ignored = tempFile(srcPath); Closeable ignored2 = tempFile(dstPath)) {
+            Files.write(srcPath, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile src = Files2.openBuffered(srcPath, READ);
+                    BufferedFile dst = Files2.openBuffered(dstPath, READ, WRITE, CREATE)) {
+                dst.write(new byte[] { 10, 20 });
+                src.transferTo(dst.outputStream(), 3);
+                assertEquals(5, dst.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Verify that the destination BufferedFile position is updated after
+     * transferTo(pos, OutputStream, length) via the FileOutputStream fast path.
+     */
+    @Test
+    void transferToFileOutputStreamFromPositionUpdatesDestPosition() throws IOException {
+        Path srcPath = tempDir.resolve("src.bin");
+        Path dstPath = tempDir.resolve("dst.bin");
+        try (Closeable ignored = tempFile(srcPath); Closeable ignored2 = tempFile(dstPath)) {
+            Files.write(srcPath, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile src = Files2.openBuffered(srcPath, READ);
+                    BufferedFile dst = Files2.openBuffered(dstPath, READ, WRITE, CREATE)) {
+                dst.write(new byte[] { 10, 20 });
+                src.transferTo(2, dst.outputStream(), 2);
+                assertEquals(4, dst.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Verify that the destination position is updated after
+     * transferTo(OutputStream) via the slow path (non-FileOutputStream).
+     */
+    @Test
+    void transferToSlowPathUpdatesDestPosition() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            Files.write(f, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile bf = Files2.openBuffered(f, READ)) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                bf.transferTo(baos);
+                assertEquals(5, baos.size());
+                assertEquals(5, bf.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Verify that the destination position is updated after
+     * transferTo(OutputStream, length) via the slow path.
+     */
+    @Test
+    void transferToSlowPathWithLengthUpdatesDestPosition() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            Files.write(f, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile bf = Files2.openBuffered(f, READ)) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                bf.transferTo(baos, 3);
+                assertEquals(3, baos.size());
+                assertEquals(3, bf.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Verify that the source position is unchanged after
+     * transferTo(pos, OutputStream, length) via the slow path.
+     */
+    @Test
+    void transferToSlowPathFromPositionPreservesSourcePosition() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            Files.write(f, new byte[] { 1, 2, 3, 4, 5 });
+            try (BufferedFile bf = Files2.openBuffered(f, READ)) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                bf.transferTo(2, baos, 2);
+                assertEquals(2, baos.size());
+                assertEquals(0, bf.filePosition());
+            }
+        }
+    }
+
     // test utilities
 
     Closeable tempFile(Path path) {
