@@ -15,7 +15,16 @@
     <dependencies>
         <dependency>
             <groupId>io.smallrye.common</groupId>
+            <artifactId>smallrye-common-annotation</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.smallrye.common</groupId>
             <artifactId>smallrye-common-constraint</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.smallrye.common</groupId>
+            <artifactId>smallrye-common-os</artifactId>
         </dependency>
         <dependency>
             <groupId>org.graalvm.sdk</groupId>
@@ -30,6 +39,10 @@
             <artifactId>jboss-logging-annotations</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.smallrye.ffm</groupId>
+            <artifactId>smallrye-ffm</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -39,6 +52,10 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>io.smallrye.ffm</groupId>
+                <artifactId>smallrye-ffm-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <annotationProcessorPaths>
@@ -47,6 +64,35 @@
                             <artifactId>jboss-logging-processor</artifactId>
                         </annotationProcessorPath>
                     </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-test</id>
+                        <configuration>
+                            <argLine>--enable-native-access=io.smallrye.ffm,io.smallrye.common.net</argLine>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>net.revelc.code.formatter</groupId>
+                <artifactId>formatter-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/module-info.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>net.revelc.code</groupId>
+                <artifactId>impsort-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/module-info.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
         </plugins>
