@@ -13,8 +13,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.Enumeration;
 import java.util.regex.Pattern;
 
@@ -1034,21 +1032,20 @@ public final class Inet {
     public static int getScopeId(NetworkInterface networkInterface, InetAddress compareWith) {
         Assert.checkNotNullParam("networkInterface", networkInterface);
         Inet6Address cw6 = compareWith instanceof Inet6Address ? (Inet6Address) compareWith : null;
-        Inet6Address address = AccessController.doPrivileged((PrivilegedAction<Inet6Address>) () -> {
-            final Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
-            while (addresses.hasMoreElements()) {
-                final InetAddress a = addresses.nextElement();
-                if (a instanceof Inet6Address) {
-                    final Inet6Address a6 = (Inet6Address) a;
-                    if (cw6 == null ||
-                            a6.isLinkLocalAddress() == cw6.isLinkLocalAddress() &&
-                                    a6.isSiteLocalAddress() == cw6.isSiteLocalAddress()) {
-                        return a6;
-                    }
+        Inet6Address address = null;
+        final Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
+        while (addresses.hasMoreElements()) {
+            final InetAddress a = addresses.nextElement();
+            if (a instanceof Inet6Address) {
+                final Inet6Address a6 = (Inet6Address) a;
+                if (cw6 == null ||
+                        a6.isLinkLocalAddress() == cw6.isLinkLocalAddress() &&
+                                a6.isSiteLocalAddress() == cw6.isSiteLocalAddress()) {
+                    address = a6;
+                    break;
                 }
             }
-            return null;
-        });
+        }
         return address == null ? 0 : address.getScopeId();
     }
 

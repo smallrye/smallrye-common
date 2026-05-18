@@ -1,8 +1,6 @@
 package io.smallrye.common.ref;
 
 import java.lang.ref.ReferenceQueue;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 
 import org.graalvm.nativeimage.ImageInfo;
 
@@ -31,12 +29,7 @@ public final class References {
             if (isBuildTime()) {
                 // do nothing (class should be reinitialized)
             } else {
-                AccessController.doPrivileged(new PrivilegedAction<Void>() {
-                    @Override
-                    public Void run() {
-                        return startThreadAction(1);
-                    }
-                });
+                startThreadAction(1);
             }
         }
 
@@ -48,13 +41,12 @@ public final class References {
             }
         }
 
-        private static Void startThreadAction(int id) {
+        private static void startThreadAction(int id) {
             final ReaperThread thr = new ReaperThread();
             // avoid + because of startup cost of StringConcatFactory
             thr.setName("Reference Reaper #".concat(String.valueOf(id)));
             thr.setDaemon(true);
             thr.start();
-            return null;
         }
 
         public void run() {
