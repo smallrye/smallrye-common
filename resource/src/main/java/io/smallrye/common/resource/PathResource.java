@@ -15,6 +15,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 
@@ -129,6 +130,16 @@ public final class PathResource extends Resource {
     public Instant modifiedTime() {
         try {
             FileTime fileTime = Files.getLastModifiedTime(path());
+            return fileTime.toMillis() == 0 ? null : fileTime.toInstant();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    public Instant createdTime() {
+        try {
+            FileTime fileTime = Files.getFileAttributeView(path(), BasicFileAttributeView.class).readAttributes()
+                    .creationTime();
             return fileTime.toMillis() == 0 ? null : fileTime.toInstant();
         } catch (IOException e) {
             return null;

@@ -196,6 +196,13 @@ public abstract class Resource {
     }
 
     /**
+     * {@return the creation time of the resource, or <code>null</code> if the time is unknown}
+     */
+    public Instant createdTime() {
+        return null;
+    }
+
+    /**
      * {@return the list of code signers for this resource}
      * The resource must have been fully read, or else consumed {@linkplain #asBuffer() as a buffer}.
      * By default, the base implementation returns an empty list.
