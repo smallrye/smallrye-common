@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URL;
+import java.net.URLStreamHandler;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.WritableByteChannel;
@@ -28,6 +29,7 @@ import io.smallrye.common.constraint.Assert;
 public abstract class Resource {
 
     private final String path;
+    private ResourceURLStreamHandler urlHandler;
 
     /**
      * Construct a new instance.
@@ -215,4 +217,15 @@ public abstract class Resource {
      * {@return the size of the resource, or <code>-1</code> if the size is not known}
      */
     public abstract long size();
+
+    /**
+     * {@return a stream handler for this resource}
+     */
+    protected final URLStreamHandler streamHandler() {
+        ResourceURLStreamHandler urlHandler = this.urlHandler;
+        if (urlHandler == null) {
+            urlHandler = this.urlHandler = new ResourceURLStreamHandler(this);
+        }
+        return urlHandler;
+    }
 }

@@ -57,7 +57,7 @@ public final class MemoryResource extends Resource {
         URL url = this.url;
         if (url == null) {
             try {
-                this.url = url = new URL("memory", null, -1, pathName(), new ResourceURLStreamHandler(this));
+                this.url = url = new URL("memory", null, -1, pathName(), streamHandler());
             } catch (MalformedURLException e) {
                 throw new UncheckedIOException("Unexpected URL problem", e);
             }

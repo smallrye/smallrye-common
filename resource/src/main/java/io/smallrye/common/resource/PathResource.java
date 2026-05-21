@@ -73,8 +73,8 @@ public final class PathResource extends Resource {
         if (url == null) {
             try {
                 URI pathUri = path.toUri();
-                // todo Java 20+: URL.of(pathUri, new ResourceURLStreamHandler(this))
-                url = this.url = new URL(null, pathUri.toASCIIString(), new ResourceURLStreamHandler(this));
+                // todo Java 20+: URL.of(pathUri, streamHandler())
+                url = this.url = new URL(null, pathUri.toASCIIString(), streamHandler());
             } catch (MalformedURLException e) {
                 throw new IllegalStateException("Unexpected URL problem", e);
             }
