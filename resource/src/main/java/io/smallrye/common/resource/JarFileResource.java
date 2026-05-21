@@ -102,4 +102,16 @@ public final class JarFileResource extends Resource {
     public long size() {
         return jarEntry.getSize();
     }
+
+    public long crc32() throws IOException {
+        long crc = crc32;
+        if (crc == -1) {
+            crc = jarEntry.getCrc();
+            if (crc == -1) {
+                return super.crc32();
+            }
+            crc32 = crc;
+        }
+        return crc;
+    }
 }

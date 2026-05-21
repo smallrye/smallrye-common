@@ -19,6 +19,7 @@ import java.security.ProtectionDomain;
 import java.time.Instant;
 import java.util.List;
 import java.util.function.Function;
+import java.util.zip.CRC32;
 
 import io.smallrye.common.constraint.Assert;
 
@@ -28,6 +29,7 @@ import io.smallrye.common.constraint.Assert;
 public abstract class Resource {
 
     private final String path;
+    long crc32 = -1;
 
     /**
      * Construct a new instance.
@@ -208,4 +210,35 @@ public abstract class Resource {
      * {@return the size of the resource, or <code>-1</code> if the size is not known}
      */
     public abstract long size();
+
+    /**
+     * {@return the CRC-32 checksum of this resource}
+     * The returned value is an unsigned value in the range {@code 0 ≤ n ≤ 0xffff_ffffL}.
+     */
+    public long crc32() throws IOException {
+        if (crc32 == -1) {
+            if (isDirectory()) {
+                return crc32 = 0;
+            }
+            // compute and cache
+            CRC32 crc = new CRC32();
+            try (InputStream is = openStream()) {
+                is.transferTo(new OutputStream() {
+                    public void write(final int b) {
+                        crc.update(b);
+                    }
+
+                    public void write(final byte[] b) {
+                        crc.update(b);
+                    }
+
+                    public void write(final byte[] b, final int off, final int len) {
+                        crc.update(b, off, len);
+                    }
+                });
+            }
+            crc32 = crc.getValue();
+        }
+        return crc32;
+    }
 }
