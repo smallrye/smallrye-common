@@ -90,6 +90,11 @@ public final class JarFileResource extends Resource {
         return fileTime == null ? null : fileTime.toInstant();
     }
 
+    public Instant createdTime() {
+        FileTime fileTime = jarEntry.getCreationTime();
+        return fileTime == null ? null : fileTime.toInstant();
+    }
+
     public List<CodeSigner> codeSigners() {
         CodeSigner[] array = jarEntry.getCodeSigners();
         return array == null ? List.of() : List.of(array);

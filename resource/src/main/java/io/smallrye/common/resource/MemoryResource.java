@@ -23,7 +23,7 @@ import io.smallrye.common.constraint.Assert;
 public final class MemoryResource extends Resource {
     // todo: switch to MemorySegment
     private final ByteBuffer data;
-    private final Instant modifiedTime = Instant.now();
+    private final Instant createdTime = Instant.now();
     private URL url;
 
     /**
@@ -102,7 +102,11 @@ public final class MemoryResource extends Resource {
     }
 
     public Instant modifiedTime() {
-        return modifiedTime;
+        return createdTime;
+    }
+
+    public Instant createdTime() {
+        return createdTime;
     }
 
     public long size() {
