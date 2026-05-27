@@ -10,9 +10,11 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.AclEntry;
 import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.AclEntryType;
@@ -555,6 +557,71 @@ public class Files2Test {
         assertPrivateDirectoryPermissions(dir);
         Files.delete(dir);
         assertFalse(Files.exists(dir));
+    }
+
+    @Test
+    public void testOpenBufferedCreateNewWithAttrs(@TempDir Path testArea) throws IOException {
+        Path file = testArea.resolve("private-buffered.bin");
+        try (BufferedFile bf = Files2.openBuffered(file,
+                Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, StandardOpenOption.READ),
+                List.of(Files2.privateFileAttribute()))) {
+            bf.writeByte(42);
+        }
+        assertTrue(Files.exists(file));
+        assertPrivateFilePermissions(file);
+        assertEquals(1, Files.size(file));
+    }
+
+    @Test
+    public void testOpenBufferedCreateWithAttrsNewFile(@TempDir Path testArea) throws IOException {
+        Path file = testArea.resolve("private-created.bin");
+        try (BufferedFile bf = Files2.openBuffered(file,
+                Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.READ),
+                List.of(Files2.privateFileAttribute()))) {
+            bf.writeByte(99);
+        }
+        assertTrue(Files.exists(file));
+        assertPrivateFilePermissions(file);
+        assertEquals(1, Files.size(file));
+    }
+
+    @Test
+    public void testOpenBufferedCreateWithAttrsExistingFile(@TempDir Path testArea) throws IOException {
+        Path file = testArea.resolve("existing.bin");
+        byte[] content = { 1, 2, 3 };
+        Files.write(file, content);
+        assertTrue(Files.exists(file));
+        try (BufferedFile bf = Files2.openBuffered(file,
+                Set.of(StandardOpenOption.CREATE, StandardOpenOption.READ),
+                List.of(Files2.privateFileAttribute()))) {
+            assertEquals(1, bf.readByte());
+        }
+        assertEquals(3, Files.size(file));
+    }
+
+    @Test
+    public void testOpenBufferedCreateNewWithAttrsFailsIfExists(@TempDir Path testArea) throws IOException {
+        Path file = testArea.resolve("already-exists.bin");
+        Files.createFile(file);
+        assertTrue(Files.exists(file));
+        try {
+            Files2.openBuffered(file,
+                    Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
+                    List.of(Files2.privateFileAttribute())).close();
+            throw new AssertionError("Expected FileAlreadyExistsException");
+        } catch (FileAlreadyExistsException expected) {
+        }
+    }
+
+    @Test
+    public void testOpenBufferedCreateNewWithoutAttrs(@TempDir Path testArea) throws IOException {
+        Path file = testArea.resolve("no-attrs.bin");
+        try (BufferedFile bf = Files2.openBuffered(file,
+                Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, StandardOpenOption.READ))) {
+            bf.writeByte(7);
+        }
+        assertTrue(Files.exists(file));
+        assertEquals(1, Files.size(file));
     }
 
     @Test

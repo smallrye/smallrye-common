@@ -1275,7 +1275,7 @@ public final class Files2 {
      * @throws UnsupportedOperationException if an unsupported option is specified
      */
     public static BufferedFile openBuffered(Path path, OpenOption... options) throws IOException {
-        return openBuffered(path, Set.of(options));
+        return openBuffered(path, Set.of(options), List.of());
     }
 
     /**
@@ -1303,8 +1303,46 @@ public final class Files2 {
      * @throws UnsupportedOperationException if an unsupported option is specified
      */
     public static BufferedFile openBuffered(Path path, Collection<? extends OpenOption> options) throws IOException {
+        return openBuffered(path, options, List.of());
+    }
+
+    /**
+     * Open a buffered random-access file at the given path, atomically setting the given
+     * file attributes if the file is created.
+     * <p>
+     * The options may include most {@link StandardOpenOption} values, as well as
+     * {@link BufferSizeOption} and {@link ByteOrderOption} to configure the buffer size
+     * and default byte order respectively. If no {@code BufferSizeOption} is given,
+     * a default of {@link BufferSizeOption#DEFAULT_BUFFER_SIZE} is used. If no
+     * {@code ByteOrderOption} is given, the {@linkplain ByteOrder#nativeOrder() native
+     * byte order} is used. If neither {@link StandardOpenOption#READ READ} nor
+     * {@link StandardOpenOption#WRITE WRITE} is specified, the file is opened for reading only.
+     * <p>
+     * The {@code attrs} parameter specifies file attributes to set atomically when creating
+     * the file. If the file already exists and the {@link StandardOpenOption#CREATE CREATE}
+     * option is given, the attributes are ignored. If the file already exists and the
+     * {@link StandardOpenOption#CREATE_NEW CREATE_NEW} option is given, a
+     * {@link FileAlreadyExistsException} is thrown as usual.
+     * <p>
+     * Note that {@link StandardOpenOption#APPEND APPEND} mode is not supported for
+     * random-access buffered files.
+     *
+     * @param path the path to the file (must not be {@code null})
+     * @param options the open options (must not be {@code null}, and must not contain {@code null} elements)
+     * @param attrs the file attributes to set atomically when creating the file (must not be {@code null})
+     * @return a new {@link BufferedFile} instance
+     * @throws IOException if an I/O error occurs
+     * @throws FileAlreadyExistsException if {@link StandardOpenOption#CREATE_NEW CREATE_NEW} is specified
+     *         and the file already exists
+     * @throws IllegalArgumentException if conflicting options are specified (e.g., both
+     *         {@link ByteOrderOption#BIG_ENDIAN} and {@link ByteOrderOption#LITTLE_ENDIAN})
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public static BufferedFile openBuffered(Path path, Collection<? extends OpenOption> options,
+            Collection<? extends FileAttribute<?>> attrs) throws IOException {
         checkNotNullParam("path", path);
         checkNotNullParam("options", options);
+        checkNotNullParam("attrs", attrs);
 
         boolean read = false, write = false;
         boolean create = false, createNew = false, truncate = false;
@@ -1358,16 +1396,18 @@ public final class Files2 {
         }
 
         // Handle file creation options
-        java.io.File file = path.toFile();
         if (createNew) {
-            if (!file.createNewFile()) {
-                throw new FileAlreadyExistsException(path.toString());
+            Files.createFile(path, attrs.toArray(FileAttribute<?>[]::new));
+        } else if (create) {
+            try {
+                Files.createFile(path, attrs.toArray(FileAttribute<?>[]::new));
+            } catch (FileAlreadyExistsException ignored) {
             }
-        } else if (!create && !file.exists()) {
+        } else if (Files.notExists(path)) {
             throw new NoSuchFileException(path.toString());
         }
 
-        RandomAccessFile raf = new RandomAccessFile(file, mode);
+        RandomAccessFile raf = new RandomAccessFile(path.toFile(), mode);
         try {
             if (truncate && write) {
                 raf.setLength(0);
