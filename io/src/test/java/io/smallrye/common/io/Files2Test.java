@@ -2,7 +2,10 @@ package io.smallrye.common.io;
 
 import static io.smallrye.common.constraint.Assert.assertFalse;
 import static io.smallrye.common.constraint.Assert.assertTrue;
+import static java.nio.file.attribute.PosixFilePermission.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -10,9 +13,20 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.UserPrincipal;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import io.smallrye.common.os.OS;
 
 public class Files2Test {
     public Files2Test() {
@@ -412,6 +426,135 @@ public class Files2Test {
         assertFalse(Files.exists(srcFile));
         assertTrue(Files.exists(destFile));
         assertEquals(srcSize, Files.size(destFile));
+    }
+
+    /**
+     * Asserts that the given file path has private file permissions.
+     */
+    private void assertPrivateFilePermissions(Path path) throws IOException {
+        if (OS.WINDOWS.isCurrent()) {
+            AclFileAttributeView aclView = Files.getFileAttributeView(path, AclFileAttributeView.class);
+            assertNotNull(aclView, "ACL view should be available on Windows");
+            List<AclEntry> acl = aclView.getAcl();
+            assertEquals(1, acl.size(), "Private file should have exactly one ACL entry");
+            AclEntry entry = acl.get(0);
+            assertEquals(AclEntryType.ALLOW, entry.type());
+            EnumSet<AclEntryPermission> expected = EnumSet.allOf(AclEntryPermission.class);
+            expected.remove(AclEntryPermission.EXECUTE);
+            assertEquals(expected, entry.permissions());
+        } else {
+            assertEquals(Set.of(OWNER_READ, OWNER_WRITE), Files.getPosixFilePermissions(path));
+        }
+    }
+
+    /**
+     * Asserts that the given directory path has private directory permissions.
+     */
+    private void assertPrivateDirectoryPermissions(Path path) throws IOException {
+        if (OS.WINDOWS.isCurrent()) {
+            AclFileAttributeView aclView = Files.getFileAttributeView(path, AclFileAttributeView.class);
+            assertNotNull(aclView, "ACL view should be available on Windows");
+            List<AclEntry> acl = aclView.getAcl();
+            assertEquals(1, acl.size(), "Private directory should have exactly one ACL entry");
+            AclEntry entry = acl.get(0);
+            assertEquals(AclEntryType.ALLOW, entry.type());
+            assertEquals(EnumSet.allOf(AclEntryPermission.class), entry.permissions());
+        } else {
+            assertEquals(Set.of(OWNER_READ, OWNER_WRITE, OWNER_EXECUTE), Files.getPosixFilePermissions(path));
+        }
+    }
+
+    @Test
+    public void testCurrentUserPrincipal() {
+        UserPrincipal principal = Files2.currentUserPrincipal();
+        assertNotNull(principal);
+        String name = principal.getName();
+        assertEquals(ProcessHandle.current().info().user().orElseThrow(), name);
+        if (OS.WINDOWS.isCurrent()) {
+            int idx = name.lastIndexOf('\\');
+            if (idx != -1) {
+                name = name.substring(idx + 1);
+            }
+        }
+        assertEquals(System.getProperty("user.name"), name);
+    }
+
+    @Test
+    public void testPrivateFileAttributeNotNull() {
+        FileAttribute<?> attr = Files2.privateFileAttribute();
+        assertNotNull(attr);
+        assertNotNull(attr.value());
+        if (OS.WINDOWS.isCurrent()) {
+            assertEquals("acl:acl", attr.name());
+        } else {
+            assertEquals("posix:permissions", attr.name());
+        }
+    }
+
+    @Test
+    public void testPrivateDirectoryAttributeNotNull() {
+        FileAttribute<?> attr = Files2.privateDirectoryAttribute();
+        assertNotNull(attr);
+        assertNotNull(attr.value());
+        if (OS.WINDOWS.isCurrent()) {
+            assertEquals("acl:acl", attr.name());
+        } else {
+            assertEquals("posix:permissions", attr.name());
+        }
+    }
+
+    @Test
+    public void testCreatePrivateFile(@TempDir Path testArea) throws IOException {
+        Path file = testArea.resolve("private.txt");
+        Files.createFile(file, Files2.privateFileAttribute());
+        assertTrue(Files.exists(file));
+        // verify read/write round-trip
+        byte[] content = "hello private world".getBytes();
+        Files.write(file, content);
+        assertArrayEquals(content, Files.readAllBytes(file));
+        // verify permissions
+        assertPrivateFilePermissions(file);
+        // verify deletion
+        Files.delete(file);
+        assertFalse(Files.exists(file));
+    }
+
+    @Test
+    public void testCreatePrivateDirectory(@TempDir Path testArea) throws IOException {
+        Path dir = testArea.resolve("private-dir");
+        Files.createDirectory(dir, Files2.privateDirectoryAttribute());
+        assertTrue(Files.exists(dir));
+        assertTrue(Files.isDirectory(dir));
+        // verify the directory is usable by creating a file inside it
+        Path innerFile = dir.resolve("inner.txt");
+        Files.createFile(innerFile);
+        assertTrue(Files.exists(innerFile));
+        // verify directory permissions
+        assertPrivateDirectoryPermissions(dir);
+        // verify deletion
+        Files.delete(innerFile);
+        assertFalse(Files.exists(innerFile));
+        Files.delete(dir);
+        assertFalse(Files.exists(dir));
+    }
+
+    @Test
+    public void testCreatePrivateTempFile(@TempDir Path testArea) throws IOException {
+        Path file = Files.createTempFile(testArea, "private", ".tmp", Files2.privateFileAttribute());
+        assertTrue(Files.exists(file));
+        assertPrivateFilePermissions(file);
+        Files.delete(file);
+        assertFalse(Files.exists(file));
+    }
+
+    @Test
+    public void testCreatePrivateTempDirectory(@TempDir Path testArea) throws IOException {
+        Path dir = Files.createTempDirectory(testArea, "private", Files2.privateDirectoryAttribute());
+        assertTrue(Files.exists(dir));
+        assertTrue(Files.isDirectory(dir));
+        assertPrivateDirectoryPermissions(dir);
+        Files.delete(dir);
+        assertFalse(Files.exists(dir));
     }
 
     @Test
