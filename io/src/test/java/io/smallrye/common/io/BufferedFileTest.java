@@ -2960,6 +2960,73 @@ class BufferedFileTest {
         }
     }
 
+    // ── Bug regression tests ─────────────────────────────────────────────
+
+    /**
+     * Verify that seeking outside the buffer window and reading
+     * returns fresh data, not stale bytes left over from the old buffer.
+     */
+    @Test
+    void fillAfterSeekOutsideBufferReturnsCorrectData() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            // create a file with 256 known bytes: 0x00..0xFF
+            byte[] data = new byte[256];
+            for (int i = 0; i < data.length; i++) {
+                data[i] = (byte) i;
+            }
+            Files.write(f, data);
+            // use a small buffer (32 bytes) so we can easily seek outside it
+            try (BufferedFile bf = Files2.openBuffered(f, READ, BufferSizeOption.of(32))) {
+                // fill the buffer from position 0 — loads bytes 0x00..0x1F
+                bf.fill(1);
+                assertEquals(0x00, bf.readUnsignedByte());
+                assertEquals(0x01, bf.readUnsignedByte());
+                // seek far outside the current buffer window
+                bf.seek(128);
+                // read — this should return 0x80, not stale buffer[0] = 0x00
+                assertEquals(0x80, bf.readUnsignedByte());
+                assertEquals(0x81, bf.readUnsignedByte());
+            }
+        }
+    }
+
+    /**
+     * Verify that {@code BufferedFileInputStream.readUnsignedByte()}
+     * returns unsigned values (0–255) for bytes with the high bit set.
+     */
+    @Test
+    void inputStreamReadUnsignedByteReturnsUnsigned() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            Files.write(f, new byte[] { (byte) 0xFF, (byte) 0x80, 0x7F });
+            try (BufferedFile bf = Files2.openBuffered(f, READ)) {
+                DataInput in = bf.inputStream();
+                assertEquals(255, in.readUnsignedByte());
+                assertEquals(128, in.readUnsignedByte());
+                assertEquals(127, in.readUnsignedByte());
+            }
+        }
+    }
+
+    /**
+     * Verify that {@code BufferedFileInputStream.readUnsignedShort()}
+     * returns unsigned values (0–65535) for shorts with the high bit set.
+     */
+    @Test
+    void inputStreamReadUnsignedShortReturnsUnsigned() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            // 0xFF 0xFF = unsigned 65535, 0x80 0x00 = unsigned 32768
+            Files.write(f, new byte[] { (byte) 0xFF, (byte) 0xFF, (byte) 0x80, 0x00 });
+            try (BufferedFile bf = Files2.openBuffered(f, READ)) {
+                DataInput in = bf.inputStream();
+                assertEquals(65535, in.readUnsignedShort());
+                assertEquals(32768, in.readUnsignedShort());
+            }
+        }
+    }
+
     // test utilities
 
     Closeable tempFile(Path path) {
