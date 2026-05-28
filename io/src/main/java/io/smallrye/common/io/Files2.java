@@ -1,10 +1,10 @@
 package io.smallrye.common.io;
 
-import static io.smallrye.common.constraint.Assert.checkNotNullArrayParam;
-import static io.smallrye.common.constraint.Assert.checkNotNullParam;
-import static io.smallrye.common.constraint.Assert.impossibleSwitchCase;
+import static io.smallrye.common.constraint.Assert.*;
 import static io.smallrye.common.io.Messages.log;
+import static java.nio.file.attribute.PosixFilePermission.*;
 
+import java.io.IOError;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteOrder;
@@ -17,6 +17,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.CopyOption;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -26,6 +27,9 @@ import java.nio.file.Path;
 import java.nio.file.SecureDirectoryStream;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributeView;
@@ -34,10 +38,13 @@ import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserPrincipal;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+
+import io.smallrye.common.os.OS;
 
 /**
  * Extra utilities for dealing with the filesystem which are missing from {@link Files}.
@@ -1377,6 +1384,80 @@ public final class Files2 {
         }
     }
 
+    /**
+     * {@return the {@link UserPrincipal} corresponding to the current process user (not {@code null})}
+     * The principal is looked up via the default filesystem's {@link java.nio.file.spi.FileSystemProvider user
+     * principal lookup service}.
+     *
+     * @throws IOError if the user principal lookup fails
+     */
+    public static UserPrincipal currentUserPrincipal() {
+        return PrivateAttrs.MY_USER;
+    }
+
+    /**
+     * {@return the file attribute that can be used to make a file private to the current user (not {@code null})}
+     * The attribute value depends on the operating system.
+     *
+     * @throws IOError if the user principal lookup fails
+     */
+    public static FileAttribute<?> privateFileAttribute() {
+        return PrivateAttrs.PRIVATE_FILE_ATTR;
+    }
+
+    /**
+     * {@return the directory attribute that can be used to make a directory private to the current user (not
+     * {@code null})}
+     * The attribute value depends on the operating system.
+     *
+     * @throws IOError if the user principal lookup fails
+     */
+    public static FileAttribute<?> privateDirectoryAttribute() {
+        return PrivateAttrs.PRIVATE_DIR_ATTR;
+    }
+
+    /**
+     * Lazy-init holder for the current user principal and private file/directory attributes.
+     * Initialization is deferred until first access, avoiding eager I/O during class loading of {@link Files2}.
+     */
+    private static final class PrivateAttrs {
+        static final UserPrincipal MY_USER;
+        static final FileAttribute<?> PRIVATE_FILE_ATTR;
+        static final FileAttribute<?> PRIVATE_DIR_ATTR;
+
+        static {
+            try {
+                MY_USER = FileSystems.getDefault()
+                        .getUserPrincipalLookupService()
+                        .lookupPrincipalByName(ProcessHandle.current()
+                                .info().user().orElseGet(() -> System.getProperty("user.name")));
+            } catch (IOException e) {
+                throw new IOError(e);
+            }
+            if (OS.WINDOWS.isCurrent()) {
+                EnumSet<AclEntryPermission> permSet = EnumSet.allOf(AclEntryPermission.class);
+                List<AclEntry> aclList = List.of(AclEntry.newBuilder()
+                        .setType(AclEntryType.ALLOW)
+                        .setPermissions(permSet)
+                        .setPrincipal(MY_USER)
+                        .build());
+                PRIVATE_DIR_ATTR = new AclListFileAttribute(aclList);
+                permSet.remove(AclEntryPermission.EXECUTE);
+                aclList = List.of(AclEntry.newBuilder()
+                        .setType(AclEntryType.ALLOW)
+                        .setPermissions(permSet)
+                        .setPrincipal(MY_USER)
+                        .build());
+                PRIVATE_FILE_ATTR = new AclListFileAttribute(aclList);
+            } else {
+                PRIVATE_DIR_ATTR = PosixFilePermissions.asFileAttribute(
+                        Set.of(OWNER_READ, OWNER_WRITE, OWNER_EXECUTE));
+                PRIVATE_FILE_ATTR = PosixFilePermissions.asFileAttribute(
+                        Set.of(OWNER_READ, OWNER_WRITE));
+            }
+        }
+    }
+
     // -- private --
 
     static final Path CWD = Path.of(System.getProperty("user.dir", ".")).normalize().toAbsolutePath();
@@ -1744,4 +1825,22 @@ public final class Files2 {
         ALL_COPY_OPTIONS = outer;
     }
 
+    /**
+     * An implementation of an ACL-based file attribute (Windows only).
+     */
+    private static class AclListFileAttribute implements FileAttribute<List<AclEntry>> {
+        private final List<AclEntry> aclList;
+
+        private AclListFileAttribute(final List<AclEntry> aclList) {
+            this.aclList = aclList;
+        }
+
+        public String name() {
+            return "acl:acl";
+        }
+
+        public List<AclEntry> value() {
+            return aclList;
+        }
+    }
 }

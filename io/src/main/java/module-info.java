@@ -3,6 +3,7 @@
  */
 module io.smallrye.common.io {
     requires io.smallrye.common.constraint;
+    requires io.smallrye.common.os;
 
     requires org.jboss.logging;
 
