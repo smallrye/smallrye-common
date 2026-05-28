@@ -276,12 +276,12 @@ public final class BufferedFile implements Closeable, Flushable {
                 flushDirty();
                 raf.seek(position);
                 bufferPosition = position;
-                int n = raf.read(buffer, bufferDataSize, buffer.length - bufferDataSize);
+                bufferDataSize = 0;
+                int n = raf.read(buffer, 0, buffer.length);
                 if (n == -1) {
-                    bufferDataSize = 0;
                     return -1;
                 }
-                bufferDataSize += n;
+                bufferDataSize = n;
                 return n;
             }
             // the current position is inside the buffer
@@ -3783,7 +3783,7 @@ public final class BufferedFile implements Closeable, Flushable {
 
         @Override
         public int readUnsignedByte() throws IOException {
-            return BufferedFile.this.readByte();
+            return BufferedFile.this.readUnsignedByte();
         }
 
         @Override
@@ -3793,7 +3793,7 @@ public final class BufferedFile implements Closeable, Flushable {
 
         @Override
         public int readUnsignedShort() throws IOException {
-            return BufferedFile.this.readShortBE();
+            return BufferedFile.this.readUnsignedShortBE();
         }
 
         @Override
