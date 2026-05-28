@@ -8,6 +8,7 @@ import java.util.zip.ZipFile;
 /**
  * Java 9+ variant of a JDK-specific class for working with {@code JarFile}s.
  */
+@Deprecated(since = "2.19", forRemoval = true)
 public class JarFiles {
     private JarFiles() {
     }
