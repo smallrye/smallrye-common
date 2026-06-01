@@ -73,6 +73,19 @@ public final class MemoryResource extends Resource {
         return data.duplicate();
     }
 
+    public boolean isMappable() {
+        return true;
+    }
+
+    public ByteBuffer mapAsBuffer(final long offset, final int length) {
+        Assert.checkMinimumParameter("offset", 0, offset);
+        Assert.checkMinimumParameter("length", 0, length);
+        int lim = data.limit();
+        Assert.checkMaximumParameter("offset", lim, offset);
+        Assert.checkMaximumParameter("length", lim - offset, length);
+        return data.slice((int) offset, length);
+    }
+
     public long copyTo(final Path destination) throws IOException {
         try (SeekableByteChannel ch = Files.newByteChannel(destination, StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {

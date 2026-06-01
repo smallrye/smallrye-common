@@ -123,6 +123,16 @@ public final class PathResource extends Resource {
         }
     }
 
+    public boolean isMappable() {
+        return Files.isRegularFile(path());
+    }
+
+    public MappedByteBuffer mapAsBuffer(final long offset, final int length) throws IOException {
+        try (FileChannel fc = FileChannel.open(path(), StandardOpenOption.READ)) {
+            return fc.map(FileChannel.MapMode.READ_ONLY, offset, length);
+        }
+    }
+
     public String asString(final Charset charset) throws IOException {
         return Files.readString(path(), charset);
     }
