@@ -116,6 +116,11 @@
             <!-- Internal module dependencies -->
             <dependency>
                 <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-annotation</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-constraint</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -131,12 +136,22 @@
             </dependency>
             <dependency>
                 <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-io</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-net</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-os</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-search</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -203,6 +218,17 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+                <plugin>
+                    <groupId>net.revelc.code</groupId>
+                    <artifactId>impsort-maven-plugin</artifactId>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.github.javaparser</groupId>
+                            <artifactId>javaparser-core</artifactId>
+                            <version>3.28.0</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
             </plugins>
         </pluginManagement>
