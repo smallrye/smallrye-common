@@ -420,6 +420,146 @@ public final class ArchiveBuilder implements Closeable {
     }
 
     /**
+     * Add a nested archive as a STORED entry in this archive.
+     * This is a convenience method that combines {@link #addBufferedEntry(String)} and
+     * {@link #open(BufferedFile, OpenOption...)} into a single call.
+     * The returned archive builder writes to a nested region of the outer archive file.
+     * When the returned builder is {@linkplain #close() closed}, its central directory is written,
+     * then the enclosing entry's CRC-32 and size are computed and patched into the outer
+     * local file header.
+     * <p>
+     * The nested builder must be closed before another entry can be added to the outer builder
+     * or the outer builder can be closed.
+     *
+     * <h4>Usage example</h4>
+     *
+     * <pre>{@code
+     * try (ArchiveBuilder outer = ArchiveBuilder.open(path)) {
+     *     try (ArchiveBuilder inner = outer.addArchive("lib/nested.jar")) {
+     *         try (OutputStream os = inner.addEntry("hello.txt")) {
+     *             os.write(data);
+     *         }
+     *     }
+     * }
+     * }</pre>
+     *
+     * @param name the entry name for the nested archive (must not be {@code null})
+     * @return a new archive builder for the nested archive (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry is still being written, or this builder is closed
+     */
+    public ArchiveBuilder addArchive(String name) throws IOException {
+        return addArchive(name, Set.of());
+    }
+
+    /**
+     * Add a nested archive as a STORED entry in this archive with the given options.
+     * This is a convenience method that combines {@link #addBufferedEntry(String, OpenOption...)} and
+     * {@link #open(BufferedFile, OpenOption...)} into a single call.
+     * The returned archive builder writes to a nested region of the outer archive file.
+     * When the returned builder is {@linkplain #close() closed}, its central directory is written,
+     * then the enclosing entry's CRC-32 and size are computed and patched into the outer
+     * local file header.
+     * <p>
+     * The nested builder must be closed before another entry can be added to the outer builder
+     * or the outer builder can be closed.
+     * <p>
+     * {@link ZipOption#ZIP64} applies to the outer entry (reserving ZIP64 space in the outer local
+     * file header). The inner builder inherits the same options as its defaults.
+     *
+     * @param name the entry name for the nested archive (must not be {@code null})
+     * @param options the options; may contain {@link ZipOption} values
+     * @return a new archive builder for the nested archive (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry is still being written, or this builder is closed
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public ArchiveBuilder addArchive(String name, OpenOption... options) throws IOException {
+        return addArchive(name, List.of(options));
+    }
+
+    /**
+     * Add a nested archive as a STORED entry in this archive with the given file attributes.
+     * This is a convenience method that combines
+     * {@link #addBufferedEntry(String, FileAttribute[])} and
+     * {@link #open(BufferedFile, OpenOption...)} into a single call.
+     * The returned archive builder writes to a nested region of the outer archive file.
+     * When the returned builder is {@linkplain #close() closed}, its central directory is written,
+     * then the enclosing entry's CRC-32 and size are computed and patched into the outer
+     * local file header.
+     * <p>
+     * The nested builder must be closed before another entry can be added to the outer builder
+     * or the outer builder can be closed.
+     *
+     * @param name the entry name for the nested archive (must not be {@code null})
+     * @param attrs optional file attributes for the outer entry (e.g., POSIX permissions, timestamps)
+     * @return a new archive builder for the nested archive (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry is still being written, or this builder is closed
+     */
+    public ArchiveBuilder addArchive(String name, FileAttribute<?>... attrs) throws IOException {
+        return addArchive(name, Set.of(), attrs);
+    }
+
+    /**
+     * Add a nested archive as a STORED entry in this archive with the given options and
+     * file attributes.
+     * This is a convenience method that combines
+     * {@link #addBufferedEntry(String, Collection, FileAttribute[])} and
+     * {@link #open(BufferedFile, OpenOption...)} into a single call.
+     * The returned archive builder writes to a nested region of the outer archive file.
+     * When the returned builder is {@linkplain #close() closed}, its central directory is written,
+     * then the enclosing entry's CRC-32 and size are computed and patched into the outer
+     * local file header.
+     * <p>
+     * The nested builder must be closed before another entry can be added to the outer builder
+     * or the outer builder can be closed.
+     * <p>
+     * {@link ZipOption#ZIP64} applies to the outer entry (reserving ZIP64 space in the outer local
+     * file header). The inner builder inherits the same options as its defaults.
+     * {@link ZipOption#DEFLATED} is permitted here (unlike {@code addBufferedEntry}) and sets
+     * the inner builder's default compression method; the outer entry is always STORED.
+     *
+     * @param name the entry name for the nested archive (must not be {@code null})
+     * @param options the options (must not be {@code null}); may contain {@link ZipOption} values
+     * @param attrs optional file attributes for the outer entry (e.g., POSIX permissions, timestamps)
+     * @return a new archive builder for the nested archive (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry is still being written, or this builder is closed
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public ArchiveBuilder addArchive(String name, Collection<? extends OpenOption> options,
+            FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("name", name);
+        Assert.checkNotNullParam("options", options);
+
+        // parse options: ZIP64 applies to outer entry; STORED/DEFLATED set the inner default
+        int innerMethod = -1;
+        boolean zip64 = false;
+        for (OpenOption opt : options) {
+            if (opt instanceof ZipOption zo) {
+                switch (zo) {
+                    case STORED -> innerMethod = setMethod(innerMethod, METHOD_STORED);
+                    case DEFLATED -> innerMethod = setMethod(innerMethod, METHOD_DEFLATE);
+                    case ZIP64 -> zip64 = true;
+                }
+            } else {
+                throw new UnsupportedOperationException("Unsupported option: " + opt);
+            }
+        }
+
+        // the outer entry needs only ZIP64 (method is always STORED for buffered entries)
+        Collection<OpenOption> outerOptions = zip64 ? Set.of(ZipOption.ZIP64) : Set.of();
+        BufferedFile nested = addBufferedEntry(name, outerOptions, attrs);
+
+        // create the inner builder; ownsFile = true so closing it closes the nested file,
+        // which triggers the close action for CRC/LFH patching on the outer entry
+        return new ArchiveBuilder(nested, true,
+                innerMethod == -1 ? METHOD_DEFLATE : innerMethod,
+                zip64);
+    }
+
+    /**
      * Close this archive builder, writing the central directory and end-of-central-directory records.
      *
      * @throws IOException if an I/O error occurs

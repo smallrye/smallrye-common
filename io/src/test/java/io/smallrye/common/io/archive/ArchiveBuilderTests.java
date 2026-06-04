@@ -751,6 +751,168 @@ public class ArchiveBuilderTests {
         }
     }
 
+    // ── addArchive() tests ───────────────────────────────────────────────
+
+    /**
+     * Test that {@link ArchiveBuilder#addArchive(String)} creates a nested archive
+     * readable by the JDK {@link ZipFile} and by {@link Archive}.
+     */
+    @Test
+    public void testAddArchiveReadable() throws Exception {
+        Path file = tempDir.resolve("nested.zip");
+        byte[] innerContent = "inner content".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder outer = ArchiveBuilder.open(file)) {
+            try (ArchiveBuilder inner = outer.addArchive("lib/nested.jar")) {
+                try (OutputStream os = inner.addEntry("hello.txt", ZipOption.STORED)) {
+                    os.write(innerContent);
+                }
+            }
+        }
+
+        // verify outer archive is readable by JDK
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry outerEntry = zf.getEntry("lib/nested.jar");
+            assertNotNull(outerEntry);
+            assertEquals(ZipEntry.STORED, outerEntry.getMethod());
+            assertTrue(outerEntry.getSize() > 0);
+
+            // read the nested JAR bytes and verify the inner archive
+            byte[] nestedBytes;
+            try (InputStream is = zf.getInputStream(outerEntry)) {
+                nestedBytes = is.readAllBytes();
+            }
+            Archive innerArchive = Archive.open(nestedBytes);
+            assertEquals(1, innerArchive.entryCount());
+            long idx = innerArchive.findEntry("hello.txt");
+            assertTrue(idx >= 0);
+            try (InputStream is = innerArchive.openEntry(idx)) {
+                assertArrayEquals(innerContent, is.readAllBytes());
+            }
+        }
+
+        // verify outer archive is readable by Archive
+        Archive outerArchive = Archive.open(Files.readAllBytes(file));
+        assertEquals(1, outerArchive.entryCount());
+        long outerIdx = outerArchive.findEntry("lib/nested.jar");
+        assertTrue(outerIdx >= 0);
+        assertTrue(outerArchive.isStored(outerIdx));
+    }
+
+    /**
+     * Test that multiple nested archives can coexist in the same outer archive.
+     */
+    @Test
+    public void testMultipleNestedArchives() throws Exception {
+        Path file = tempDir.resolve("multi-nested.zip");
+        byte[] content1 = "one".getBytes(StandardCharsets.UTF_8);
+        byte[] content2 = "two".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder outer = ArchiveBuilder.open(file)) {
+            try (ArchiveBuilder inner1 = outer.addArchive("a.jar")) {
+                try (OutputStream os = inner1.addEntry("a.txt", ZipOption.STORED)) {
+                    os.write(content1);
+                }
+            }
+            try (ArchiveBuilder inner2 = outer.addArchive("b.jar")) {
+                try (OutputStream os = inner2.addEntry("b.txt", ZipOption.STORED)) {
+                    os.write(content2);
+                }
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertEquals(2, zf.size());
+
+            byte[] nested1;
+            try (InputStream is = zf.getInputStream(zf.getEntry("a.jar"))) {
+                nested1 = is.readAllBytes();
+            }
+            Archive a = Archive.open(nested1);
+            long aIdx = a.findEntry("a.txt");
+            assertTrue(aIdx >= 0);
+            try (InputStream is = a.openEntry(aIdx)) {
+                assertArrayEquals(content1, is.readAllBytes());
+            }
+
+            byte[] nested2;
+            try (InputStream is = zf.getInputStream(zf.getEntry("b.jar"))) {
+                nested2 = is.readAllBytes();
+            }
+            Archive b = Archive.open(nested2);
+            long bIdx = b.findEntry("b.txt");
+            assertTrue(bIdx >= 0);
+            try (InputStream is = b.openEntry(bIdx)) {
+                assertArrayEquals(content2, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test that a nested archive can contain multiple entries including directories.
+     */
+    @Test
+    public void testNestedArchiveMultipleEntries() throws Exception {
+        Path file = tempDir.resolve("nested-multi.zip");
+        byte[] classData = "fake class bytes".getBytes(StandardCharsets.UTF_8);
+        byte[] manifest = "Manifest-Version: 1.0\n".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder outer = ArchiveBuilder.open(file)) {
+            try (ArchiveBuilder inner = outer.addArchive("lib.jar")) {
+                inner.addDirectory("META-INF/");
+                try (OutputStream os = inner.addEntry("META-INF/MANIFEST.MF", ZipOption.STORED)) {
+                    os.write(manifest);
+                }
+                try (OutputStream os = inner.addEntry("com/example/Main.class")) {
+                    os.write(classData);
+                }
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            byte[] nestedBytes;
+            try (InputStream is = zf.getInputStream(zf.getEntry("lib.jar"))) {
+                nestedBytes = is.readAllBytes();
+            }
+            Archive inner = Archive.open(nestedBytes);
+            assertEquals(3, inner.entryCount());
+            assertTrue(inner.findEntry("META-INF/") >= 0);
+            assertTrue(inner.findEntry("META-INF/MANIFEST.MF") >= 0);
+            assertTrue(inner.findEntry("com/example/Main.class") >= 0);
+        }
+    }
+
+    /**
+     * Test nested archive with mixed regular and nested entries in the outer archive.
+     */
+    @Test
+    public void testNestedArchiveMixedWithRegularEntries() throws Exception {
+        Path file = tempDir.resolve("mixed-nested.zip");
+        byte[] regularContent = "regular".getBytes(StandardCharsets.UTF_8);
+        byte[] innerContent = "inner".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder outer = ArchiveBuilder.open(file)) {
+            try (OutputStream os = outer.addEntry("readme.txt", ZipOption.STORED)) {
+                os.write(regularContent);
+            }
+            try (ArchiveBuilder inner = outer.addArchive("lib/nested.jar")) {
+                try (OutputStream os = inner.addEntry("data.txt", ZipOption.STORED)) {
+                    os.write(innerContent);
+                }
+            }
+            outer.addDirectory("empty/");
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertEquals(3, zf.size());
+            try (InputStream is = zf.getInputStream(zf.getEntry("readme.txt"))) {
+                assertArrayEquals(regularContent, is.readAllBytes());
+            }
+            assertNotNull(zf.getEntry("lib/nested.jar"));
+            assertNotNull(zf.getEntry("empty/"));
+        }
+    }
+
     // ── open(BufferedFile) tests ──────────────────────────────────────────
 
     /**
