@@ -2,6 +2,7 @@ package io.smallrye.common.archive;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -461,6 +462,137 @@ public class ArchiveBuilderTests {
         ArchiveBuilder builder = ArchiveBuilder.open(file);
         builder.close();
         assertDoesNotThrow(builder::close);
+    }
+
+    // ── Archive.of(Path) tests ───────────────────────────────────────────
+
+    /**
+     * Test that {@link Archive#of(Path)} can read an archive with STORED and DEFLATED entries.
+     */
+    @Test
+    public void testArchiveOfPathRoundTrip() throws Exception {
+        Path file = tempDir.resolve("of-path.zip");
+        byte[] storedContent = "stored data".getBytes(StandardCharsets.UTF_8);
+        byte[] deflatedContent = "deflated data that is a bit longer for compression to matter"
+                .getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addDirectory("dir/");
+            try (OutputStream os = builder.addEntry("dir/stored.txt", ZipOption.STORED)) {
+                os.write(storedContent);
+            }
+            try (OutputStream os = builder.addEntry("dir/deflated.txt", ZipOption.DEFLATED)) {
+                os.write(deflatedContent);
+            }
+        }
+
+        Archive archive = Archive.of(file);
+        assertEquals(3, archive.entryCount());
+
+        long dirIdx = archive.findEntry("dir/");
+        assertTrue(dirIdx >= 0);
+        assertTrue(archive.isDirectory(dirIdx));
+
+        long storedIdx = archive.findEntry("dir/stored.txt");
+        assertTrue(storedIdx >= 0);
+        assertTrue(archive.isStored(storedIdx));
+        try (InputStream is = archive.openEntry(storedIdx)) {
+            assertArrayEquals(storedContent, is.readAllBytes());
+        }
+
+        long deflatedIdx = archive.findEntry("dir/deflated.txt");
+        assertTrue(deflatedIdx >= 0);
+        assertFalse(archive.isStored(deflatedIdx));
+        try (InputStream is = archive.openEntry(deflatedIdx)) {
+            assertArrayEquals(deflatedContent, is.readAllBytes());
+        }
+    }
+
+    /**
+     * Test that {@link Archive#of(Path)} can read a ZIP64 archive.
+     */
+    @Test
+    public void testArchiveOfPathZip64() throws Exception {
+        Path file = tempDir.resolve("of-path-zip64.zip");
+        byte[] content = "zip64 via path".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file, Set.of(ZipOption.ZIP64))) {
+            try (OutputStream os = builder.addEntry("test.txt", ZipOption.STORED)) {
+                os.write(content);
+            }
+        }
+
+        Archive archive = Archive.of(file);
+        assertEquals(1, archive.entryCount());
+        long idx = archive.findEntry("test.txt");
+        assertTrue(idx >= 0);
+        try (InputStream is = archive.openEntry(idx)) {
+            assertArrayEquals(content, is.readAllBytes());
+        }
+    }
+
+    /**
+     * Test that {@link Archive#of(Path)} can read an empty archive.
+     */
+    @Test
+    public void testArchiveOfPathEmpty() throws Exception {
+        Path file = tempDir.resolve("of-path-empty.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            // no entries
+        }
+
+        Archive archive = Archive.of(file);
+        assertEquals(0, archive.entryCount());
+    }
+
+    /**
+     * Test that {@link Archive#of(Path)} correctly reads timestamps written by {@link ArchiveBuilder}.
+     */
+    @Test
+    public void testArchiveOfPathTimestamps() throws Exception {
+        Path file = tempDir.resolve("of-path-timestamps.zip");
+        Instant mtime = Instant.parse("2025-03-15T14:30:00.123456700Z");
+        Instant ctime = Instant.parse("2025-01-01T00:00:00Z");
+
+        FileAttribute<?> modAttr = new SimpleFileAttribute<>("basic:lastModifiedTime", FileTime.from(mtime));
+        FileAttribute<?> createAttr = new SimpleFileAttribute<>("basic:creationTime", FileTime.from(ctime));
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (OutputStream os = builder.addEntry("test.txt", Set.of(ZipOption.STORED), modAttr, createAttr)) {
+                os.write("timestamped".getBytes(StandardCharsets.UTF_8));
+            }
+        }
+
+        Archive archive = Archive.of(file);
+        long idx = archive.findEntry("test.txt");
+        assertTrue(idx >= 0);
+
+        Instant readMtime = archive.modifiedTime(idx);
+        Instant readCtime = archive.creationTime(idx);
+
+        assertTrue(Duration.between(mtime, readMtime).abs().toNanos() <= 200,
+                "Modified time should round-trip within 200ns via of(Path)");
+        assertTrue(Duration.between(ctime, readCtime).abs().toNanos() <= 200,
+                "Creation time should round-trip within 200ns via of(Path)");
+    }
+
+    /**
+     * Test that {@link Archive#of(Path)} throws on a non-existent file.
+     */
+    @Test
+    public void testArchiveOfPathNonExistent() {
+        Path file = tempDir.resolve("does-not-exist.zip");
+        assertThrows(IOException.class, () -> Archive.of(file));
+    }
+
+    /**
+     * Test that {@link Archive#of(Path)} throws on an invalid (non-ZIP) file.
+     */
+    @Test
+    public void testArchiveOfPathInvalidFile() throws Exception {
+        Path file = tempDir.resolve("not-a-zip.bin");
+        Files.write(file, "this is not a zip file".getBytes(StandardCharsets.UTF_8));
+        assertThrows(IllegalArgumentException.class, () -> Archive.of(file));
     }
 
     // ── Helper ──────────────────────────────────────────────────────────

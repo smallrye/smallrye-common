@@ -7,11 +7,9 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 final class MappedArchiveData extends ArchiveData {
-    private final FileChannel ch;
     private final MappedByteBuffer buffer;
 
     MappedArchiveData(FileChannel ch) throws IOException {
-        this.ch = ch;
         MappedByteBuffer buf = ch.map(FileChannel.MapMode.READ_ONLY, 0, ch.size());
         buf.order(ByteOrder.LITTLE_ENDIAN);
         this.buffer = buf;
@@ -46,9 +44,5 @@ final class MappedArchiveData extends ArchiveData {
     }
 
     void release() {
-    }
-
-    void close() throws IOException {
-        ch.close();
     }
 }

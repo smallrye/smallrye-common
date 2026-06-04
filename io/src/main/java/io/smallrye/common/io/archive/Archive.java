@@ -2,8 +2,12 @@ package io.smallrye.common.io.archive;
 
 import static io.smallrye.common.io.archive.Constants.*;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,6 +54,22 @@ public final class Archive {
      */
     public static Archive open(final ByteBuffer buffer) {
         return of(new BufferArchiveData(buffer), 0, buffer.remaining());
+    }
+
+    /**
+     * Open a ZIP archive from a filesystem file.
+     * The file is mapped into memory, so normally this method should only be used
+     * for long-lived instances.
+     *
+     * @param path the path of the archive file to open (must not be {@code null})
+     * @return the opened archive (not {@code null})
+     * @throws IOException if the file cannot be opened
+     * @throws IllegalArgumentException if the file does not contain a valid ZIP archive
+     */
+    public static Archive of(final Path path) throws IOException {
+        try (FileChannel ch = FileChannel.open(path, StandardOpenOption.READ)) {
+            return of(new MappedArchiveData(ch), 0, ch.size());
+        }
     }
 
     static Archive of(final ArchiveData data, long start, long end) {

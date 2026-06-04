@@ -15,11 +15,9 @@ final class MappedArchiveData extends ArchiveData {
     private static final VarHandle S16_LE = ValueLayout.JAVA_SHORT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN).varHandle();
     private static final VarHandle S8 = ValueLayout.JAVA_BYTE.varHandle();
 
-    private final FileChannel ch;
     private final MemorySegment buffer;
 
     MappedArchiveData(FileChannel ch) throws IOException {
-        this.ch = ch;
         this.buffer = ch.map(FileChannel.MapMode.READ_ONLY, 0, ch.size(), Arena.ofAuto());
     }
 
@@ -53,9 +51,5 @@ final class MappedArchiveData extends ArchiveData {
 
     void release() {
         buffer.unload();
-    }
-
-    void close() throws IOException {
-        ch.close();
     }
 }
