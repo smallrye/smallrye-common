@@ -18,10 +18,6 @@ import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import io.smallrye.common.io.archive.Archive;
-import io.smallrye.common.io.archive.ArchiveBuilder;
-import io.smallrye.common.io.archive.ZipOption;
-
 /**
  * Tests for the {@link Archive} class.
  */
