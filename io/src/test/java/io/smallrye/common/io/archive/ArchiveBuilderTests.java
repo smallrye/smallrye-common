@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -18,6 +19,9 @@ import java.util.zip.ZipFile;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import io.smallrye.common.io.BufferedFile;
+import io.smallrye.common.io.Files2;
 
 /**
  * Tests for {@link ArchiveBuilder}.
@@ -589,6 +593,222 @@ public class ArchiveBuilderTests {
         Path file = tempDir.resolve("not-a-zip.bin");
         Files.write(file, "this is not a zip file".getBytes(StandardCharsets.UTF_8));
         assertThrows(IllegalArgumentException.class, () -> Archive.of(file));
+    }
+
+    // ── Buffered entry tests ─────────────────────────────────────────────
+
+    /**
+     * Test that {@link ArchiveBuilder#addBufferedEntry(String, java.nio.file.attribute.FileAttribute[])}
+     * creates a valid STORED entry readable by the JDK {@link ZipFile}.
+     */
+    @Test
+    public void testBufferedEntryReadableByZipFile() throws Exception {
+        Path file = tempDir.resolve("buffered.zip");
+        byte[] content = "Buffered entry content".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (BufferedFile be = builder.addBufferedEntry("buffered.txt")) {
+                be.write(content);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("buffered.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            assertEquals(content.length, entry.getSize());
+            assertEquals(content.length, entry.getCompressedSize());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test that a buffered entry supports random-access writing and produces correct CRC/sizes.
+     */
+    @Test
+    public void testBufferedEntryRandomAccessWrite() throws Exception {
+        Path file = tempDir.resolve("buffered-random.zip");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (BufferedFile be = builder.addBufferedEntry("random.bin")) {
+                // write some data sequentially, then overwrite part with random access
+                be.writeIntLE(0xAAAAAAAA);
+                be.writeIntLE(0xBBBBBBBB);
+                be.writeIntLE(0xCCCCCCCC);
+                // overwrite the middle int
+                be.writeIntLE(4, 0xDDDDDDDD);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("random.bin");
+            assertNotNull(entry);
+            assertEquals(12, entry.getSize());
+            try (InputStream is = zf.getInputStream(entry)) {
+                byte[] data = is.readAllBytes();
+                assertEquals(12, data.length);
+                // verify the random-access overwrite took effect
+                assertEquals((byte) 0xAA, data[0]);
+                assertEquals((byte) 0xDD, data[4]);
+                assertEquals((byte) 0xCC, data[8]);
+            }
+        }
+    }
+
+    /**
+     * Test that a buffered entry can coexist with regular stream entries in the same archive.
+     */
+    @Test
+    public void testBufferedEntryMixedWithStreamEntries() throws Exception {
+        Path file = tempDir.resolve("mixed.zip");
+        byte[] streamContent = "stream data".getBytes(StandardCharsets.UTF_8);
+        byte[] bufferedContent = "buffered data".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (OutputStream os = builder.addEntry("stream.txt", ZipOption.STORED)) {
+                os.write(streamContent);
+            }
+            try (BufferedFile be = builder.addBufferedEntry("buffered.txt")) {
+                be.write(bufferedContent);
+            }
+            try (OutputStream os = builder.addEntry("stream2.txt", ZipOption.DEFLATED)) {
+                os.write(streamContent);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertEquals(3, zf.size());
+            try (InputStream is = zf.getInputStream(zf.getEntry("stream.txt"))) {
+                assertArrayEquals(streamContent, is.readAllBytes());
+            }
+            try (InputStream is = zf.getInputStream(zf.getEntry("buffered.txt"))) {
+                assertArrayEquals(bufferedContent, is.readAllBytes());
+            }
+            try (InputStream is = zf.getInputStream(zf.getEntry("stream2.txt"))) {
+                assertArrayEquals(streamContent, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test that specifying DEFLATED for a buffered entry throws.
+     */
+    @Test
+    public void testBufferedEntryRejectsDeflated() throws Exception {
+        Path file = tempDir.resolve("buffered-deflated.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> builder.addBufferedEntry("test.txt", ZipOption.DEFLATED));
+        }
+    }
+
+    /**
+     * Test that an empty buffered entry produces a valid archive.
+     */
+    @Test
+    public void testEmptyBufferedEntry() throws Exception {
+        Path file = tempDir.resolve("empty-buffered.zip");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (BufferedFile be = builder.addBufferedEntry("empty.txt")) {
+                // write nothing
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("empty.txt");
+            assertNotNull(entry);
+            assertEquals(0, entry.getSize());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(0, is.readAllBytes().length);
+            }
+        }
+    }
+
+    /**
+     * Test that a buffered entry with ZIP64 option works correctly.
+     */
+    @Test
+    public void testBufferedEntryZip64() throws Exception {
+        Path file = tempDir.resolve("buffered-zip64.zip");
+        byte[] content = "zip64 buffered".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (BufferedFile be = builder.addBufferedEntry("test.txt", ZipOption.ZIP64)) {
+                be.write(content);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(content.length, entry.getSize());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    // ── open(BufferedFile) tests ──────────────────────────────────────────
+
+    /**
+     * Test that {@link ArchiveBuilder#open(BufferedFile, java.nio.file.OpenOption...)} creates
+     * a valid archive and does not close the underlying file.
+     */
+    @Test
+    public void testOpenBufferedFile() throws Exception {
+        Path file = tempDir.resolve("bf-open.zip");
+        byte[] content = "via BufferedFile".getBytes(StandardCharsets.UTF_8);
+
+        try (BufferedFile bf = Files2.openBuffered(file,
+                StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW)) {
+            try (ArchiveBuilder builder = ArchiveBuilder.open(bf)) {
+                try (OutputStream os = builder.addEntry("test.txt", ZipOption.STORED)) {
+                    os.write(content);
+                }
+            }
+            // builder is closed but BufferedFile should still be open
+            assertTrue(bf.length() > 0);
+        }
+
+        // verify the archive is valid
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test that {@link ArchiveBuilder#open(BufferedFile, java.nio.file.OpenOption...)} respects
+     * the builder-level default compression and ZIP64 options.
+     */
+    @Test
+    public void testOpenBufferedFileWithOptions() throws Exception {
+        Path file = tempDir.resolve("bf-options.zip");
+        byte[] content = "zip64 via bf".getBytes(StandardCharsets.UTF_8);
+
+        try (BufferedFile bf = Files2.openBuffered(file,
+                StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW)) {
+            try (ArchiveBuilder builder = ArchiveBuilder.open(bf, ZipOption.ZIP64, ZipOption.STORED)) {
+                try (OutputStream os = builder.addEntry("test.txt")) {
+                    os.write(content);
+                }
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
     }
 
     // ── Helper ──────────────────────────────────────────────────────────

@@ -79,16 +79,18 @@ public final class ArchiveBuilder implements Closeable {
     private static final Instant NTFS_EPOCH = Instant.from(ZonedDateTime.of(1601, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC));
 
     private final BufferedFile file;
+    private final boolean ownsFile;
     private final int defaultMethod;
     private final boolean defaultZip64;
     private final List<CdEntry> entries = new ArrayList<>();
     private Deflater deflater;
     private CRC32 crc;
-    private EntryOutputStream activeStream;
+    private Closeable activeEntry;
     private boolean closed;
 
-    private ArchiveBuilder(BufferedFile file, int defaultMethod, boolean defaultZip64) {
+    private ArchiveBuilder(BufferedFile file, boolean ownsFile, int defaultMethod, boolean defaultZip64) {
         this.file = file;
+        this.ownsFile = ownsFile;
         this.defaultMethod = defaultMethod;
         this.defaultZip64 = defaultZip64;
     }
@@ -139,7 +141,36 @@ public final class ArchiveBuilder implements Closeable {
         BufferedFile bf = Files2.openBuffered(path,
                 Set.of(StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW),
                 List.of(attrs));
-        return new ArchiveBuilder(bf, method == -1 ? METHOD_DEFLATE : method, zip64);
+        return new ArchiveBuilder(bf, true, method == -1 ? METHOD_DEFLATE : method, zip64);
+    }
+
+    /**
+     * Open a new archive builder for writing to an existing {@link BufferedFile}.
+     * The file must be open for both reading and writing.
+     * When the builder is {@linkplain #close() closed}, the central directory is written
+     * but the {@code BufferedFile} itself is <em>not</em> closed; the caller retains ownership.
+     *
+     * @param file the buffered file to write the archive to (must not be {@code null})
+     * @param options the options (must not be {@code null}); may contain {@link ZipOption} values
+     * @return a new archive builder (not {@code null})
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    static ArchiveBuilder open(BufferedFile file, OpenOption... options) {
+        Assert.checkNotNullParam("file", file);
+        int method = -1;
+        boolean zip64 = false;
+        for (OpenOption opt : options) {
+            if (opt instanceof ZipOption zo) {
+                switch (zo) {
+                    case STORED -> method = setMethod(method, METHOD_STORED);
+                    case DEFLATED -> method = setMethod(method, METHOD_DEFLATE);
+                    case ZIP64 -> zip64 = true;
+                }
+            } else {
+                throw new UnsupportedOperationException("Unsupported option: " + opt);
+            }
+        }
+        return new ArchiveBuilder(file, false, method == -1 ? METHOD_DEFLATE : method, zip64);
     }
 
     /**
@@ -156,7 +187,7 @@ public final class ArchiveBuilder implements Closeable {
     public void addDirectory(String name, FileAttribute<?>... attrs) throws IOException {
         Assert.checkNotNullParam("name", name);
         checkOpen();
-        checkNoActiveStream();
+        checkNoActiveEntry();
         if (!name.endsWith("/")) {
             name = name + "/";
         }
@@ -222,7 +253,7 @@ public final class ArchiveBuilder implements Closeable {
         Assert.checkNotNullParam("name", name);
         Assert.checkNotNullParam("options", options);
         checkOpen();
-        checkNoActiveStream();
+        checkNoActiveEntry();
 
         // resolve per-entry options against builder defaults
         int method = -1;
@@ -258,29 +289,157 @@ public final class ArchiveBuilder implements Closeable {
         entries.add(entry);
 
         EntryOutputStream eos = new EntryOutputStream(entry);
-        activeStream = eos;
+        activeEntry = eos;
         return eos;
+    }
+
+    /**
+     * Add a file entry to the archive that is backed by a nested {@link BufferedFile} rather than
+     * an output stream, using the builder's default options and no file attributes.
+     * The returned file allows random-access writing of the entry data.
+     * The entry is always stored with the {@link ZipOption#STORED STORED} method because
+     * random-access writing is incompatible with compression.
+     * The returned file must be {@linkplain BufferedFile#close() closed} before another entry
+     * can be added or the archive can be closed.
+     * When closed, the CRC-32 is computed from the written data and the local file header
+     * is patched with the final CRC and size values.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @return the nested file for writing entry data (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry is still being written, or this builder is closed
+     */
+    public BufferedFile addBufferedEntry(String name) throws IOException {
+        return addBufferedEntry(name, Set.of());
+    }
+
+    /**
+     * Add a file entry to the archive that is backed by a nested {@link BufferedFile} rather than
+     * an output stream.
+     * The returned file allows random-access writing of the entry data.
+     * The entry is always stored with the {@link ZipOption#STORED STORED} method because
+     * random-access writing is incompatible with compression.
+     * The returned file must be {@linkplain BufferedFile#close() closed} before another entry
+     * can be added or the archive can be closed.
+     * When closed, the CRC-32 is computed from the written data and the local file header
+     * is patched with the final CRC and size values.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param options the entry options; may contain {@link ZipOption#ZIP64}
+     * @return the nested file for writing entry data (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry is still being written, or this builder is closed
+     * @throws IllegalArgumentException if {@link ZipOption#DEFLATED} is specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public BufferedFile addBufferedEntry(String name, OpenOption... options) throws IOException {
+        return addBufferedEntry(name, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive that is backed by a nested {@link BufferedFile} rather than
+     * an output stream.
+     * The returned file allows random-access writing of the entry data.
+     * The entry is always stored with the {@link ZipOption#STORED STORED} method because
+     * random-access writing is incompatible with compression.
+     * The returned file must be {@linkplain BufferedFile#close() closed} before another entry
+     * can be added or the archive can be closed.
+     * When closed, the CRC-32 is computed from the written data and the local file header
+     * is patched with the final CRC and size values.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @return the nested file for writing entry data (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry is still being written, or this builder is closed
+     */
+    public BufferedFile addBufferedEntry(String name, FileAttribute<?>... attrs) throws IOException {
+        return addBufferedEntry(name, Set.of(), attrs);
+    }
+
+    /**
+     * Add a file entry to the archive that is backed by a nested {@link BufferedFile} rather than
+     * an output stream.
+     * The returned file allows random-access writing of the entry data.
+     * The entry is always stored with the {@link ZipOption#STORED STORED} method because
+     * random-access writing is incompatible with compression.
+     * The returned file must be {@linkplain BufferedFile#close() closed} before another entry
+     * can be added or the archive can be closed.
+     * When closed, the CRC-32 is computed from the written data and the local file header
+     * is patched with the final CRC and size values.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param options the entry options (must not be {@code null}); may contain {@link ZipOption#ZIP64}
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @return the nested file for writing entry data (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry is still being written, or this builder is closed
+     * @throws IllegalArgumentException if {@link ZipOption#DEFLATED} is specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public BufferedFile addBufferedEntry(String name, Collection<? extends OpenOption> options,
+            FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("name", name);
+        Assert.checkNotNullParam("options", options);
+        checkOpen();
+        checkNoActiveEntry();
+
+        boolean zip64 = false;
+        for (OpenOption opt : options) {
+            if (opt instanceof ZipOption zo) {
+                switch (zo) {
+                    case STORED -> {
+                    }
+                    case DEFLATED -> throw new IllegalArgumentException(
+                            "Buffered entries require STORED method; DEFLATED is incompatible with random-access writing");
+                    case ZIP64 -> zip64 = true;
+                }
+            } else {
+                throw new UnsupportedOperationException("Unsupported option: " + opt);
+            }
+        }
+        if (!zip64) {
+            zip64 = defaultZip64;
+        }
+
+        CdEntry entry = new CdEntry();
+        entry.fileName = name.getBytes(StandardCharsets.UTF_8);
+        entry.method = METHOD_STORED;
+        entry.zip64 = zip64;
+        parseEntryAttributes(entry, attrs);
+        entry.externalAttributes |= S_IFREG << 16;
+        entry.localHeaderOffset = file.filePosition();
+
+        writeLfh(entry, zip64);
+
+        entries.add(entry);
+
+        BufferedFile nested = file.openNested(new BufferedEntryCloseAction(entry));
+        activeEntry = nested;
+        return nested;
     }
 
     /**
      * Close this archive builder, writing the central directory and end-of-central-directory records.
      *
      * @throws IOException if an I/O error occurs
-     * @throws IllegalStateException if an entry output stream is still open
+     * @throws IllegalStateException if an entry is still being written
      */
     @Override
     public void close() throws IOException {
         if (closed) {
             return;
         }
-        if (activeStream != null) {
-            throw new IllegalStateException("An entry output stream is still open");
+        if (activeEntry != null) {
+            throw new IllegalStateException("An entry is still being written");
         }
         closed = true;
         try {
             writeCentralDirectory();
         } finally {
-            file.close();
+            if (ownsFile) {
+                file.close();
+            }
             if (deflater != null) {
                 deflater.end();
             }
@@ -314,11 +473,11 @@ public final class ArchiveBuilder implements Closeable {
     }
 
     /**
-     * Checks that no entry output stream is currently active.
+     * Checks that no entry (stream or buffered) is currently being written.
      */
-    private void checkNoActiveStream() {
-        if (activeStream != null) {
-            throw new IllegalStateException("An entry output stream is still open");
+    private void checkNoActiveEntry() {
+        if (activeEntry != null) {
+            throw new IllegalStateException("An entry is still being written");
         }
     }
 
@@ -922,8 +1081,74 @@ public final class ArchiveBuilder implements Closeable {
             entry.compressedSize = compressedBytesWritten;
             entry.uncompressedSize = bytesWritten;
 
-            // release active stream
-            activeStream = null;
+            // release active entry
+            activeEntry = null;
+        }
+    }
+
+    // ── Buffered entry close action ────────────────────────────────────
+
+    /**
+     * A close action for nested {@link BufferedFile} views that computes the CRC-32 of the
+     * written data, patches the local file header with the final CRC and size values,
+     * records those values on the central directory entry, and releases the active entry.
+     * <p>
+     * This action is invoked during the nested view's {@link BufferedFile#close() close()} after
+     * the parent is unlocked, so it can freely read and write the parent file.
+     */
+    private final class BufferedEntryCloseAction implements Closeable {
+        private final CdEntry entry;
+
+        BufferedEntryCloseAction(CdEntry entry) {
+            this.entry = entry;
+        }
+
+        @Override
+        public void close() throws IOException {
+            // compute entry data boundaries from the LFH layout
+            long dataStart = entry.localHeaderOffset + LH_END + entry.fileName.length
+                    + lfhExtraFieldLength(entry.zip64);
+            long size = file.filePosition() - dataStart;
+
+            // check for overflow when ZIP64 was not reserved
+            if (!entry.zip64 && size > 0xFFFF_FFFEL) {
+                throw new IOException("Entry size exceeds 4 GB; use ZipOption.ZIP64");
+            }
+
+            // compute CRC by reading back the written data from the parent
+            CRC32 c = crc();
+            byte[] buf = new byte[8192];
+            long pos = dataStart;
+            long remaining = size;
+            while (remaining > 0) {
+                int n = (int) Math.min(buf.length, remaining);
+                file.read(pos, buf, 0, n);
+                c.update(buf, 0, n);
+                pos += n;
+                remaining -= n;
+            }
+            int crcValue = (int) c.getValue();
+            c.reset();
+
+            // patch local file header: CRC-32, compressed size, uncompressed size
+            long lfhOffset = entry.localHeaderOffset;
+            file.writeIntLE(lfhOffset + LH_CRC_32, crcValue);
+            if (entry.zip64) {
+                long extraStart = lfhOffset + LH_END + entry.fileName.length;
+                file.writeLongLE(extraStart + 4, size);
+                file.writeLongLE(extraStart + 12, size);
+            } else {
+                file.writeIntLE(lfhOffset + LH_COMPRESSED_SIZE, (int) size);
+                file.writeIntLE(lfhOffset + LH_UNCOMPRESSED_SIZE, (int) size);
+            }
+
+            // record final values on the central directory entry
+            entry.crc32 = crcValue;
+            entry.compressedSize = size;
+            entry.uncompressedSize = size;
+
+            // release active entry
+            activeEntry = null;
         }
     }
 }
