@@ -1,4 +1,4 @@
-package io.smallrye.common.archive;
+package io.smallrye.common.io.archive;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
