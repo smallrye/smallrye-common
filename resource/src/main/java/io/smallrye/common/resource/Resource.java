@@ -121,6 +121,56 @@ public abstract class Resource {
     }
 
     /**
+     * {@return {@code true} if this resource can be mapped into memory, or {@code false} if it cannot be}
+     */
+    public boolean isMappable() {
+        return false;
+    }
+
+    /**
+     * {@return the mapped view of this resource as a buffer}
+     * If the resource is not mappable, an exception is thrown;
+     * use {@link #isMappable()} to determine whether mapping this resource can succeed.
+     * It is unspecified whether mapping past the end of the file is supported;
+     * an exception may be thrown in this case.
+     * <p>
+     * If this method succeeds, the returned buffer is a read-only memory-mapped
+     * view of the resource data.
+     * Depending on the OS implementation, updates to the backing file
+     * may or may not cause the mapped view to be updated at the same time.
+     *
+     * @param offset the offset into the resource to map
+     * @param length the number of bytes to map
+     * @throws IOException if there is a mapping error, or if the resource is not mappable
+     * @throws IllegalArgumentException if the offset or length is negative
+     */
+    public ByteBuffer mapAsBuffer(long offset, int length) throws IOException {
+        throw new IOException("Not a mappable resource");
+    }
+
+    /**
+     * {@return the mapped view of this resource as a buffer}
+     * If the resource is not mappable, an exception is thrown;
+     * use {@link #isMappable()} to determine whether mapping this resource can succeed.
+     * It is unspecified whether mapping past the end of the file is supported;
+     * an exception may be thrown in this case.
+     * <p>
+     * If this method succeeds, the returned buffer is a read-only memory-mapped
+     * view of the resource data.
+     * Depending on the OS implementation, updates to the backing file
+     * may or may not cause the mapped view to be updated at the same time.
+     *
+     * @throws IOException if there is a mapping error, or if the resource is not mappable
+     */
+    public ByteBuffer mapAsBuffer() throws IOException {
+        long size = size();
+        if (size > Integer.MAX_VALUE - 16) {
+            throw new IllegalArgumentException("Resource is too large to map as a single buffer");
+        }
+        return mapAsBuffer(0, (int) size);
+    }
+
+    /**
      * Copy the bytes of this resource to the given destination.
      * The copy may fail before all of the bytes have been transferred;
      * in this case the content and state of the destination are undefined.
