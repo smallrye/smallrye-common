@@ -116,6 +116,12 @@ public final class BufferedFile implements Closeable, Flushable {
     private final boolean writeMode;
     private final boolean readMode;
 
+    // nesting support
+    private final BufferedFile parent;
+    private final long baseOffset;
+    private final Closeable closeAction;
+    private BufferedFile activeChild;
+
     private long bufferPosition;
     private int bufferDataSize;
     private boolean dirty;
@@ -131,8 +137,19 @@ public final class BufferedFile implements Closeable, Flushable {
     private BufferedFileOutputStream outputStream;
     private BufferedFileChannel channel;
 
-    // ── Constructor (package-private) ───────────────────────────────────
+    // ── Constructors ──────────────────────────────────────────────────
 
+    /**
+     * Construct a new root {@code BufferedFile} instance backed by the given
+     * {@link RandomAccessFile}.
+     *
+     * @param raf the backing random-access file
+     * @param bufferSize the buffer size in bytes
+     * @param byteOrder the default byte order
+     * @param readMode whether reading is permitted
+     * @param writeMode whether writing is permitted
+     * @throws IOException if an I/O error occurs
+     */
     BufferedFile(RandomAccessFile raf, int bufferSize, ByteOrder byteOrder, boolean readMode, boolean writeMode)
             throws IOException {
         this.raf = raf;
@@ -144,6 +161,31 @@ public final class BufferedFile implements Closeable, Flushable {
         this.bufferPosition = fp;
         this.bufferDataSize = 0;
         this.position = fp;
+        this.parent = null;
+        this.baseOffset = 0;
+        this.closeAction = null;
+    }
+
+    /**
+     * Construct a nested view of the given parent file.
+     * The nested view starts at the parent's current absolute position, uses its own buffer,
+     * and presents all positions relative to the starting offset.
+     *
+     * @param parent the parent file
+     * @param closeAction an optional action invoked when this nested view is closed (may be {@code null})
+     */
+    private BufferedFile(BufferedFile parent, Closeable closeAction) {
+        this.raf = parent.raf;
+        this.buffer = new byte[parent.buffer.length];
+        this.writeMode = parent.writeMode;
+        this.readMode = parent.readMode;
+        this.byteOrder = parent.byteOrder;
+        this.parent = parent;
+        this.baseOffset = parent.position;
+        this.bufferPosition = parent.position;
+        this.bufferDataSize = 0;
+        this.position = parent.position;
+        this.closeAction = closeAction;
     }
 
     // ── Locking ─────────────────────────────────────────────────────────
@@ -186,6 +228,9 @@ public final class BufferedFile implements Closeable, Flushable {
         if (closed) {
             throw new IOException("File is closed");
         }
+        if (activeChild != null) {
+            throw new IllegalStateException("A nested view is active");
+        }
     }
 
     private void checkReadable() throws IOException {
@@ -201,6 +246,56 @@ public final class BufferedFile implements Closeable, Flushable {
         checkOpen();
         if (!writeMode) {
             throw new IOException("File is not open for writing");
+        }
+    }
+
+    // ── Nesting ─────────────────────────────────────────────────────────
+
+    /**
+     * Create a nested view of this file starting at the current file position.
+     * The returned view has its own buffer and position tracking; all positions
+     * are relative to the current position at the time of this call.
+     * The parent is unusable until the nested view is closed.
+     *
+     * @return the nested view (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if a nested view is already active
+     */
+    public BufferedFile openNested() throws IOException {
+        return openNested(null);
+    }
+
+    /**
+     * Create a nested view of this file starting at the current file position.
+     * The returned view has its own buffer and position tracking; all positions
+     * are relative to the current position at the time of this call.
+     * The parent is unusable until the nested view is closed.
+     * <p>
+     * The optional {@code closeAction} is invoked during the nested view's
+     * {@link #close()} after the data is flushed and the parent is unlocked.
+     * This allows callers to perform post-processing (such as computing checksums
+     * and patching headers) by reading and writing the parent file.
+     *
+     * @param closeAction an action to invoke when the nested view is closed, or {@code null}
+     * @return the nested view (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if a nested view is already active
+     */
+    public BufferedFile openNested(Closeable closeAction) throws IOException {
+        boolean locked = lock();
+        try {
+            checkOpen();
+            if (activeChild != null) {
+                throw new IllegalStateException("A nested view is already active");
+            }
+            flushDirty();
+            BufferedFile child = new BufferedFile(this, closeAction);
+            activeChild = child;
+            return child;
+        } finally {
+            if (locked) {
+                unlock();
+            }
         }
     }
 
@@ -331,7 +426,7 @@ public final class BufferedFile implements Closeable, Flushable {
         boolean locked = lock();
         try {
             checkOpen();
-            return position;
+            return position - baseOffset;
         } finally {
             if (locked) {
                 unlock();
@@ -355,7 +450,7 @@ public final class BufferedFile implements Closeable, Flushable {
         boolean locked = lock();
         try {
             checkOpen();
-            this.position = position;
+            this.position = baseOffset + position;
         } finally {
             if (locked) {
                 unlock();
@@ -372,12 +467,7 @@ public final class BufferedFile implements Closeable, Flushable {
         boolean locked = lock();
         try {
             checkOpen();
-            long rafLen = raf.length();
-            if (dirty) {
-                long bufferedEnd = bufferPosition + bufferDataSize;
-                return Math.max(rafLen, bufferedEnd);
-            }
-            return rafLen;
+            return lengthInternal() - baseOffset;
         } finally {
             if (locked) {
                 unlock();
@@ -517,6 +607,9 @@ public final class BufferedFile implements Closeable, Flushable {
      * @throws IOException if an I/O error occurs
      */
     public FileDescriptor fileDescriptor() throws IOException {
+        if (parent != null) {
+            throw new UnsupportedOperationException("File descriptor is not available on nested files");
+        }
         return raf.getFD();
     }
 
@@ -1604,6 +1697,7 @@ public final class BufferedFile implements Closeable, Flushable {
      */
     public void writeByte(long pos, int value) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkWritable();
@@ -1639,6 +1733,7 @@ public final class BufferedFile implements Closeable, Flushable {
      */
     public byte readByte(long pos) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -1704,6 +1799,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public void writeShortLE(long pos, int value) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 1, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkWritable();
@@ -1743,6 +1839,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public void writeShortBE(long pos, int value) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 1, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             long relStart = pos - bufferPosition;
@@ -1808,6 +1905,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public short readShortLE(long pos) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 1, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -1842,6 +1940,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public short readShortBE(long pos) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 1, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -1939,6 +2038,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public void writeIntLE(long pos, int value) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 3, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkWritable();
@@ -1978,6 +2078,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public void writeIntBE(long pos, int value) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 3, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkWritable();
@@ -2044,6 +2145,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public int readIntLE(long pos) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 3, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -2077,6 +2179,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public int readIntBE(long pos) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 3, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -2173,6 +2276,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public void writeLongLE(long pos, long value) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 7, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkWritable();
@@ -2212,6 +2316,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public void writeLongBE(long pos, long value) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 7, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkWritable();
@@ -2278,6 +2383,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public long readLongLE(long pos) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Assert.checkMaximumParameter("pos", Long.MAX_VALUE - 7, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -2310,6 +2416,7 @@ public final class BufferedFile implements Closeable, Flushable {
      */
     public long readLongBE(long pos) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -2777,6 +2884,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public int read(long pos, byte[] dest, int offset, int length) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Objects.checkFromIndexSize(offset, length, dest.length);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -2816,6 +2924,7 @@ public final class BufferedFile implements Closeable, Flushable {
     public void write(long pos, byte[] src, int offset, int length) throws IOException {
         Assert.checkMinimumParameter("pos", 0, pos);
         Objects.checkFromIndexSize(offset, length, src.length);
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkWritable();
@@ -3386,6 +3495,7 @@ public final class BufferedFile implements Closeable, Flushable {
         if (length == 0) {
             return 0;
         }
+        pos += baseOffset;
         boolean locked = lock();
         try {
             checkReadable();
@@ -3561,8 +3671,15 @@ public final class BufferedFile implements Closeable, Flushable {
      * Flush any buffered data and close this file.
      * Subsequent operations (except further calls to {@code close()}) will throw
      * {@link IOException}.
+     * <p>
+     * For nested views, this method flushes buffered data, advances the parent's position
+     * past the nested data, unlocks the parent for further use, and then invokes the close
+     * action (if any). The close action runs after the parent is unlocked, so it may read
+     * and write the parent freely. The underlying file is <em>not</em> closed; the root
+     * instance owns the file handle.
      *
      * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if a nested child view is still active
      */
     @Override
     public void close() throws IOException {
@@ -3571,21 +3688,35 @@ public final class BufferedFile implements Closeable, Flushable {
             if (closed) {
                 return;
             }
+            if (activeChild != null) {
+                throw new IllegalStateException("A nested view is still active");
+            }
             try {
                 flushDirty();
             } finally {
                 closed = true;
-                try {
-                    raf.close();
-                } finally {
-                    // Clean up cached views
-                    BufferedFileInputStream is = this.inputStream;
-                    if (is != null) {
-                        is.closeSuper();
+                if (parent != null) {
+                    // nested view: hand control back to parent, then invoke close action
+                    parent.position = position;
+                    parent.bufferDataSize = 0;
+                    parent.bufferPosition = position;
+                    parent.activeChild = null;
+                    if (closeAction != null) {
+                        closeAction.close();
                     }
-                    BufferedFileOutputStream os = this.outputStream;
-                    if (os != null) {
-                        os.closeSuper();
+                } else {
+                    // root instance: close the RAF and clean up cached views
+                    try {
+                        raf.close();
+                    } finally {
+                        BufferedFileInputStream is = this.inputStream;
+                        if (is != null) {
+                            is.closeSuper();
+                        }
+                        BufferedFileOutputStream os = this.outputStream;
+                        if (os != null) {
+                            os.closeSuper();
+                        }
                     }
                 }
             }
@@ -3607,6 +3738,9 @@ public final class BufferedFile implements Closeable, Flushable {
      * @throws IllegalStateException if this file was not opened for reading
      */
     public BufferedFileInputStream inputStream() {
+        if (parent != null) {
+            throw new UnsupportedOperationException("Stream views are not supported on nested files");
+        }
         if (!readMode) {
             throw new IllegalStateException("File is not open for reading");
         }
@@ -3631,6 +3765,9 @@ public final class BufferedFile implements Closeable, Flushable {
      * @throws IllegalStateException if this file was not opened for writing
      */
     public BufferedFileOutputStream outputStream() {
+        if (parent != null) {
+            throw new UnsupportedOperationException("Stream views are not supported on nested files");
+        }
         if (!writeMode) {
             throw new IllegalStateException("File is not open for writing");
         }
@@ -3654,6 +3791,9 @@ public final class BufferedFile implements Closeable, Flushable {
      * {@link FileChannel#close() close()} on the returned channel is a no-op.
      */
     public BufferedFileChannel channel() {
+        if (parent != null) {
+            throw new UnsupportedOperationException("Channel views are not supported on nested files");
+        }
         BufferedFileChannel ch = this.channel;
         if (ch == null) {
             ch = new BufferedFileChannel();

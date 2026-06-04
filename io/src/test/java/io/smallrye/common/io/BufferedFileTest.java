@@ -3027,6 +3027,303 @@ class BufferedFileTest {
         }
     }
 
+    // ── Nesting tests ───────────────────────────────────────────────────
+
+    /**
+     * Verify that a nested view starts at position 0 and the parent's position is
+     * not altered by opening the nested view.
+     */
+    @Test
+    void nestedViewStartsAtZero() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                // write some data to advance the parent position
+                bf.writeIntLE(0xDEADBEEF);
+                bf.writeIntLE(0xCAFEBABE);
+                long parentPos = bf.filePosition();
+                assertEquals(8, parentPos);
+
+                try (BufferedFile nested = bf.openNested()) {
+                    assertEquals(0, nested.filePosition());
+                }
+                // parent position should be advanced past nested data (none written, so same)
+                assertEquals(8, bf.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Verify that sequential writes in a nested view advance the position correctly
+     * and that the data is written to the correct absolute offset in the file.
+     */
+    @Test
+    void nestedSequentialWrites() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.writeIntLE(0x11111111);
+                // parent at position 4, nested starts here
+                try (BufferedFile nested = bf.openNested()) {
+                    nested.writeIntLE(0x22222222);
+                    nested.writeIntLE(0x33333333);
+                    assertEquals(8, nested.filePosition());
+                    assertEquals(8, nested.length());
+                }
+                // parent position advanced past nested data
+                assertEquals(12, bf.filePosition());
+
+                // verify the data via the parent
+                assertEquals(0x11111111, bf.readIntLE(0));
+                assertEquals(0x22222222, bf.readIntLE(4));
+                assertEquals(0x33333333, bf.readIntLE(8));
+            }
+        }
+    }
+
+    /**
+     * Verify that random-access reads and writes within a nested view use
+     * positions relative to the nested view's base offset.
+     */
+    @Test
+    void nestedRandomAccess() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.writeIntLE(0xAAAAAAAA);
+                // parent at position 4
+                try (BufferedFile nested = bf.openNested()) {
+                    // write sequentially to establish data
+                    nested.writeIntLE(0xBBBBBBBB);
+                    nested.writeIntLE(0xCCCCCCCC);
+
+                    // random-access read at position 0 within nested view
+                    assertEquals(0xBBBBBBBB, nested.readIntLE(0));
+                    // random-access read at position 4 within nested view
+                    assertEquals(0xCCCCCCCC, nested.readIntLE(4));
+
+                    // random-access overwrite at position 0 within nested view
+                    nested.writeIntLE(0, 0xDDDDDDDD);
+                    assertEquals(0xDDDDDDDD, nested.readIntLE(0));
+                }
+
+                // verify via parent: position 4 in parent = position 0 in nested
+                assertEquals(0xDDDDDDDD, bf.readIntLE(4));
+                assertEquals(0xCCCCCCCC, bf.readIntLE(8));
+            }
+        }
+    }
+
+    /**
+     * Verify that parent operations throw while a nested child is active.
+     */
+    @Test
+    void parentLockedWhileChildActive() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.writeIntLE(0x12345678);
+                BufferedFile nested = bf.openNested();
+                try {
+                    assertThrows(IllegalStateException.class, () -> bf.writeByte(0));
+                    assertThrows(IllegalStateException.class, () -> bf.readByte());
+                    assertThrows(IllegalStateException.class, () -> bf.filePosition());
+                    assertThrows(IllegalStateException.class, () -> bf.seek(0));
+                    assertThrows(IllegalStateException.class, () -> bf.length());
+                    assertThrows(IllegalStateException.class, () -> bf.flush());
+                } finally {
+                    nested.close();
+                }
+                // parent usable again
+                assertEquals(4, bf.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Verify that closing a nested view unlocks the parent and advances the parent
+     * position past the nested data.
+     */
+    @Test
+    void closingChildUnlocksParent() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.writeIntLE(0x11111111);
+                // parent at 4
+                try (BufferedFile nested = bf.openNested()) {
+                    nested.writeIntLE(0x22222222);
+                    nested.writeIntLE(0x33333333);
+                    // nested at 8 (relative), absolute = 12
+                }
+                // parent should be at 12
+                assertEquals(12, bf.filePosition());
+                // parent should be usable
+                bf.writeIntLE(0x44444444);
+                assertEquals(16, bf.filePosition());
+            }
+        }
+    }
+
+    /**
+     * Verify recursive nesting (child of child).
+     */
+    @Test
+    void recursiveNesting() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.writeIntLE(0x11111111); // parent at 4
+
+                try (BufferedFile child = bf.openNested()) {
+                    child.writeIntLE(0x22222222); // child at 4 (relative)
+
+                    try (BufferedFile grandchild = child.openNested()) {
+                        grandchild.writeIntLE(0x33333333); // grandchild at 4 (relative)
+                        assertEquals(4, grandchild.filePosition());
+                        assertEquals(0x33333333, grandchild.readIntLE(0));
+                    }
+                    // child now at 8 (relative)
+                    assertEquals(8, child.filePosition());
+                }
+                // parent at 12
+                assertEquals(12, bf.filePosition());
+
+                // verify all data
+                assertEquals(0x11111111, bf.readIntLE(0));
+                assertEquals(0x22222222, bf.readIntLE(4));
+                assertEquals(0x33333333, bf.readIntLE(8));
+            }
+        }
+    }
+
+    /**
+     * Verify that {@code length()} on a nested view returns the length relative
+     * to the nested view's base offset.
+     */
+    @Test
+    void nestedLength() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.writeIntLE(0x11111111); // 4 bytes in parent
+                try (BufferedFile nested = bf.openNested()) {
+                    assertEquals(0, nested.length());
+                    nested.writeIntLE(0x22222222);
+                    // length should reflect the nested data size, not the absolute file length
+                    assertEquals(4, nested.length());
+                    nested.writeIntLE(0x33333333);
+                    assertEquals(8, nested.length());
+                }
+            }
+        }
+    }
+
+    /**
+     * Verify that the close action callback is invoked when a nested view is closed.
+     */
+    @Test
+    void nestedCloseActionInvoked() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.writeIntLE(0x11111111);
+                boolean[] called = { false };
+                try (BufferedFile nested = bf.openNested(() -> called[0] = true)) {
+                    nested.writeIntLE(0x22222222);
+                    assertFalse(called[0]);
+                }
+                assertTrue(called[0]);
+            }
+        }
+    }
+
+    /**
+     * Verify that stream, channel, and file descriptor views are not available
+     * on nested views.
+     */
+    @Test
+    void nestedViewsRejectStreamAndChannelAccess() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                try (BufferedFile nested = bf.openNested()) {
+                    assertThrows(UnsupportedOperationException.class, nested::inputStream);
+                    assertThrows(UnsupportedOperationException.class, nested::outputStream);
+                    assertThrows(UnsupportedOperationException.class, nested::channel);
+                    assertThrows(UnsupportedOperationException.class, nested::fileDescriptor);
+                }
+            }
+        }
+    }
+
+    /**
+     * Verify that opening a second nested view while one is already active throws.
+     */
+    @Test
+    void cannotOpenTwoNestedViews() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                BufferedFile nested = bf.openNested();
+                try {
+                    assertThrows(IllegalStateException.class, bf::openNested);
+                } finally {
+                    nested.close();
+                }
+            }
+        }
+    }
+
+    /**
+     * Verify that seek within a nested view works relative to the nested base.
+     */
+    @Test
+    void nestedSeek() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.writeIntLE(0x11111111);
+                try (BufferedFile nested = bf.openNested()) {
+                    nested.writeIntLE(0x22222222);
+                    nested.writeIntLE(0x33333333);
+                    // seek back to start of nested view
+                    nested.seek(0);
+                    assertEquals(0, nested.filePosition());
+                    assertEquals(0x22222222, nested.readIntLE());
+                    assertEquals(4, nested.filePosition());
+                }
+            }
+        }
+    }
+
+    /**
+     * Verify that byte-array random-access reads/writes work correctly on nested views.
+     */
+    @Test
+    void nestedByteArrayRandomAccess() throws IOException {
+        Path f = testFile();
+        try (Closeable ignored = tempFile(f)) {
+            try (BufferedFile bf = Files2.openBuffered(f, READ, WRITE, CREATE)) {
+                bf.write(new byte[] { 0x01, 0x02, 0x03, 0x04 });
+                try (BufferedFile nested = bf.openNested()) {
+                    nested.write(new byte[] { 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F });
+                    byte[] read = new byte[4];
+                    nested.read(0, read);
+                    assertArrayEquals(new byte[] { 0x0A, 0x0B, 0x0C, 0x0D }, read);
+                    nested.read(2, read, 0, 4);
+                    assertArrayEquals(new byte[] { 0x0C, 0x0D, 0x0E, 0x0F }, read);
+
+                    // random-access write
+                    nested.write(1, new byte[] { (byte) 0xFF, (byte) 0xFE }, 0, 2);
+                    byte[] verify = new byte[6];
+                    nested.read(0, verify);
+                    assertArrayEquals(new byte[] { 0x0A, (byte) 0xFF, (byte) 0xFE, 0x0D, 0x0E, 0x0F }, verify);
+                }
+            }
+        }
+    }
+
     // test utilities
 
     Closeable tempFile(Path path) {
