@@ -4,9 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
@@ -76,10 +74,8 @@ class ClassPathUtilsTest {
     void processAsPath(@TempDir Path tempDir) throws Exception {
         Path filePath = tempDir.resolve("resources.jar");
         try (ArchiveBuilder builder = ArchiveBuilder.open(filePath)) {
-            try (OutputStream os = builder.addEntry("resources.properties");
-                    InputStream is = getClass().getClassLoader().getResourceAsStream("resources.properties")) {
-                is.transferTo(os);
-            }
+            builder.addEntry("resources.properties",
+                    getClass().getClassLoader().getResourceAsStream("resources.properties"));
         }
 
         URI resource = new URI("jar", filePath.toUri().toASCIIString() + "!/resources.properties", null);
@@ -100,10 +96,8 @@ class ClassPathUtilsTest {
     void readStream(@TempDir Path tempDir) throws Exception {
         Path filePath = tempDir.resolve("resources.jar");
         try (ArchiveBuilder builder = ArchiveBuilder.open(filePath)) {
-            try (OutputStream os = builder.addEntry("resources.properties");
-                    InputStream is = getClass().getClassLoader().getResourceAsStream("resources.properties")) {
-                is.transferTo(os);
-            }
+            builder.addEntry("resources.properties",
+                    getClass().getClassLoader().getResourceAsStream("resources.properties"));
         }
 
         URI resource = new URI("jar", filePath.toUri().toASCIIString() + "!/resources.properties", null);

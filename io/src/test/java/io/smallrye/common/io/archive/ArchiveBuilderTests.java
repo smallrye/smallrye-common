@@ -8,9 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.StringReader;
+import java.io.Writer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
@@ -1179,6 +1183,690 @@ public class ArchiveBuilderTests {
                     () -> builder.addBufferedEntry("b.txt", StandardOpenOption.APPEND));
             assertThrows(UnsupportedOperationException.class,
                     () -> builder.addArchive("c.zip", StandardOpenOption.APPEND));
+        }
+    }
+
+    // ── addEntry(InputStream) tests ─────────────────────────────────────
+
+    /**
+     * Test adding a STORED entry from an {@link InputStream}.
+     */
+    @Test
+    public void testAddEntryFromInputStreamStored() throws Exception {
+        Path file = tempDir.resolve("is-stored.zip");
+        byte[] content = "input stream content".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", new ByteArrayInputStream(content), ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            assertEquals(content.length, entry.getSize());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test adding a DEFLATED entry from an {@link InputStream}.
+     */
+    @Test
+    public void testAddEntryFromInputStreamDeflated() throws Exception {
+        Path file = tempDir.resolve("is-deflated.zip");
+        byte[] content = "input stream deflated content that should compress well aaaaaaaaaaaaa"
+                .getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", new ByteArrayInputStream(content), ZipOption.DEFLATED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.DEFLATED, entry.getMethod());
+            assertEquals(content.length, entry.getSize());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test adding an entry from an empty {@link InputStream}.
+     */
+    @Test
+    public void testAddEntryFromEmptyInputStream() throws Exception {
+        Path file = tempDir.resolve("is-empty.zip");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("empty.txt", new ByteArrayInputStream(new byte[0]), ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("empty.txt");
+            assertNotNull(entry);
+            assertEquals(0, entry.getSize());
+        }
+    }
+
+    /**
+     * Test that the {@link InputStream} is not closed by the builder.
+     */
+    @Test
+    public void testAddEntryFromInputStreamDoesNotCloseStream() throws Exception {
+        Path file = tempDir.resolve("is-no-close.zip");
+        byte[] content = "test".getBytes(StandardCharsets.UTF_8);
+        ByteArrayInputStream bais = new ByteArrayInputStream(content);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", bais, ZipOption.STORED);
+        }
+
+        // reset and read again to prove the stream was not closed
+        bais.reset();
+        assertArrayEquals(content, bais.readAllBytes());
+    }
+
+    /**
+     * Test adding an entry from an {@link InputStream} with file attributes.
+     */
+    @Test
+    public void testAddEntryFromInputStreamWithAttributes() throws Exception {
+        Path file = tempDir.resolve("is-attrs.zip");
+        byte[] content = "with attrs".getBytes(StandardCharsets.UTF_8);
+        Instant mtime = Instant.parse("2024-06-15T10:30:44.123456700Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", new ByteArrayInputStream(content),
+                    FileAttributes.lastModifiedTime(mtime));
+        }
+
+        Archive archive = Archive.open(Files.readAllBytes(file));
+        long idx = archive.findEntry("test.txt");
+        assertTrue(idx >= 0);
+        assertTrue(Duration.between(mtime, archive.modifiedTime(idx)).abs().toNanos() <= 200);
+        try (InputStream is = archive.openEntry(idx)) {
+            assertArrayEquals(content, is.readAllBytes());
+        }
+    }
+
+    /**
+     * Test adding an entry from an {@link InputStream} with options and file attributes.
+     */
+    @Test
+    public void testAddEntryFromInputStreamWithOptionsAndAttributes() throws Exception {
+        Path file = tempDir.resolve("is-opts-attrs.zip");
+        byte[] content = "options and attrs".getBytes(StandardCharsets.UTF_8);
+        Instant mtime = Instant.parse("2025-01-01T00:00:00Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", new ByteArrayInputStream(content),
+                    Set.of(ZipOption.STORED), FileAttributes.lastModifiedTime(mtime));
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    // ── addEntry(Charset) [Writer] tests ────────────────────────────────
+
+    /**
+     * Test adding a text entry via a {@link Writer} with UTF-8 charset.
+     */
+    @Test
+    public void testAddEntryWriterUtf8() throws Exception {
+        Path file = tempDir.resolve("writer-utf8.zip");
+        String text = "Hello, world! Ünïcödé.";
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (Writer w = builder.addEntry("text.txt", StandardCharsets.UTF_8)) {
+                w.write(text);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    /**
+     * Test adding a text entry via a {@link Writer} with ISO-8859-1 charset.
+     */
+    @Test
+    public void testAddEntryWriterLatin1() throws Exception {
+        Path file = tempDir.resolve("writer-latin1.zip");
+        String text = "café";
+        Charset latin1 = StandardCharsets.ISO_8859_1;
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (Writer w = builder.addEntry("text.txt", latin1, ZipOption.STORED)) {
+                w.write(text);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), latin1));
+            }
+        }
+    }
+
+    /**
+     * Test adding a text entry via a {@link Writer} with file attributes.
+     */
+    @Test
+    public void testAddEntryWriterWithAttributes() throws Exception {
+        Path file = tempDir.resolve("writer-attrs.zip");
+        Instant mtime = Instant.parse("2024-06-15T10:30:44.123456700Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (Writer w = builder.addEntry("text.txt", StandardCharsets.UTF_8,
+                    FileAttributes.lastModifiedTime(mtime))) {
+                w.write("with attrs");
+            }
+        }
+
+        Archive archive = Archive.open(Files.readAllBytes(file));
+        long idx = archive.findEntry("text.txt");
+        assertTrue(idx >= 0);
+        assertTrue(Duration.between(mtime, archive.modifiedTime(idx)).abs().toNanos() <= 200);
+    }
+
+    /**
+     * Test adding a text entry via a {@link Writer} with options and file attributes.
+     */
+    @Test
+    public void testAddEntryWriterWithOptionsAndAttributes() throws Exception {
+        Path file = tempDir.resolve("writer-opts-attrs.zip");
+        String text = "options and attrs";
+        Instant mtime = Instant.parse("2025-01-01T00:00:00Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (Writer w = builder.addEntry("text.txt", StandardCharsets.UTF_8,
+                    Set.of(ZipOption.STORED), FileAttributes.lastModifiedTime(mtime))) {
+                w.write(text);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    // ── addEntry(CharSequence, Charset) tests ───────────────────────────
+
+    /**
+     * Test adding an entry from a {@link CharSequence} with UTF-8 charset.
+     */
+    @Test
+    public void testAddEntryFromCharSequenceUtf8() throws Exception {
+        Path file = tempDir.resolve("cs-utf8.zip");
+        String text = "CharSequence content with Ünïcödé";
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", text, StandardCharsets.UTF_8);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    /**
+     * Test adding an entry from a {@link StringBuilder} (non-String CharSequence).
+     */
+    @Test
+    public void testAddEntryFromStringBuilder() throws Exception {
+        Path file = tempDir.resolve("cs-sb.zip");
+        StringBuilder sb = new StringBuilder("built by ");
+        sb.append("StringBuilder");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", sb, StandardCharsets.UTF_8, ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(sb.toString(), new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    /**
+     * Test adding an empty {@link CharSequence} entry.
+     */
+    @Test
+    public void testAddEntryFromEmptyCharSequence() throws Exception {
+        Path file = tempDir.resolve("cs-empty.zip");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("empty.txt", "", StandardCharsets.UTF_8, ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("empty.txt");
+            assertNotNull(entry);
+            assertEquals(0, entry.getSize());
+        }
+    }
+
+    /**
+     * Test adding a {@link CharSequence} entry with ISO-8859-1 charset.
+     */
+    @Test
+    public void testAddEntryFromCharSequenceLatin1() throws Exception {
+        Path file = tempDir.resolve("cs-latin1.zip");
+        String text = "café";
+        Charset latin1 = StandardCharsets.ISO_8859_1;
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", text, latin1, ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), latin1));
+            }
+        }
+    }
+
+    /**
+     * Test adding a {@link CharSequence} entry with file attributes.
+     */
+    @Test
+    public void testAddEntryFromCharSequenceWithAttributes() throws Exception {
+        Path file = tempDir.resolve("cs-attrs.zip");
+        Instant mtime = Instant.parse("2024-06-15T10:30:44.123456700Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", "with attrs", StandardCharsets.UTF_8,
+                    FileAttributes.lastModifiedTime(mtime));
+        }
+
+        Archive archive = Archive.open(Files.readAllBytes(file));
+        long idx = archive.findEntry("text.txt");
+        assertTrue(idx >= 0);
+        assertTrue(Duration.between(mtime, archive.modifiedTime(idx)).abs().toNanos() <= 200);
+    }
+
+    /**
+     * Test adding a {@link CharSequence} entry with options and file attributes.
+     */
+    @Test
+    public void testAddEntryFromCharSequenceWithOptionsAndAttributes() throws Exception {
+        Path file = tempDir.resolve("cs-opts-attrs.zip");
+        String text = "options and attrs";
+        Instant mtime = Instant.parse("2025-01-01T00:00:00Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", text, StandardCharsets.UTF_8,
+                    Set.of(ZipOption.STORED), FileAttributes.lastModifiedTime(mtime));
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    // ── addEntry(Reader, Charset) tests ─────────────────────────────────
+
+    /**
+     * Test adding an entry from a {@link java.io.Reader} with UTF-8 charset.
+     */
+    @Test
+    public void testAddEntryFromReaderUtf8() throws Exception {
+        Path file = tempDir.resolve("reader-utf8.zip");
+        String text = "Reader content with Ünïcödé";
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", new StringReader(text), StandardCharsets.UTF_8);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    /**
+     * Test adding a STORED entry from a {@link java.io.Reader}.
+     */
+    @Test
+    public void testAddEntryFromReaderStored() throws Exception {
+        Path file = tempDir.resolve("reader-stored.zip");
+        String text = "stored reader content";
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", new StringReader(text), StandardCharsets.UTF_8, ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    /**
+     * Test adding an entry from an empty {@link java.io.Reader}.
+     */
+    @Test
+    public void testAddEntryFromEmptyReader() throws Exception {
+        Path file = tempDir.resolve("reader-empty.zip");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("empty.txt", new StringReader(""), StandardCharsets.UTF_8, ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("empty.txt");
+            assertNotNull(entry);
+            assertEquals(0, entry.getSize());
+        }
+    }
+
+    /**
+     * Test that the {@link java.io.Reader} is not closed by the builder.
+     */
+    @Test
+    public void testAddEntryFromReaderDoesNotCloseReader() throws Exception {
+        Path file = tempDir.resolve("reader-no-close.zip");
+        String text = "test";
+        StringReader reader = new StringReader(text);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", reader, StandardCharsets.UTF_8, ZipOption.STORED);
+        }
+
+        // reset and read again to prove the reader was not closed
+        reader.reset();
+        char[] buf = new char[text.length()];
+        assertEquals(text.length(), reader.read(buf));
+        assertEquals(text, new String(buf));
+    }
+
+    /**
+     * Test adding an entry from a {@link java.io.Reader} with file attributes.
+     */
+    @Test
+    public void testAddEntryFromReaderWithAttributes() throws Exception {
+        Path file = tempDir.resolve("reader-attrs.zip");
+        Instant mtime = Instant.parse("2024-06-15T10:30:44.123456700Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", new StringReader("with attrs"), StandardCharsets.UTF_8,
+                    FileAttributes.lastModifiedTime(mtime));
+        }
+
+        Archive archive = Archive.open(Files.readAllBytes(file));
+        long idx = archive.findEntry("text.txt");
+        assertTrue(idx >= 0);
+        assertTrue(Duration.between(mtime, archive.modifiedTime(idx)).abs().toNanos() <= 200);
+    }
+
+    /**
+     * Test adding an entry from a {@link java.io.Reader} with options and file attributes.
+     */
+    @Test
+    public void testAddEntryFromReaderWithOptionsAndAttributes() throws Exception {
+        Path file = tempDir.resolve("reader-opts-attrs.zip");
+        String text = "options and attrs";
+        Instant mtime = Instant.parse("2025-01-01T00:00:00Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("text.txt", new StringReader(text), StandardCharsets.UTF_8,
+                    Set.of(ZipOption.STORED), FileAttributes.lastModifiedTime(mtime));
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("text.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertEquals(text, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    // ── addEntry(Path) tests ────────────────────────────────────────────
+
+    /**
+     * Test adding a STORED entry from a {@link Path}.
+     */
+    @Test
+    public void testAddEntryFromPathStored() throws Exception {
+        Path file = tempDir.resolve("path-stored.zip");
+        Path source = tempDir.resolve("source.txt");
+        byte[] content = "file content from path".getBytes(StandardCharsets.UTF_8);
+        Files.write(source, content);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", source, ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            assertEquals(content.length, entry.getSize());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test adding a DEFLATED entry from a {@link Path}.
+     */
+    @Test
+    public void testAddEntryFromPathDeflated() throws Exception {
+        Path file = tempDir.resolve("path-deflated.zip");
+        Path source = tempDir.resolve("source-deflated.txt");
+        byte[] content = "path deflated content that should compress well aaaaaaaaaaaaa"
+                .getBytes(StandardCharsets.UTF_8);
+        Files.write(source, content);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", source, ZipOption.DEFLATED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.DEFLATED, entry.getMethod());
+            assertEquals(content.length, entry.getSize());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test adding an entry from an empty file {@link Path}.
+     */
+    @Test
+    public void testAddEntryFromEmptyPath() throws Exception {
+        Path file = tempDir.resolve("path-empty.zip");
+        Path source = tempDir.resolve("empty-source.txt");
+        Files.write(source, new byte[0]);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("empty.txt", source, ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("empty.txt");
+            assertNotNull(entry);
+            assertEquals(0, entry.getSize());
+        }
+    }
+
+    /**
+     * Test adding an entry from a {@link Path} with default options (DEFLATED).
+     */
+    @Test
+    public void testAddEntryFromPathDefaultOptions() throws Exception {
+        Path file = tempDir.resolve("path-default.zip");
+        Path source = tempDir.resolve("source-default.txt");
+        byte[] content = "default options".getBytes(StandardCharsets.UTF_8);
+        Files.write(source, content);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", source);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.DEFLATED, entry.getMethod());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test adding an entry from a {@link Path} with file attributes.
+     */
+    @Test
+    public void testAddEntryFromPathWithAttributes() throws Exception {
+        Path file = tempDir.resolve("path-attrs.zip");
+        Path source = tempDir.resolve("source-attrs.txt");
+        byte[] content = "with attrs".getBytes(StandardCharsets.UTF_8);
+        Files.write(source, content);
+        Instant mtime = Instant.parse("2024-06-15T10:30:44.123456700Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", source, FileAttributes.lastModifiedTime(mtime));
+        }
+
+        Archive archive = Archive.open(Files.readAllBytes(file));
+        long idx = archive.findEntry("test.txt");
+        assertTrue(idx >= 0);
+        assertTrue(Duration.between(mtime, archive.modifiedTime(idx)).abs().toNanos() <= 200);
+        try (InputStream is = archive.openEntry(idx)) {
+            assertArrayEquals(content, is.readAllBytes());
+        }
+    }
+
+    /**
+     * Test adding an entry from a {@link Path} with options and file attributes.
+     */
+    @Test
+    public void testAddEntryFromPathWithOptionsAndAttributes() throws Exception {
+        Path file = tempDir.resolve("path-opts-attrs.zip");
+        Path source = tempDir.resolve("source-opts-attrs.txt");
+        byte[] content = "options and attrs".getBytes(StandardCharsets.UTF_8);
+        Files.write(source, content);
+        Instant mtime = Instant.parse("2025-01-01T00:00:00Z");
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("test.txt", source,
+                    Set.of(ZipOption.STORED), FileAttributes.lastModifiedTime(mtime));
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            ZipEntry entry = zf.getEntry("test.txt");
+            assertNotNull(entry);
+            assertEquals(ZipEntry.STORED, entry.getMethod());
+            try (InputStream is = zf.getInputStream(entry)) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test that all convenience entry methods work together in a single archive.
+     */
+    @Test
+    public void testAllConvenienceMethodsMixed() throws Exception {
+        Path file = tempDir.resolve("all-methods.zip");
+        Path sourceFile = tempDir.resolve("source-mixed.dat");
+        byte[] binaryContent = { 0x00, 0x01, 0x02, 0x03, (byte) 0xFF };
+        Files.write(sourceFile, binaryContent);
+        byte[] streamContent = "from input stream".getBytes(StandardCharsets.UTF_8);
+        String textContent = "from CharSequence";
+        String readerContent = "from Reader";
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            // OutputStream (existing)
+            try (OutputStream os = builder.addEntry("a-stream.txt", ZipOption.STORED)) {
+                os.write("from OutputStream".getBytes(StandardCharsets.UTF_8));
+            }
+            // InputStream
+            builder.addEntry("b-inputstream.txt", new ByteArrayInputStream(streamContent), ZipOption.STORED);
+            // Writer
+            try (Writer w = builder.addEntry("c-writer.txt", StandardCharsets.UTF_8, ZipOption.STORED)) {
+                w.write("from Writer");
+            }
+            // CharSequence
+            builder.addEntry("d-charsequence.txt", textContent, StandardCharsets.UTF_8, ZipOption.STORED);
+            // Reader
+            builder.addEntry("e-reader.txt", new StringReader(readerContent), StandardCharsets.UTF_8, ZipOption.STORED);
+            // Path
+            builder.addEntry("f-path.dat", sourceFile, ZipOption.STORED);
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertEquals(6, zf.size());
+            try (InputStream is = zf.getInputStream(zf.getEntry("a-stream.txt"))) {
+                assertEquals("from OutputStream", new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+            try (InputStream is = zf.getInputStream(zf.getEntry("b-inputstream.txt"))) {
+                assertArrayEquals(streamContent, is.readAllBytes());
+            }
+            try (InputStream is = zf.getInputStream(zf.getEntry("c-writer.txt"))) {
+                assertEquals("from Writer", new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+            try (InputStream is = zf.getInputStream(zf.getEntry("d-charsequence.txt"))) {
+                assertEquals(textContent, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+            try (InputStream is = zf.getInputStream(zf.getEntry("e-reader.txt"))) {
+                assertEquals(readerContent, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+            try (InputStream is = zf.getInputStream(zf.getEntry("f-path.dat"))) {
+                assertArrayEquals(binaryContent, is.readAllBytes());
+            }
         }
     }
 }

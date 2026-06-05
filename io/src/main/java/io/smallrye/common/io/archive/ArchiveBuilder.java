@@ -4,8 +4,14 @@ import static io.smallrye.common.io.archive.Constants.*;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -366,6 +372,395 @@ public final class ArchiveBuilder implements Closeable {
         EntryOutputStream eos = new EntryOutputStream(entry);
         activeEntry = eos;
         return eos;
+    }
+
+    /**
+     * Add a file entry to the archive with the content read from the given input stream,
+     * using the builder's default options and no file attributes.
+     * All bytes are read from the input stream using {@link InputStream#transferTo(OutputStream)}.
+     * The input stream is not closed by this method.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the input stream to read from (must not be {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, InputStream content) throws IOException {
+        addEntry(name, content, Set.of());
+    }
+
+    /**
+     * Add a file entry to the archive with the content read from the given input stream
+     * and the given options.
+     * All bytes are read from the input stream using {@link InputStream#transferTo(OutputStream)}.
+     * The input stream is not closed by this method.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the input stream to read from (must not be {@code null})
+     * @param options the entry options; may contain {@link ZipOption} values
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, InputStream content, OpenOption... options) throws IOException {
+        addEntry(name, content, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive with the content read from the given input stream
+     * and the given file attributes.
+     * All bytes are read from the input stream using {@link InputStream#transferTo(OutputStream)}.
+     * The input stream is not closed by this method.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the input stream to read from (must not be {@code null})
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, InputStream content, FileAttribute<?>... attrs) throws IOException {
+        addEntry(name, content, Set.of(), attrs);
+    }
+
+    /**
+     * Add a file entry to the archive with the content read from the given input stream,
+     * with the given options and file attributes.
+     * All bytes are read from the input stream using {@link InputStream#transferTo(OutputStream)}.
+     * The input stream is not closed by this method.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the input stream to read from (must not be {@code null})
+     * @param options the entry options (must not be {@code null}); may contain {@link ZipOption} values
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, InputStream content, Collection<? extends OpenOption> options,
+            FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("content", content);
+        try (OutputStream os = addEntry(name, options, attrs)) {
+            content.transferTo(os);
+        }
+    }
+
+    /**
+     * Add a file entry to the archive and return a {@link Writer} for writing text content,
+     * using the builder's default options and no file attributes.
+     * The returned writer wraps an {@link OutputStreamWriter} over the entry's output stream.
+     * The writer must be closed before another entry can be added or the archive can be closed.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @return a writer to which the entry text should be written (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public Writer addEntry(String name, Charset charset) throws IOException {
+        return addEntry(name, charset, Set.of());
+    }
+
+    /**
+     * Add a file entry to the archive and return a {@link Writer} for writing text content,
+     * with the given options.
+     * The returned writer wraps an {@link OutputStreamWriter} over the entry's output stream.
+     * The writer must be closed before another entry can be added or the archive can be closed.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param options the entry options; may contain {@link ZipOption} values
+     * @return a writer to which the entry text should be written (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public Writer addEntry(String name, Charset charset, OpenOption... options) throws IOException {
+        return addEntry(name, charset, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive and return a {@link Writer} for writing text content,
+     * with the given file attributes.
+     * The returned writer wraps an {@link OutputStreamWriter} over the entry's output stream.
+     * The writer must be closed before another entry can be added or the archive can be closed.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @return a writer to which the entry text should be written (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public Writer addEntry(String name, Charset charset, FileAttribute<?>... attrs) throws IOException {
+        return addEntry(name, charset, Set.of(), attrs);
+    }
+
+    /**
+     * Add a file entry to the archive and return a {@link Writer} for writing text content,
+     * with the given options and file attributes.
+     * The returned writer wraps an {@link OutputStreamWriter} over the entry's output stream.
+     * The writer must be closed before another entry can be added or the archive can be closed.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param options the entry options (must not be {@code null}); may contain {@link ZipOption} values
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @return a writer to which the entry text should be written (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public Writer addEntry(String name, Charset charset, Collection<? extends OpenOption> options,
+            FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("charset", charset);
+        return new OutputStreamWriter(addEntry(name, options, attrs), charset);
+    }
+
+    /**
+     * Add a file entry to the archive with the text content read from the given character sequence,
+     * using the builder's default options and no file attributes.
+     * The character sequence is encoded using the given character set.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the character sequence to write (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, CharSequence content, Charset charset) throws IOException {
+        addEntry(name, content, charset, Set.of());
+    }
+
+    /**
+     * Add a file entry to the archive with the text content read from the given character sequence,
+     * with the given options.
+     * The character sequence is encoded using the given character set.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the character sequence to write (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param options the entry options; may contain {@link ZipOption} values
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, CharSequence content, Charset charset, OpenOption... options) throws IOException {
+        addEntry(name, content, charset, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive with the text content read from the given character sequence,
+     * with the given file attributes.
+     * The character sequence is encoded using the given character set.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the character sequence to write (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, CharSequence content, Charset charset,
+            FileAttribute<?>... attrs) throws IOException {
+        addEntry(name, content, charset, Set.of(), attrs);
+    }
+
+    /**
+     * Add a file entry to the archive with the text content read from the given character sequence,
+     * with the given options and file attributes.
+     * The character sequence is encoded using the given character set.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the character sequence to write (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param options the entry options (must not be {@code null}); may contain {@link ZipOption} values
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, CharSequence content, Charset charset,
+            Collection<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("content", content);
+        try (Writer w = addEntry(name, charset, options, attrs)) {
+            w.append(content);
+        }
+    }
+
+    /**
+     * Add a file entry to the archive with the text content read from the given reader,
+     * using the builder's default options and no file attributes.
+     * All characters are read from the reader and encoded using the given character set.
+     * The reader is not closed by this method.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the reader to read from (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, Reader content, Charset charset) throws IOException {
+        addEntry(name, content, charset, Set.of());
+    }
+
+    /**
+     * Add a file entry to the archive with the text content read from the given reader,
+     * with the given options.
+     * All characters are read from the reader and encoded using the given character set.
+     * The reader is not closed by this method.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the reader to read from (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param options the entry options; may contain {@link ZipOption} values
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, Reader content, Charset charset, OpenOption... options) throws IOException {
+        addEntry(name, content, charset, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive with the text content read from the given reader,
+     * with the given file attributes.
+     * All characters are read from the reader and encoded using the given character set.
+     * The reader is not closed by this method.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the reader to read from (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, Reader content, Charset charset,
+            FileAttribute<?>... attrs) throws IOException {
+        addEntry(name, content, charset, Set.of(), attrs);
+    }
+
+    /**
+     * Add a file entry to the archive with the text content read from the given reader,
+     * with the given options and file attributes.
+     * All characters are read from the reader and encoded using the given character set.
+     * The reader is not closed by this method.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the reader to read from (must not be {@code null})
+     * @param charset the character set for encoding text (must not be {@code null})
+     * @param options the entry options (must not be {@code null}); may contain {@link ZipOption} values
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, Reader content, Charset charset,
+            Collection<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("content", content);
+        try (Writer w = addEntry(name, charset, options, attrs)) {
+            content.transferTo(w);
+        }
+    }
+
+    /**
+     * Add a file entry to the archive with the content copied from the given path,
+     * using the builder's default options and no file attributes.
+     * The file content is copied using {@link Files#copy(Path, OutputStream)}.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the path of the file to copy from (must not be {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, Path content) throws IOException {
+        addEntry(name, content, Set.of());
+    }
+
+    /**
+     * Add a file entry to the archive with the content copied from the given path,
+     * with the given options.
+     * The file content is copied using {@link Files#copy(Path, OutputStream)}.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the path of the file to copy from (must not be {@code null})
+     * @param options the entry options; may contain {@link ZipOption} values
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, Path content, OpenOption... options) throws IOException {
+        addEntry(name, content, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive with the content copied from the given path,
+     * with the given file attributes.
+     * The file content is copied using {@link Files#copy(Path, OutputStream)}.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the path of the file to copy from (must not be {@code null})
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, Path content, FileAttribute<?>... attrs) throws IOException {
+        addEntry(name, content, Set.of(), attrs);
+    }
+
+    /**
+     * Add a file entry to the archive with the content copied from the given path,
+     * with the given options and file attributes.
+     * The file content is copied using {@link Files#copy(Path, OutputStream)}.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the path of the file to copy from (must not be {@code null})
+     * @param options the entry options (must not be {@code null}); may contain {@link ZipOption} values
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, Path content, Collection<? extends OpenOption> options,
+            FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("content", content);
+        try (OutputStream os = addEntry(name, options, attrs)) {
+            Files.copy(content, os);
+        }
     }
 
     /**
