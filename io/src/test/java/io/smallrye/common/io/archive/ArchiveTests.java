@@ -8,7 +8,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
-import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.zip.CRC32;
@@ -17,6 +16,8 @@ import java.util.zip.ZipOutputStream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import io.smallrye.common.io.FileAttributes;
 
 /**
  * Tests for the {@link Archive} class.
@@ -73,8 +74,8 @@ public class ArchiveTests {
         Instant expectedCtime = Instant.parse("2024-01-01T00:00:00.9999999Z");
 
         Path file = tempDir.resolve("ntfs-timestamps.zip");
-        FileAttribute<?> modAttr = new SimpleFileAttribute<>("basic:lastModifiedTime", FileTime.from(expectedMtime));
-        FileAttribute<?> createAttr = new SimpleFileAttribute<>("basic:creationTime", FileTime.from(expectedCtime));
+        FileAttribute<?> modAttr = FileAttributes.lastModifiedTime(expectedMtime);
+        FileAttribute<?> createAttr = FileAttributes.creationTime(expectedCtime);
 
         try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
             try (OutputStream os = builder.addEntry("ntfs.txt", java.util.Set.of(ZipOption.STORED), modAttr, createAttr)) {
@@ -127,13 +128,5 @@ public class ArchiveTests {
             zos.closeEntry();
         }
         return baos.toByteArray();
-    }
-
-    /**
-     * A simple {@link FileAttribute} implementation for testing.
-     *
-     * @param <T> the attribute value type
-     */
-    private record SimpleFileAttribute<T>(String name, T value) implements FileAttribute<T> {
     }
 }

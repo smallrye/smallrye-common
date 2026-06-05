@@ -1,6 +1,12 @@
 package io.smallrye.common.io.archive;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,7 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
-import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
@@ -21,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import io.smallrye.common.io.BufferedFile;
+import io.smallrye.common.io.FileAttributes;
 import io.smallrye.common.io.Files2;
 
 /**
@@ -285,8 +291,8 @@ public class ArchiveBuilderTests {
         Instant mtime = Instant.parse("2024-06-15T10:30:44.123456700Z");
         Instant ctime = Instant.parse("2024-01-01T00:00:00Z");
 
-        FileAttribute<?> modAttr = new SimpleFileAttribute<>("basic:lastModifiedTime", FileTime.from(mtime));
-        FileAttribute<?> createAttr = new SimpleFileAttribute<>("basic:creationTime", FileTime.from(ctime));
+        FileAttribute<?> modAttr = FileAttributes.lastModifiedTime(mtime);
+        FileAttribute<?> createAttr = FileAttributes.creationTime(ctime);
 
         try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
             try (OutputStream os = builder.addEntry("test.txt", Set.of(ZipOption.STORED), modAttr, createAttr)) {
@@ -554,8 +560,8 @@ public class ArchiveBuilderTests {
         Instant mtime = Instant.parse("2025-03-15T14:30:00.123456700Z");
         Instant ctime = Instant.parse("2025-01-01T00:00:00Z");
 
-        FileAttribute<?> modAttr = new SimpleFileAttribute<>("basic:lastModifiedTime", FileTime.from(mtime));
-        FileAttribute<?> createAttr = new SimpleFileAttribute<>("basic:creationTime", FileTime.from(ctime));
+        FileAttribute<?> modAttr = FileAttributes.lastModifiedTime(mtime);
+        FileAttribute<?> createAttr = FileAttributes.creationTime(ctime);
 
         try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
             try (OutputStream os = builder.addEntry("test.txt", Set.of(ZipOption.STORED), modAttr, createAttr)) {
@@ -971,15 +977,5 @@ public class ArchiveBuilderTests {
                 assertArrayEquals(content, is.readAllBytes());
             }
         }
-    }
-
-    // ── Helper ──────────────────────────────────────────────────────────
-
-    /**
-     * A simple {@link FileAttribute} implementation for testing.
-     *
-     * @param <T> the attribute value type
-     */
-    private record SimpleFileAttribute<T>(String name, T value) implements FileAttribute<T> {
     }
 }
