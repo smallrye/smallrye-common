@@ -250,27 +250,10 @@ public final class ArchiveBuilder implements Closeable {
     }
 
     private static ArchiveBuilder openTrusted(final BufferedFile file, final Collection<? extends OpenOption> options) {
-        int method = -1;
-        boolean zip64 = false;
-        for (OpenOption opt : options) {
-            if (opt instanceof ZipOption zo) {
-                switch (zo) {
-                    case STORED -> method = setMethod(method, METHOD_STORED);
-                    case DEFLATED -> method = setMethod(method, METHOD_DEFLATE);
-                    case ZIP64 -> zip64 = true;
-                }
-            } else if (opt instanceof StandardOpenOption soo) {
-                switch (soo) {
-                    case READ, WRITE, CREATE, CREATE_NEW, TRUNCATE_EXISTING -> {
-                        // ignored; file is already open
-                    }
-                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
-                }
-            } else {
-                throw new UnsupportedOperationException("Unsupported option: " + opt);
-            }
-        }
-        return new ArchiveBuilder(file, method == -1 ? METHOD_DEFLATE : method, zip64);
+        int parsed = parseEntryOptions(options, true);
+        int method = parsed & PARSED_METHOD_MASK;
+        return new ArchiveBuilder(file, method == PARSED_NO_METHOD ? METHOD_DEFLATE : method,
+                (parsed & PARSED_ZIP64) != 0);
     }
 
     /**
@@ -292,16 +275,7 @@ public final class ArchiveBuilder implements Closeable {
             name = name + "/";
         }
 
-        CdEntry entry = new CdEntry();
-        entry.fileName = name.getBytes(StandardCharsets.UTF_8);
-        entry.method = METHOD_STORED;
-        parseEntryAttributes(entry, attrs);
-        entry.externalAttributes |= S_IFDIR << 16;
-        entry.localHeaderOffset = file.filePosition();
-
-        writeLfh(entry, false);
-
-        entries.add(entry);
+        initEntry(name, METHOD_STORED, false, attrs, S_IFDIR);
     }
 
     /**
@@ -378,44 +352,14 @@ public final class ArchiveBuilder implements Closeable {
         checkNoActiveEntry();
 
         // resolve per-entry options against builder defaults
-        int method = -1;
-        boolean zip64 = false;
-        for (OpenOption opt : options) {
-            if (opt instanceof ZipOption zo) {
-                switch (zo) {
-                    case STORED -> method = setMethod(method, METHOD_STORED);
-                    case DEFLATED -> method = setMethod(method, METHOD_DEFLATE);
-                    case ZIP64 -> zip64 = true;
-                }
-            } else if (opt instanceof StandardOpenOption soo) {
-                switch (soo) {
-                    case CREATE, CREATE_NEW, READ, WRITE, TRUNCATE_EXISTING -> {
-                        // ignored; entries are always created
-                    }
-                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
-                }
-            } else {
-                throw new UnsupportedOperationException("Unsupported option: " + opt);
-            }
-        }
-        if (method == -1) {
+        int parsed = parseEntryOptions(options, true);
+        int method = parsed & PARSED_METHOD_MASK;
+        if (method == PARSED_NO_METHOD) {
             method = defaultMethod;
         }
-        if (!zip64) {
-            zip64 = defaultZip64;
-        }
+        boolean zip64 = (parsed & PARSED_ZIP64) != 0 || defaultZip64;
 
-        CdEntry entry = new CdEntry();
-        entry.fileName = name.getBytes(StandardCharsets.UTF_8);
-        entry.method = method;
-        entry.zip64 = zip64;
-        parseEntryAttributes(entry, attrs);
-        entry.externalAttributes |= S_IFREG << 16;
-        entry.localHeaderOffset = file.filePosition();
-
-        writeLfh(entry, zip64);
-
-        entries.add(entry);
+        CdEntry entry = initEntry(name, method, zip64, attrs, S_IFREG);
 
         EntryOutputStream eos = new EntryOutputStream(entry);
         activeEntry = eos;
@@ -518,53 +462,18 @@ public final class ArchiveBuilder implements Closeable {
         checkOpen();
         checkNoActiveEntry();
 
-        boolean zip64 = false;
-        for (OpenOption opt : options) {
-            if (opt instanceof ZipOption zo) {
-                switch (zo) {
-                    case STORED -> {
-                    }
-                    case DEFLATED -> throw new IllegalArgumentException(
-                            "Buffered entries require STORED method; DEFLATED is incompatible with random-access writing");
-                    case ZIP64 -> zip64 = true;
-                }
-            } else if (opt instanceof StandardOpenOption soo) {
-                switch (soo) {
-                    case CREATE, CREATE_NEW, READ, WRITE, TRUNCATE_EXISTING -> {
-                        // ignored; entries are always created
-                    }
-                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
-                }
-            } else {
-                throw new UnsupportedOperationException("Unsupported option: " + opt);
-            }
-        }
-        if (!zip64) {
-            zip64 = defaultZip64;
-        }
+        int parsed = parseEntryOptions(options, false);
+        boolean zip64 = (parsed & PARSED_ZIP64) != 0 || defaultZip64;
 
-        CdEntry entry = new CdEntry();
-        entry.fileName = name.getBytes(StandardCharsets.UTF_8);
-        entry.method = METHOD_STORED;
-        entry.zip64 = zip64;
-        parseEntryAttributes(entry, attrs);
-        entry.externalAttributes |= S_IFREG << 16;
-        entry.localHeaderOffset = file.filePosition();
-
-        writeLfh(entry, zip64);
-
-        entries.add(entry);
+        CdEntry entry = initEntry(name, METHOD_STORED, zip64, attrs, S_IFREG);
 
         BufferedFile nested = file.openNested(() -> {
             // compute entry data boundaries from the LFH layout
             long dataStart = entry.localHeaderOffset + LH_END + entry.fileName.length
                     + lfhExtraFieldLength(entry.zip64);
             long size = file.filePosition() - dataStart;
-
-            // check for overflow when ZIP64 was not reserved
-            if (!entry.zip64 && size > 0xFFFF_FFFEL) {
-                throw new IOException("Entry size exceeds 4 GB; use ZipOption.ZIP64");
-            }
+            entry.compressedSize = size;
+            entry.uncompressedSize = size;
 
             // compute CRC by reading back the written data from the parent
             CRC32 c = crc();
@@ -578,28 +487,10 @@ public final class ArchiveBuilder implements Closeable {
                 pos += n;
                 remaining -= n;
             }
-            int crcValue = (int) c.getValue();
+            entry.crc32 = (int) c.getValue();
             c.reset();
 
-            // patch local file header: CRC-32, compressed size, uncompressed size
-            long lfhOffset = entry.localHeaderOffset;
-            file.writeIntLE(lfhOffset + LH_CRC_32, crcValue);
-            if (entry.zip64) {
-                long extraStart = lfhOffset + LH_END + entry.fileName.length;
-                file.writeLongLE(extraStart + 4, size);
-                file.writeLongLE(extraStart + 12, size);
-            } else {
-                file.writeIntLE(lfhOffset + LH_COMPRESSED_SIZE, (int) size);
-                file.writeIntLE(lfhOffset + LH_UNCOMPRESSED_SIZE, (int) size);
-            }
-
-            // record final values on the central directory entry
-            entry.crc32 = crcValue;
-            entry.compressedSize = size;
-            entry.uncompressedSize = size;
-
-            // release active entry
-            activeEntry = null;
+            patchLfh(entry);
         });
         activeEntry = nested;
         return nested;
@@ -725,26 +616,9 @@ public final class ArchiveBuilder implements Closeable {
         Assert.checkNotNullParam("options", options);
 
         // parse options: ZIP64 applies to outer entry; STORED/DEFLATED set the inner default
-        int innerMethod = -1;
-        boolean zip64 = false;
-        for (OpenOption opt : options) {
-            if (opt instanceof ZipOption zo) {
-                switch (zo) {
-                    case STORED -> innerMethod = setMethod(innerMethod, METHOD_STORED);
-                    case DEFLATED -> innerMethod = setMethod(innerMethod, METHOD_DEFLATE);
-                    case ZIP64 -> zip64 = true;
-                }
-            } else if (opt instanceof StandardOpenOption soo) {
-                switch (soo) {
-                    case CREATE, CREATE_NEW, READ, WRITE, TRUNCATE_EXISTING -> {
-                        // ignored; entries are always created
-                    }
-                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
-                }
-            } else {
-                throw new UnsupportedOperationException("Unsupported option: " + opt);
-            }
-        }
+        int parsed = parseEntryOptions(options, true);
+        int innerMethod = parsed & PARSED_METHOD_MASK;
+        boolean zip64 = (parsed & PARSED_ZIP64) != 0;
 
         // the outer entry needs only ZIP64 (method is always STORED for buffered entries)
         Collection<OpenOption> outerOptions = zip64 ? Set.of(ZipOption.ZIP64) : Set.of();
@@ -752,7 +626,7 @@ public final class ArchiveBuilder implements Closeable {
 
         // create the inner builder; ownsFile = true so closing it closes the nested file,
         // which triggers the close action for CRC/LFH patching on the outer entry
-        return new ArchiveBuilder(nested, innerMethod == -1 ? METHOD_DEFLATE : innerMethod, zip64);
+        return new ArchiveBuilder(nested, innerMethod == PARSED_NO_METHOD ? METHOD_DEFLATE : innerMethod, zip64);
     }
 
     /**
@@ -806,6 +680,73 @@ public final class ArchiveBuilder implements Closeable {
         return requested;
     }
 
+    // ── Entry option parsing ───────────────────────────────────────────
+
+    /**
+     * Mask for extracting the compression method from the value returned by
+     * {@link #parseEntryOptions(Collection, boolean)}.
+     */
+    private static final int PARSED_METHOD_MASK = 0xFF;
+
+    /**
+     * Sentinel value (in the {@link #PARSED_METHOD_MASK} bits) indicating that no compression
+     * method was specified.
+     */
+    private static final int PARSED_NO_METHOD = 0xFF;
+
+    /**
+     * Flag bit indicating that {@link ZipOption#ZIP64} was present in the parsed options.
+     */
+    private static final int PARSED_ZIP64 = 1 << 8;
+
+    /**
+     * Parse {@link ZipOption} and {@link StandardOpenOption} values from an option collection,
+     * returning the compression method and ZIP64 flag packed into a single {@code int}.
+     * The low {@link #PARSED_METHOD_MASK} bits hold the method
+     * ({@link Constants#METHOD_STORED}, {@link Constants#METHOD_DEFLATE},
+     * or {@link #PARSED_NO_METHOD} if none was specified).
+     * Bit {@link #PARSED_ZIP64} is set if {@link ZipOption#ZIP64} was present.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored.
+     *
+     * @param options the options to parse (must not be {@code null})
+     * @param allowDeflate whether {@link ZipOption#DEFLATED} is permitted
+     * @return the packed option bitmap
+     * @throws IllegalArgumentException if conflicting compression options are specified,
+     *         or if {@link ZipOption#DEFLATED} is specified when {@code allowDeflate} is {@code false}
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    private static int parseEntryOptions(Collection<? extends OpenOption> options, boolean allowDeflate) {
+        int method = -1;
+        int flags = 0;
+        for (OpenOption opt : options) {
+            if (opt instanceof ZipOption zo) {
+                switch (zo) {
+                    case STORED -> method = setMethod(method, METHOD_STORED);
+                    case DEFLATED -> {
+                        if (!allowDeflate) {
+                            throw new IllegalArgumentException(
+                                    "Buffered entries require STORED method; DEFLATED is incompatible with random-access writing");
+                        }
+                        method = setMethod(method, METHOD_DEFLATE);
+                    }
+                    case ZIP64 -> flags |= PARSED_ZIP64;
+                }
+            } else if (opt instanceof StandardOpenOption soo) {
+                switch (soo) {
+                    case CREATE, CREATE_NEW, READ, WRITE, TRUNCATE_EXISTING -> {
+                    }
+                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
+                }
+            } else {
+                throw new UnsupportedOperationException("Unsupported option: " + opt);
+            }
+        }
+        return (method & PARSED_METHOD_MASK) | flags;
+    }
+
     /**
      * Checks that no entry (stream or buffered) is currently being written.
      */
@@ -813,6 +754,58 @@ public final class ArchiveBuilder implements Closeable {
         if (activeEntry != null) {
             throw new IllegalStateException("An entry is still being written");
         }
+    }
+
+    /**
+     * Initialize a new central directory entry, write its local file header, and add it to the entry list.
+     *
+     * @param name the entry name (encoded to UTF-8)
+     * @param method the compression method ({@link Constants#METHOD_STORED} or {@link Constants#METHOD_DEFLATE})
+     * @param zip64 whether to reserve ZIP64 extended information in the local file header
+     * @param attrs the file attributes to apply
+     * @param fileType the UNIX file type constant ({@link #S_IFREG} or {@link #S_IFDIR})
+     * @return the new entry (not {@code null})
+     * @throws IOException if an I/O error occurs
+     */
+    private CdEntry initEntry(String name, int method, boolean zip64,
+            FileAttribute<?>[] attrs, int fileType) throws IOException {
+        CdEntry entry = new CdEntry();
+        entry.fileName = name.getBytes(StandardCharsets.UTF_8);
+        entry.method = method;
+        entry.zip64 = zip64;
+        parseEntryAttributes(entry, attrs);
+        entry.externalAttributes |= fileType << 16;
+        entry.localHeaderOffset = file.filePosition();
+        writeLfh(entry);
+        entries.add(entry);
+        return entry;
+    }
+
+    /**
+     * Patch the local file header with the CRC-32 and size values from the given entry
+     * and release the active entry.
+     * The entry's {@link CdEntry#crc32 crc32}, {@link CdEntry#compressedSize compressedSize},
+     * and {@link CdEntry#uncompressedSize uncompressedSize} fields must be populated before calling.
+     * Uses positional writes, so the current file position is not affected.
+     *
+     * @param entry the entry to patch (with final CRC and size values already set)
+     * @throws IOException if an I/O error occurs, or if the sizes exceed 4 GB without ZIP64
+     */
+    private void patchLfh(CdEntry entry) throws IOException {
+        if (!entry.zip64 && (entry.compressedSize > 0xFFFF_FFFEL || entry.uncompressedSize > 0xFFFF_FFFEL)) {
+            throw new IOException("Entry size exceeds 4 GB; use ZipOption.ZIP64");
+        }
+        long lfhOffset = entry.localHeaderOffset;
+        file.writeIntLE(lfhOffset + LH_CRC_32, entry.crc32);
+        if (entry.zip64) {
+            long extraStart = lfhOffset + LH_END + entry.fileName.length;
+            file.writeLongLE(extraStart + 4, entry.uncompressedSize);
+            file.writeLongLE(extraStart + 12, entry.compressedSize);
+        } else {
+            file.writeIntLE(lfhOffset + LH_COMPRESSED_SIZE, (int) entry.compressedSize);
+            file.writeIntLE(lfhOffset + LH_UNCOMPRESSED_SIZE, (int) entry.uncompressedSize);
+        }
+        activeEntry = null;
     }
 
     /**
@@ -969,6 +962,7 @@ public final class ArchiveBuilder implements Closeable {
      * @throws IOException if an I/O error occurs
      */
     private void writeLfhExtraField(CdEntry entry, boolean zip64) throws IOException {
+        BufferedFile file = this.file;
         if (zip64) {
             file.writeShortLE(EX_ZIP64);
             file.writeShortLE(ZIP64_LFH_EXTRA_DATA_SIZE);
@@ -987,6 +981,7 @@ public final class ArchiveBuilder implements Closeable {
      * @throws IOException if an I/O error occurs
      */
     private void writeCdeExtraField(CdEntry entry, boolean zip64) throws IOException {
+        BufferedFile file = this.file;
         if (zip64) {
             file.writeShortLE(EX_ZIP64);
             file.writeShortLE(ZIP64_CDE_EXTRA_DATA_SIZE);
@@ -1006,6 +1001,7 @@ public final class ArchiveBuilder implements Closeable {
      * @throws IOException if an I/O error occurs
      */
     private void writeNtfsExtraField(long mtime, long atime, long ctime) throws IOException {
+        BufferedFile file = this.file;
         file.writeShortLE(EX_NTFS);
         file.writeShortLE(NTFS_EXTRA_DATA_SIZE);
         file.writeIntLE(0); // reserved
@@ -1035,14 +1031,15 @@ public final class ArchiveBuilder implements Closeable {
     /**
      * Write a local file header at the current position.
      * The CRC-32 and size fields are written as placeholders (zero, or 0xFFFFFFFF for ZIP64)
-     * and patched later by {@link EntryOutputStream#close()}.
+     * and patched later by {@link #patchLfh(CdEntry)}.
      *
      * @param entry the entry whose metadata to write
-     * @param zip64 whether to write ZIP64 sentinel values and include a ZIP64 extra field
      * @throws IOException if an I/O error occurs
      */
-    private void writeLfh(CdEntry entry, boolean zip64) throws IOException {
+    private void writeLfh(CdEntry entry) throws IOException {
+        BufferedFile file = this.file;
         file.writeIntLE(SIG_LH);
+        boolean zip64 = entry.zip64;
         file.writeShortLE(zip64 ? VERSION_NEEDED_ZIP64 : VERSION_NEEDED_DEFAULT);
         file.writeShortLE(GP_UTF_8);
         file.writeShortLE(entry.method);
@@ -1056,9 +1053,10 @@ public final class ArchiveBuilder implements Closeable {
             file.writeIntLE(0); // compressed size placeholder
             file.writeIntLE(0); // uncompressed size placeholder
         }
-        file.writeShortLE(entry.fileName.length);
+        byte[] fileName = entry.fileName;
+        file.writeShortLE(fileName.length);
         file.writeShortLE(lfhExtraFieldLength(zip64));
-        file.write(entry.fileName);
+        file.write(fileName);
         writeLfhExtraField(entry, zip64);
     }
 
@@ -1070,6 +1068,7 @@ public final class ArchiveBuilder implements Closeable {
      * @throws IOException if an I/O error occurs
      */
     private void writeCentralDirectory() throws IOException {
+        BufferedFile file = this.file;
         long cdOffset = file.filePosition();
 
         boolean needsZip64Eocd = false;
@@ -1106,8 +1105,9 @@ public final class ArchiveBuilder implements Closeable {
      * @throws IOException if an I/O error occurs
      */
     private void writeCde(CdEntry entry, boolean zip64) throws IOException {
-        int versionNeeded = zip64 ? VERSION_NEEDED_ZIP64 : VERSION_NEEDED_DEFAULT;
+        BufferedFile file = this.file;
         file.writeIntLE(SIG_CDE);
+        int versionNeeded = zip64 ? VERSION_NEEDED_ZIP64 : VERSION_NEEDED_DEFAULT;
         file.writeShortLE((MADE_BY_UNIX << 8) | versionNeeded);
         file.writeShortLE(versionNeeded);
         file.writeShortLE(GP_UTF_8);
@@ -1122,7 +1122,8 @@ public final class ArchiveBuilder implements Closeable {
             file.writeIntLE((int) entry.compressedSize);
             file.writeIntLE((int) entry.uncompressedSize);
         }
-        file.writeShortLE(entry.fileName.length);
+        byte[] fileName = entry.fileName;
+        file.writeShortLE(fileName.length);
         file.writeShortLE(cdeExtraFieldLength(zip64));
         file.writeShortLE(0); // comment length
         file.writeShortLE(0); // disk number start
@@ -1133,7 +1134,7 @@ public final class ArchiveBuilder implements Closeable {
         } else {
             file.writeIntLE((int) entry.localHeaderOffset);
         }
-        file.write(entry.fileName);
+        file.write(fileName);
         writeCdeExtraField(entry, zip64);
     }
 
@@ -1145,6 +1146,7 @@ public final class ArchiveBuilder implements Closeable {
      * @throws IOException if an I/O error occurs
      */
     private void writeZip64Eocd(long cdOffset, long cdSize) throws IOException {
+        BufferedFile file = this.file;
         long zip64EocdOffset = file.filePosition();
 
         // ZIP64 end of central directory record
@@ -1154,8 +1156,9 @@ public final class ArchiveBuilder implements Closeable {
         file.writeShortLE(VERSION_NEEDED_ZIP64);
         file.writeIntLE(0); // disk number
         file.writeIntLE(0); // CD first disk number
-        file.writeLongLE(entries.size()); // entries on this disk
-        file.writeLongLE(entries.size()); // total entries
+        int entryCount = entries.size();
+        file.writeLongLE(entryCount); // entries on this disk
+        file.writeLongLE(entryCount); // total entries
         file.writeLongLE(cdSize);
         file.writeLongLE(cdOffset);
 
@@ -1175,15 +1178,17 @@ public final class ArchiveBuilder implements Closeable {
      * @throws IOException if an I/O error occurs
      */
     private void writeEocd(long cdOffset, long cdSize, boolean zip64) throws IOException {
+        BufferedFile file = this.file;
         file.writeIntLE(SIG_EOCD);
         file.writeShortLE(0); // disk number
         file.writeShortLE(0); // CD first disk number
-        if (zip64 || entries.size() > 0xFFFE) {
+        int entryCount = entries.size();
+        if (zip64 || entryCount > 0xFFFE) {
             file.writeShortLE(0xFFFF);
             file.writeShortLE(0xFFFF);
         } else {
-            file.writeShortLE(entries.size());
-            file.writeShortLE(entries.size());
+            file.writeShortLE(entryCount);
+            file.writeShortLE(entryCount);
         }
         if (zip64 || cdSize > 0xFFFF_FFFEL) {
             file.writeIntLE(0xFFFF_FFFF);
@@ -1234,8 +1239,6 @@ public final class ArchiveBuilder implements Closeable {
         private static final int BUFFER_SIZE = 8192;
 
         private final CdEntry entry;
-        private long bytesWritten;
-        private long compressedBytesWritten;
         private boolean streamClosed;
         // input accumulation buffer for DEFLATE (lazily allocated)
         private byte[] inputBuffer;
@@ -1252,11 +1255,12 @@ public final class ArchiveBuilder implements Closeable {
             if (streamClosed) {
                 throw new IOException("Stream is closed");
             }
+            CdEntry entry = this.entry;
             if (entry.method == METHOD_STORED) {
                 crc().update(b);
                 file.writeByte(b);
-                bytesWritten++;
-                compressedBytesWritten++;
+                entry.uncompressedSize++;
+                entry.compressedSize++;
             } else {
                 byte[] buf = inputBuffer();
                 buf[inputPos++] = (byte) b;
@@ -1274,11 +1278,12 @@ public final class ArchiveBuilder implements Closeable {
             if (len == 0) {
                 return;
             }
+            CdEntry entry = this.entry;
             if (entry.method == METHOD_STORED) {
                 crc().update(b, off, len);
                 file.write(b, off, len);
-                bytesWritten += len;
-                compressedBytesWritten += len;
+                entry.uncompressedSize += len;
+                entry.compressedSize += len;
             } else {
                 byte[] buf = inputBuffer();
                 while (len > 0) {
@@ -1331,7 +1336,7 @@ public final class ArchiveBuilder implements Closeable {
             }
             CRC32 c = crc();
             c.update(inputBuffer, 0, inputPos);
-            bytesWritten += inputPos;
+            entry.uncompressedSize += inputPos;
             Deflater d = deflater();
             d.setInput(inputBuffer, 0, inputPos);
             inputPos = 0;
@@ -1352,7 +1357,7 @@ public final class ArchiveBuilder implements Closeable {
                 if (n > 0) {
                     // write the deflated bytes
                     file.write(out, 0, n);
-                    compressedBytesWritten += n;
+                    entry.compressedSize += n;
                 }
             }
         }
@@ -1364,6 +1369,7 @@ public final class ArchiveBuilder implements Closeable {
             }
             streamClosed = true;
 
+            CdEntry entry = this.entry;
             if (entry.method == METHOD_DEFLATE) {
                 // flush any remaining buffered input, then finish the deflater
                 flushInput();
@@ -1376,48 +1382,17 @@ public final class ArchiveBuilder implements Closeable {
                     if (n > 0) {
                         // write the deflated bytes
                         file.write(out, 0, n);
-                        compressedBytesWritten += n;
+                        entry.compressedSize += n;
                     }
                 }
                 d.reset();
             }
 
-            // check for overflow when ZIP64 was not reserved for this entry
-            if (!entry.zip64) {
-                if (bytesWritten > 0xFFFF_FFFEL || compressedBytesWritten > 0xFFFF_FFFEL) {
-                    throw new IOException(
-                            "Entry size exceeds 4 GB; use ZipOption.ZIP64 to write entries larger than 4 GB");
-                }
-            }
+            CRC32 c = crc();
+            entry.crc32 = (int) c.getValue();
+            c.reset();
 
-            long endPos = file.filePosition();
-            int crcValue = (int) crc().getValue();
-            crc().reset();
-            long lfhOffset = entry.localHeaderOffset;
-
-            // patch local file header: CRC-32, compressed size, uncompressed size
-            file.writeIntLE(lfhOffset + LH_CRC_32, crcValue);
-            if (entry.zip64) {
-                // standard size fields remain 0xFFFFFFFF; patch ZIP64 extra field
-                // ZIP64 is always the first extra field when forceZip64
-                long extraStart = lfhOffset + LH_END + entry.fileName.length;
-                file.writeLongLE(extraStart + 4, bytesWritten); // uncompressed
-                file.writeLongLE(extraStart + 12, compressedBytesWritten); // compressed
-            } else {
-                file.writeIntLE(lfhOffset + LH_COMPRESSED_SIZE, (int) compressedBytesWritten);
-                file.writeIntLE(lfhOffset + LH_UNCOMPRESSED_SIZE, (int) bytesWritten);
-            }
-
-            // seek back to end
-            file.seek(endPos);
-
-            // record final values
-            entry.crc32 = crcValue;
-            entry.compressedSize = compressedBytesWritten;
-            entry.uncompressedSize = bytesWritten;
-
-            // release active entry
-            activeEntry = null;
+            patchLfh(entry);
         }
     }
 }
