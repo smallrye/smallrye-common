@@ -3,11 +3,8 @@ package io.smallrye.common.resource;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 import io.smallrye.common.constraint.Assert;
@@ -17,7 +14,6 @@ import io.smallrye.common.io.archive.Archive;
  * A resource loader which corresponds to a JAR file.
  */
 public final class JarFileResourceLoader implements ResourceLoader {
-    private static final boolean USE_CLASSIC_IMPL = false;
     private final URL base;
     private final AbstractImpl impl;
 
@@ -29,11 +25,7 @@ public final class JarFileResourceLoader implements ResourceLoader {
      */
     public JarFileResourceLoader(final Path jarPath) throws IOException {
         base = jarPath.toUri().toURL();
-        if (USE_CLASSIC_IMPL) {
-            impl = new ClassicImpl(jarPath);
-        } else {
-            impl = new ArchiveImpl(jarPath);
-        }
+        impl = new ArchiveImpl(jarPath);
     }
 
     /**
@@ -44,11 +36,7 @@ public final class JarFileResourceLoader implements ResourceLoader {
      */
     public JarFileResourceLoader(final Resource resource) throws IOException {
         base = resource.url();
-        if (USE_CLASSIC_IMPL) {
-            impl = new ClassicImpl(resource);
-        } else {
-            impl = new ArchiveImpl(resource);
-        }
+        impl = new ArchiveImpl(resource);
     }
 
     public Resource findResource(final String path) throws IOException {
@@ -79,100 +67,6 @@ public final class JarFileResourceLoader implements ResourceLoader {
         public URL baseUrl() {
             return JarFileResourceLoader.this.baseUrl();
         }
-    }
-
-    private final class ClassicImpl extends AbstractImpl {
-        private final JarFile jarFile;
-        private Path tempFile;
-
-        /**
-         * Construct a new instance.
-         *
-         * @param jarPath the path of the JAR file (must not be {@code null})
-         * @throws IOException if opening the JAR file fails for some reason
-         */
-        public ClassicImpl(final Path jarPath) throws IOException {
-            jarFile = new JarFile(jarPath.toFile(), true, JarFile.OPEN_READ, JarFile.runtimeVersion());
-        }
-
-        /**
-         * Construct a new instance from a JAR file contained within a resource.
-         *
-         * @param resource the resource of the JAR file (must not be {@code null})
-         * @throws IOException if opening the JAR file fails for some reason
-         */
-        public ClassicImpl(final Resource resource) throws IOException {
-            if (resource instanceof PathResource pr && pr.hasFile()) {
-                // avoid using a temp file, if possible
-                jarFile = new JarFile(pr.file(), true, JarFile.OPEN_READ, JarFile.runtimeVersion());
-            } else {
-                tempFile = Files.createTempFile("srcr-tmp-", ".jar");
-                try {
-                    resource.copyTo(tempFile);
-                    jarFile = new JarFile(tempFile.toFile(), true, JarFile.OPEN_READ, JarFile.runtimeVersion());
-                } catch (Throwable t) {
-                    try {
-                        Files.delete(tempFile);
-                    } catch (Throwable t2) {
-                        t.addSuppressed(t2);
-                    }
-                    throw t;
-                }
-            }
-        }
-
-        public Resource findResource(final String path) {
-            String canonPath = ResourceUtils.canonicalizeRelativePath(path);
-            if (canonPath.isEmpty()) {
-                // root directory
-                JarEntry entry = new JarEntry("/");
-                entry.setSize(0);
-                entry.setCompressedSize(0);
-                return new ClassicJarFileResource(baseUrl(), jarFile, entry);
-            }
-            JarEntry jarEntry = jarFile.getJarEntry(canonPath);
-            if (jarEntry != null) {
-                return new ClassicJarFileResource(baseUrl(), jarFile, jarEntry);
-            } else {
-                jarEntry = jarFile.getJarEntry(canonPath + "/");
-                if (jarEntry != null) {
-                    return new ClassicJarFileResource(baseUrl(), jarFile, jarEntry);
-                } else {
-                    // search for a directory with the given name (todo: may be slow)
-                    String dirName = canonPath + "/";
-                    boolean found = jarFile.versionedStream().map(JarEntry::getName)
-                            .map(ResourceUtils::canonicalizeRelativePath)
-                            .anyMatch(n -> n.startsWith(dirName));
-                    if (found) {
-                        JarEntry entry = new JarEntry(dirName);
-                        entry.setSize(0);
-                        entry.setCompressedSize(0);
-                        return new ClassicJarFileResource(base, jarFile, entry);
-                    }
-                    return null;
-                }
-            }
-        }
-
-        public Manifest manifest() throws IOException {
-            return jarFile.getManifest();
-        }
-
-        public void close() {
-            try {
-                jarFile.close();
-            } catch (IOException ignored) {
-            }
-            if (tempFile != null) {
-                try {
-                    Files.delete(tempFile);
-                } catch (IOException ignored) {
-                } finally {
-                    tempFile = null;
-                }
-            }
-        }
-
     }
 
     private final class ArchiveImpl extends AbstractImpl {
