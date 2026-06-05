@@ -221,6 +221,7 @@ public final class ArchiveBuilder implements Closeable {
      * @param file the buffered file to write the archive to (must not be {@code null})
      * @param options the options (must not be {@code null}); may contain {@link ZipOption} values
      * @return a new archive builder (not {@code null})
+     * @throws IOException if an I/O error occurs
      * @throws UnsupportedOperationException if an unsupported option is specified
      */
     public static ArchiveBuilder open(BufferedFile file, OpenOption... options) throws IOException {
@@ -242,6 +243,7 @@ public final class ArchiveBuilder implements Closeable {
      * @param file the buffered file to write the archive to (must not be {@code null})
      * @param options the options (must not be {@code null}); may contain {@link ZipOption} values
      * @return a new archive builder (not {@code null})
+     * @throws IOException if an I/O error occurs
      * @throws UnsupportedOperationException if an unsupported option is specified
      */
     public static ArchiveBuilder open(BufferedFile file, Collection<? extends OpenOption> options) throws IOException {
