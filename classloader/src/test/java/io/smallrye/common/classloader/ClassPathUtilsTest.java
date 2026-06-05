@@ -4,18 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
-import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.exporter.ZipExporter;
-import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import io.smallrye.common.io.archive.ArchiveBuilder;
 
 class ClassPathUtilsTest {
     @Test
@@ -73,12 +74,13 @@ class ClassPathUtilsTest {
 
     @Test
     void processAsPath(@TempDir Path tempDir) throws Exception {
-        JavaArchive jar = ShrinkWrap
-                .create(JavaArchive.class, "resources.jar")
-                .addAsResource("resources.properties");
-
         Path filePath = tempDir.resolve("resources.jar");
-        jar.as(ZipExporter.class).exportTo(filePath.toFile());
+        try (ArchiveBuilder builder = ArchiveBuilder.open(filePath)) {
+            try (OutputStream os = builder.addEntry("resources.properties");
+                    InputStream is = getClass().getClassLoader().getResourceAsStream("resources.properties")) {
+                is.transferTo(os);
+            }
+        }
 
         URI resource = new URI("jar", filePath.toUri().toASCIIString() + "!/resources.properties", null);
         Properties properties = ClassPathUtils.processAsPath(resource.toURL(), path -> {
@@ -96,12 +98,13 @@ class ClassPathUtilsTest {
 
     @Test
     void readStream(@TempDir Path tempDir) throws Exception {
-        JavaArchive jar = ShrinkWrap
-                .create(JavaArchive.class, "resources.jar")
-                .addAsResource("resources.properties");
-
         Path filePath = tempDir.resolve("resources.jar");
-        jar.as(ZipExporter.class).exportTo(filePath.toFile());
+        try (ArchiveBuilder builder = ArchiveBuilder.open(filePath)) {
+            try (OutputStream os = builder.addEntry("resources.properties");
+                    InputStream is = getClass().getClassLoader().getResourceAsStream("resources.properties")) {
+                is.transferTo(os);
+            }
+        }
 
         URI resource = new URI("jar", filePath.toUri().toASCIIString() + "!/resources.properties", null);
         Properties properties = ClassPathUtils.readStream(resource.toURL(), inputStream -> {
