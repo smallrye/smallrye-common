@@ -98,6 +98,18 @@ public final class ArchiveBuilder implements Closeable {
     /**
      * Open a new archive builder for writing to the given path.
      * The file is created atomically; if a file already exists at the given path, an exception is thrown.
+     *
+     * @param path the path of the archive file to create (must not be {@code null})
+     * @return a new archive builder (not {@code null})
+     * @throws IOException if an I/O error occurs or the file already exists
+     */
+    public static ArchiveBuilder open(Path path) throws IOException {
+        return open(path, Set.of());
+    }
+
+    /**
+     * Open a new archive builder for writing to the given path.
+     * The file is created atomically; if a file already exists at the given path, an exception is thrown.
      * The optional file attributes are applied to the created file on the filesystem.
      *
      * @param path the path of the archive file to create (must not be {@code null})
@@ -107,6 +119,20 @@ public final class ArchiveBuilder implements Closeable {
      */
     public static ArchiveBuilder open(Path path, FileAttribute<?>... attrs) throws IOException {
         return open(path, Set.of(), attrs);
+    }
+
+    /**
+     * Open a new archive builder for writing to the given path, with the given options.
+     * The file is created atomically; if a file already exists at the given path, an exception is thrown.
+     *
+     * @param path the path of the archive file to create (must not be {@code null})
+     * @param options the open options (must not be {@code null}); may contain {@link ZipOption} values
+     * @return a new archive builder (not {@code null})
+     * @throws IOException if an I/O error occurs or the file already exists
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public static ArchiveBuilder open(Path path, OpenOption... options) throws IOException {
+        return open(path, Set.of(options));
     }
 
     /**
@@ -232,6 +258,23 @@ public final class ArchiveBuilder implements Closeable {
      */
     public OutputStream addEntry(String name, OpenOption... options) throws IOException {
         return addEntry(name, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive with the given options.
+     * Options given here override the builder-level defaults for this entry.
+     * The returned output stream must be closed before another entry can be added or the archive can be closed.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @return an output stream to which the entry data should be written (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public OutputStream addEntry(String name, FileAttribute<?>... attrs) throws IOException {
+        return addEntry(name, Set.of(), attrs);
     }
 
     /**
