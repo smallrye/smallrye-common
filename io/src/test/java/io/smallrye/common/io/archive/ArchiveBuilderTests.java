@@ -12,12 +12,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -976,6 +978,207 @@ public class ArchiveBuilderTests {
             try (InputStream is = zf.getInputStream(entry)) {
                 assertArrayEquals(content, is.readAllBytes());
             }
+        }
+    }
+
+    // ── StandardOpenOption handling tests ────────────────────────────────
+
+    /**
+     * Test that opening an archive with default options creates the file if absent
+     * and overwrites it if present.
+     */
+    @Test
+    public void testOpenDefaultOverwritesExisting() throws Exception {
+        Path file = tempDir.resolve("overwrite.zip");
+        byte[] first = "first".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "second".getBytes(StandardCharsets.UTF_8);
+
+        // create the archive once
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (OutputStream os = builder.addEntry("a.txt")) {
+                os.write(first);
+            }
+        }
+
+        // open again at the same path — should overwrite, not fail
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (OutputStream os = builder.addEntry("b.txt")) {
+                os.write(second);
+            }
+        }
+
+        // verify only the second archive's entry is present
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertNotNull(zf.getEntry("b.txt"));
+            assertEquals(1, zf.size());
+            try (InputStream is = zf.getInputStream(zf.getEntry("b.txt"))) {
+                assertArrayEquals(second, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test that {@link StandardOpenOption#CREATE_NEW} causes a failure when the file already exists.
+     */
+    @Test
+    public void testOpenCreateNewFailsIfExists() throws Exception {
+        Path file = tempDir.resolve("create-new.zip");
+
+        // create the file first
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            // empty archive
+        }
+        assertTrue(Files.exists(file));
+
+        // opening with CREATE_NEW should fail
+        assertThrows(FileAlreadyExistsException.class,
+                () -> ArchiveBuilder.open(file, StandardOpenOption.CREATE_NEW));
+    }
+
+    /**
+     * Test that {@link StandardOpenOption#CREATE_NEW} succeeds when the file does not exist.
+     */
+    @Test
+    public void testOpenCreateNewSucceeds() throws Exception {
+        Path file = tempDir.resolve("create-new-ok.zip");
+        byte[] content = "create-new".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file, StandardOpenOption.CREATE_NEW)) {
+            try (OutputStream os = builder.addEntry("entry.txt")) {
+                os.write(content);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertNotNull(zf.getEntry("entry.txt"));
+            try (InputStream is = zf.getInputStream(zf.getEntry("entry.txt"))) {
+                assertArrayEquals(content, is.readAllBytes());
+            }
+        }
+    }
+
+    /**
+     * Test that {@link StandardOpenOption#TRUNCATE_EXISTING} is accepted
+     * and truncates an existing file.
+     */
+    @Test
+    public void testOpenTruncateExisting() throws Exception {
+        Path file = tempDir.resolve("truncate.zip");
+        byte[] first = "first-content".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "second".getBytes(StandardCharsets.UTF_8);
+
+        // create a first archive
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (OutputStream os = builder.addEntry("a.txt")) {
+                os.write(first);
+            }
+        }
+        long firstSize = Files.size(file);
+
+        // reopen with explicit TRUNCATE_EXISTING
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file, StandardOpenOption.TRUNCATE_EXISTING)) {
+            try (OutputStream os = builder.addEntry("b.txt")) {
+                os.write(second);
+            }
+        }
+
+        // verify it's a valid archive with only the second entry
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertNotNull(zf.getEntry("b.txt"));
+            assertEquals(1, zf.size());
+        }
+    }
+
+    /**
+     * Test that {@link StandardOpenOption#READ}, {@link StandardOpenOption#WRITE},
+     * and {@link StandardOpenOption#CREATE} are silently accepted by {@code open}.
+     */
+    @Test
+    public void testOpenImpliedOptionsAccepted() throws Exception {
+        Path file = tempDir.resolve("implied.zip");
+        byte[] content = "implied".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file,
+                StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
+            try (OutputStream os = builder.addEntry("entry.txt")) {
+                os.write(content);
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertNotNull(zf.getEntry("entry.txt"));
+        }
+    }
+
+    /**
+     * Test that entry-creation methods silently accept {@link StandardOpenOption#CREATE},
+     * {@link StandardOpenOption#READ}, {@link StandardOpenOption#WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING}.
+     */
+    @Test
+    public void testEntryMethodsAcceptImpliedOptions() throws Exception {
+        Path file = tempDir.resolve("entry-implied.zip");
+        byte[] content = "hello".getBytes(StandardCharsets.UTF_8);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            // addEntry with implied options
+            try (OutputStream os = builder.addEntry("a.txt",
+                    List.of(StandardOpenOption.CREATE, StandardOpenOption.READ,
+                            StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING,
+                            ZipOption.STORED))) {
+                os.write(content);
+            }
+
+            // addBufferedEntry with implied options
+            try (BufferedFile bf = builder.addBufferedEntry("b.txt",
+                    List.of(StandardOpenOption.CREATE, StandardOpenOption.CREATE_NEW,
+                            StandardOpenOption.READ, StandardOpenOption.WRITE,
+                            StandardOpenOption.TRUNCATE_EXISTING))) {
+                bf.write(content);
+            }
+
+            // addArchive with implied options
+            try (ArchiveBuilder inner = builder.addArchive("inner.zip",
+                    List.of(StandardOpenOption.CREATE, StandardOpenOption.READ,
+                            StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING,
+                            ZipOption.STORED))) {
+                try (OutputStream os = inner.addEntry("nested.txt")) {
+                    os.write(content);
+                }
+            }
+        }
+
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertNotNull(zf.getEntry("a.txt"));
+            assertNotNull(zf.getEntry("b.txt"));
+            assertNotNull(zf.getEntry("inner.zip"));
+            assertEquals(3, zf.size());
+        }
+    }
+
+    /**
+     * Test that unsupported {@link StandardOpenOption} values are still rejected.
+     */
+    @Test
+    public void testOpenRejectsUnsupportedOption() {
+        Path file = tempDir.resolve("unsupported.zip");
+        assertThrows(UnsupportedOperationException.class,
+                () -> ArchiveBuilder.open(file, StandardOpenOption.APPEND));
+    }
+
+    /**
+     * Test that entry-creation methods reject unsupported {@link StandardOpenOption} values.
+     */
+    @Test
+    public void testEntryRejectsUnsupportedOption() throws Exception {
+        Path file = tempDir.resolve("entry-unsupported.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            assertThrows(UnsupportedOperationException.class,
+                    () -> builder.addEntry("a.txt", StandardOpenOption.APPEND));
+            assertThrows(UnsupportedOperationException.class,
+                    () -> builder.addBufferedEntry("b.txt", StandardOpenOption.APPEND));
+            assertThrows(UnsupportedOperationException.class,
+                    () -> builder.addArchive("c.zip", StandardOpenOption.APPEND));
         }
     }
 }

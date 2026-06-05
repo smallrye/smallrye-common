@@ -18,6 +18,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.zip.CRC32;
@@ -97,11 +98,13 @@ public final class ArchiveBuilder implements Closeable {
 
     /**
      * Open a new archive builder for writing to the given path.
-     * The file is created atomically; if a file already exists at the given path, an exception is thrown.
+     * The file is created if it does not exist.
+     * If the file already exists, its previous contents are overwritten.
+     * This is equivalent to calling {@link #open(Path, Collection, FileAttribute...)} with an empty options set.
      *
      * @param path the path of the archive file to create (must not be {@code null})
      * @return a new archive builder (not {@code null})
-     * @throws IOException if an I/O error occurs or the file already exists
+     * @throws IOException if an I/O error occurs
      */
     public static ArchiveBuilder open(Path path) throws IOException {
         return open(path, Set.of());
@@ -109,13 +112,15 @@ public final class ArchiveBuilder implements Closeable {
 
     /**
      * Open a new archive builder for writing to the given path.
-     * The file is created atomically; if a file already exists at the given path, an exception is thrown.
+     * The file is created if it does not exist.
+     * If the file already exists, its previous contents are overwritten.
      * The optional file attributes are applied to the created file on the filesystem.
+     * This is equivalent to calling {@link #open(Path, Collection, FileAttribute...)} with an empty options set.
      *
      * @param path the path of the archive file to create (must not be {@code null})
      * @param attrs optional file attributes to set on the created file
      * @return a new archive builder (not {@code null})
-     * @throws IOException if an I/O error occurs or the file already exists
+     * @throws IOException if an I/O error occurs
      */
     public static ArchiveBuilder open(Path path, FileAttribute<?>... attrs) throws IOException {
         return open(path, Set.of(), attrs);
@@ -123,12 +128,13 @@ public final class ArchiveBuilder implements Closeable {
 
     /**
      * Open a new archive builder for writing to the given path, with the given options.
-     * The file is created atomically; if a file already exists at the given path, an exception is thrown.
+     * See {@link #open(Path, Collection, FileAttribute...)} for details on how options are handled.
      *
      * @param path the path of the archive file to create (must not be {@code null})
      * @param options the open options (must not be {@code null}); may contain {@link ZipOption} values
+     *        and/or {@link StandardOpenOption} values
      * @return a new archive builder (not {@code null})
-     * @throws IOException if an I/O error occurs or the file already exists
+     * @throws IOException if an I/O error occurs
      * @throws UnsupportedOperationException if an unsupported option is specified
      */
     public static ArchiveBuilder open(Path path, OpenOption... options) throws IOException {
@@ -137,14 +143,27 @@ public final class ArchiveBuilder implements Closeable {
 
     /**
      * Open a new archive builder for writing to the given path, with the given options.
-     * The file is created atomically; if a file already exists at the given path, an exception is thrown.
+     * The file is always opened for both reading and writing.
+     * By default, the file is created if it does not exist, and its previous contents (if any) are overwritten.
+     * <p>
+     * The following {@link StandardOpenOption} values are accepted:
+     * <ul>
+     * <li>{@link StandardOpenOption#CREATE_NEW CREATE_NEW} &mdash; create the file atomically;
+     * an exception is thrown if the file already exists</li>
+     * <li>{@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} &mdash; truncate the file
+     * to zero length when opened (this is the default behavior when {@code CREATE_NEW} is not given)</li>
+     * <li>{@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#READ READ},
+     * {@link StandardOpenOption#WRITE WRITE} &mdash; accepted silently (these behaviors are always implied)</li>
+     * </ul>
+     * {@link ZipOption} values may also be specified to set builder-level defaults.
      * The optional file attributes are applied to the created file on the filesystem.
      *
      * @param path the path of the archive file to create (must not be {@code null})
      * @param options the open options (must not be {@code null}); may contain {@link ZipOption} values
+     *        and/or {@link StandardOpenOption} values
      * @param attrs optional file attributes to set on the created file
      * @return a new archive builder (not {@code null})
-     * @throws IOException if an I/O error occurs or the file already exists
+     * @throws IOException if an I/O error occurs
      * @throws UnsupportedOperationException if an unsupported option is specified
      */
     public static ArchiveBuilder open(Path path, Collection<? extends OpenOption> options,
@@ -153,6 +172,8 @@ public final class ArchiveBuilder implements Closeable {
         Assert.checkNotNullParam("options", options);
         int method = -1;
         boolean zip64 = false;
+        boolean createNew = false;
+        boolean truncate = false;
         for (OpenOption opt : options) {
             if (opt instanceof ZipOption zo) {
                 switch (zo) {
@@ -160,13 +181,31 @@ public final class ArchiveBuilder implements Closeable {
                     case DEFLATED -> method = setMethod(method, METHOD_DEFLATE);
                     case ZIP64 -> zip64 = true;
                 }
+            } else if (opt instanceof StandardOpenOption soo) {
+                switch (soo) {
+                    case READ, WRITE, CREATE -> {
+                        // always implied
+                    }
+                    case CREATE_NEW -> createNew = true;
+                    case TRUNCATE_EXISTING -> truncate = true;
+                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
+                }
             } else {
                 throw new UnsupportedOperationException("Unsupported option: " + opt);
             }
         }
-        BufferedFile bf = Files2.openBuffered(path,
-                Set.of(StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW),
-                List.of(attrs));
+        EnumSet<StandardOpenOption> fileOptions = EnumSet.of(StandardOpenOption.READ, StandardOpenOption.WRITE,
+                StandardOpenOption.CREATE);
+        if (createNew) {
+            fileOptions.add(StandardOpenOption.CREATE_NEW);
+        } else {
+            // default: truncate existing content so stale data does not trail the new archive
+            fileOptions.add(StandardOpenOption.TRUNCATE_EXISTING);
+        }
+        if (truncate) {
+            fileOptions.add(StandardOpenOption.TRUNCATE_EXISTING);
+        }
+        BufferedFile bf = Files2.openBuffered(path, fileOptions, List.of(attrs));
         return new ArchiveBuilder(bf, true, method == -1 ? METHOD_DEFLATE : method, zip64);
     }
 
@@ -175,6 +214,12 @@ public final class ArchiveBuilder implements Closeable {
      * The file must be open for both reading and writing.
      * When the builder is {@linkplain #close() closed}, the central directory is written
      * but the {@code BufferedFile} itself is <em>not</em> closed; the caller retains ownership.
+     * <p>
+     * {@link ZipOption} values may be specified to set builder-level defaults.
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since the file is already open.
      *
      * @param file the buffered file to write the archive to (must not be {@code null})
      * @param options the options (must not be {@code null}); may contain {@link ZipOption} values
@@ -191,6 +236,13 @@ public final class ArchiveBuilder implements Closeable {
                     case STORED -> method = setMethod(method, METHOD_STORED);
                     case DEFLATED -> method = setMethod(method, METHOD_DEFLATE);
                     case ZIP64 -> zip64 = true;
+                }
+            } else if (opt instanceof StandardOpenOption soo) {
+                switch (soo) {
+                    case READ, WRITE, CREATE, CREATE_NEW, TRUNCATE_EXISTING -> {
+                        // ignored; file is already open
+                    }
+                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
                 }
             } else {
                 throw new UnsupportedOperationException("Unsupported option: " + opt);
@@ -281,6 +333,11 @@ public final class ArchiveBuilder implements Closeable {
      * Add a file entry to the archive with the given options.
      * Options given here override the builder-level defaults for this entry.
      * The returned output stream must be closed before another entry can be added or the archive can be closed.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
      *
      * @param name the entry name (must not be {@code null})
      * @param options the entry options (must not be {@code null}); may contain {@link ZipOption} values
@@ -307,6 +364,13 @@ public final class ArchiveBuilder implements Closeable {
                     case STORED -> method = setMethod(method, METHOD_STORED);
                     case DEFLATED -> method = setMethod(method, METHOD_DEFLATE);
                     case ZIP64 -> zip64 = true;
+                }
+            } else if (opt instanceof StandardOpenOption soo) {
+                switch (soo) {
+                    case CREATE, CREATE_NEW, READ, WRITE, TRUNCATE_EXISTING -> {
+                        // ignored; entries are always created
+                    }
+                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
                 }
             } else {
                 throw new UnsupportedOperationException("Unsupported option: " + opt);
@@ -410,6 +474,11 @@ public final class ArchiveBuilder implements Closeable {
      * can be added or the archive can be closed.
      * When closed, the CRC-32 is computed from the written data and the local file header
      * is patched with the final CRC and size values.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
      *
      * @param name the entry name (must not be {@code null})
      * @param options the entry options (must not be {@code null}); may contain {@link ZipOption#ZIP64}
@@ -436,6 +505,13 @@ public final class ArchiveBuilder implements Closeable {
                     case DEFLATED -> throw new IllegalArgumentException(
                             "Buffered entries require STORED method; DEFLATED is incompatible with random-access writing");
                     case ZIP64 -> zip64 = true;
+                }
+            } else if (opt instanceof StandardOpenOption soo) {
+                switch (soo) {
+                    case CREATE, CREATE_NEW, READ, WRITE, TRUNCATE_EXISTING -> {
+                        // ignored; entries are always created
+                    }
+                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
                 }
             } else {
                 throw new UnsupportedOperationException("Unsupported option: " + opt);
@@ -562,6 +638,11 @@ public final class ArchiveBuilder implements Closeable {
      * file header). The inner builder inherits the same options as its defaults.
      * {@link ZipOption#DEFLATED} is permitted here (unlike {@code addBufferedEntry}) and sets
      * the inner builder's default compression method; the outer entry is always STORED.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
      *
      * @param name the entry name for the nested archive (must not be {@code null})
      * @param options the options (must not be {@code null}); may contain {@link ZipOption} values
@@ -585,6 +666,13 @@ public final class ArchiveBuilder implements Closeable {
                     case STORED -> innerMethod = setMethod(innerMethod, METHOD_STORED);
                     case DEFLATED -> innerMethod = setMethod(innerMethod, METHOD_DEFLATE);
                     case ZIP64 -> zip64 = true;
+                }
+            } else if (opt instanceof StandardOpenOption soo) {
+                switch (soo) {
+                    case CREATE, CREATE_NEW, READ, WRITE, TRUNCATE_EXISTING -> {
+                        // ignored; entries are always created
+                    }
+                    default -> throw new UnsupportedOperationException("Unsupported option: " + opt);
                 }
             } else {
                 throw new UnsupportedOperationException("Unsupported option: " + opt);
