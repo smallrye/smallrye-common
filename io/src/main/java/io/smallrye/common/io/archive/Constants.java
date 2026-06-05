@@ -190,6 +190,6 @@ final class Constants {
     static final int ZIP64_CDE_EXTRA_TOTAL_SIZE = 28;
 
     // Version values
-    static final int VERSION_NEEDED_UTF8 = 63; // 6.3 for UTF-8 (GP bit 11)
-    static final int VERSION_MADE_BY_UNIX_63 = (MADE_BY_UNIX << 8) | VERSION_NEEDED_UTF8;
+    static final int VERSION_NEEDED_DEFAULT = 20; // 2.0 for Deflate and directories
+    static final int VERSION_NEEDED_ZIP64 = 45; // 4.5 for ZIP64 extensions
 }

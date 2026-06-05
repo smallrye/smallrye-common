@@ -892,7 +892,7 @@ public final class ArchiveBuilder implements Closeable {
      */
     private void writeLfh(CdEntry entry, boolean zip64) throws IOException {
         file.writeIntLE(SIG_LH);
-        file.writeShortLE(VERSION_NEEDED_UTF8);
+        file.writeShortLE(zip64 ? VERSION_NEEDED_ZIP64 : VERSION_NEEDED_DEFAULT);
         file.writeShortLE(GP_UTF_8);
         file.writeShortLE(entry.method);
         file.writeShortLE(entry.dosTime);
@@ -955,9 +955,10 @@ public final class ArchiveBuilder implements Closeable {
      * @throws IOException if an I/O error occurs
      */
     private void writeCde(CdEntry entry, boolean zip64) throws IOException {
+        int versionNeeded = zip64 ? VERSION_NEEDED_ZIP64 : VERSION_NEEDED_DEFAULT;
         file.writeIntLE(SIG_CDE);
-        file.writeShortLE(VERSION_MADE_BY_UNIX_63);
-        file.writeShortLE(VERSION_NEEDED_UTF8);
+        file.writeShortLE((MADE_BY_UNIX << 8) | versionNeeded);
+        file.writeShortLE(versionNeeded);
         file.writeShortLE(GP_UTF_8);
         file.writeShortLE(entry.method);
         file.writeShortLE(entry.dosTime);
@@ -998,8 +999,8 @@ public final class ArchiveBuilder implements Closeable {
         // ZIP64 end of central directory record
         file.writeIntLE(SIG_EOCD_ZIP64);
         file.writeLongLE(EOCD_ZIP64_END - 12L); // size of remaining record (exclude signature + size fields)
-        file.writeShortLE(VERSION_MADE_BY_UNIX_63);
-        file.writeShortLE(VERSION_NEEDED_UTF8);
+        file.writeShortLE((MADE_BY_UNIX << 8) | VERSION_NEEDED_ZIP64);
+        file.writeShortLE(VERSION_NEEDED_ZIP64);
         file.writeIntLE(0); // disk number
         file.writeIntLE(0); // CD first disk number
         file.writeLongLE(entries.size()); // entries on this disk
