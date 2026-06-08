@@ -86,6 +86,7 @@ public final class ArchiveBuilder implements Closeable {
     private static final Instant NTFS_EPOCH = Instant.from(ZonedDateTime.of(1601, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC));
 
     private final BufferedFile file;
+    private final long startOffset;
     private final int defaultMethod;
     private final boolean defaultZip64;
     private final List<CdEntry> entries = new ArrayList<>();
@@ -94,8 +95,9 @@ public final class ArchiveBuilder implements Closeable {
     private Closeable activeEntry;
     private boolean closed;
 
-    private ArchiveBuilder(BufferedFile file, int defaultMethod, boolean defaultZip64) {
+    private ArchiveBuilder(BufferedFile file, long startOffset, int defaultMethod, boolean defaultZip64) {
         this.file = file;
+        this.startOffset = startOffset;
         this.defaultMethod = defaultMethod;
         this.defaultZip64 = defaultZip64;
     }
@@ -257,11 +259,26 @@ public final class ArchiveBuilder implements Closeable {
                 Assert.checkNotNullParam("options", options));
     }
 
-    private static ArchiveBuilder openTrusted(final BufferedFile file, final Collection<? extends OpenOption> options) {
+    private static ArchiveBuilder openTrusted(final BufferedFile file,
+            final Collection<? extends OpenOption> options) throws IOException {
         int parsed = parseEntryOptions(options, true);
         int method = parsed & PARSED_METHOD_MASK;
-        return new ArchiveBuilder(file, method == PARSED_NO_METHOD ? METHOD_DEFLATE : method,
+        return new ArchiveBuilder(file, file.filePosition(), method == PARSED_NO_METHOD ? METHOD_DEFLATE : method,
                 (parsed & PARSED_ZIP64) != 0);
+    }
+
+    /**
+     * {@return the current position within the archive, in bytes}
+     * The position is relative to the start of the archive data, not to the start of the underlying file.
+     * This method may only be called when no entry is currently being written.
+     *
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public long position() throws IOException {
+        checkOpen();
+        checkNoActiveEntry();
+        return file.filePosition() - startOffset;
     }
 
     /**
@@ -1023,7 +1040,8 @@ public final class ArchiveBuilder implements Closeable {
 
         // create the inner builder; ownsFile = true so closing it closes the nested file,
         // which triggers the close action for CRC/LFH patching on the outer entry
-        return new ArchiveBuilder(nested, innerMethod == PARSED_NO_METHOD ? METHOD_DEFLATE : innerMethod, zip64);
+        return new ArchiveBuilder(nested, nested.filePosition(),
+                innerMethod == PARSED_NO_METHOD ? METHOD_DEFLATE : innerMethod, zip64);
     }
 
     /**
