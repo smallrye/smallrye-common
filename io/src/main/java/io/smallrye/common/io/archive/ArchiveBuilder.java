@@ -1044,6 +1044,92 @@ public final class ArchiveBuilder implements Closeable {
                 innerMethod == PARSED_NO_METHOD ? METHOD_DEFLATE : innerMethod, zip64);
     }
 
+    // ── Raw data methods ────────────────────────────────────────────────
+
+    /**
+     * Begin writing raw (non-entry) data to the archive file and return an {@link OutputStream}
+     * for the data.
+     * The data is written directly to the underlying file with no local file header, compression,
+     * or central directory entry.
+     * This is intended for bootstrappers or other tools that hard-code file offsets
+     * (obtained from {@link #position()}) to access opaque binary blobs embedded in the archive.
+     * <p>
+     * The returned stream must be {@linkplain OutputStream#close() closed} before another entry
+     * or raw data section can be added, or the archive can be closed.
+     *
+     * @return an output stream to which the raw data should be written (not {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry or raw data stream is still open, or this builder is closed
+     */
+    public OutputStream addRawData() throws IOException {
+        checkOpen();
+        checkNoActiveEntry();
+        RawDataOutputStream rdos = new RawDataOutputStream();
+        activeEntry = rdos;
+        return rdos;
+    }
+
+    /**
+     * Write raw (non-entry) data to the archive file, reading all bytes from the given input stream.
+     * All bytes are read using {@link InputStream#transferTo(OutputStream)}.
+     * The input stream is not closed by this method.
+     * <p>
+     * The data is written directly to the underlying file with no local file header, compression,
+     * or central directory entry.
+     * This is intended for bootstrappers or other tools that hard-code file offsets
+     * (obtained from {@link #position()}) to access opaque binary blobs embedded in the archive.
+     *
+     * @param content the input stream to read from (must not be {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry or raw data stream is still open, or this builder is closed
+     */
+    public void addRawData(InputStream content) throws IOException {
+        Assert.checkNotNullParam("content", content);
+        try (OutputStream os = addRawData()) {
+            content.transferTo(os);
+        }
+    }
+
+    /**
+     * Write raw (non-entry) data to the archive file from the given byte array.
+     * <p>
+     * The data is written directly to the underlying file with no local file header, compression,
+     * or central directory entry.
+     * This is intended for bootstrappers or other tools that hard-code file offsets
+     * (obtained from {@link #position()}) to access opaque binary blobs embedded in the archive.
+     *
+     * @param data the byte array to write (must not be {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry or raw data stream is still open, or this builder is closed
+     */
+    public void addRawData(byte[] data) throws IOException {
+        Assert.checkNotNullParam("data", data);
+        addRawData(data, 0, data.length);
+    }
+
+    /**
+     * Write raw (non-entry) data to the archive file from a region of the given byte array.
+     * <p>
+     * The data is written directly to the underlying file with no local file header, compression,
+     * or central directory entry.
+     * This is intended for bootstrappers or other tools that hard-code file offsets
+     * (obtained from {@link #position()}) to access opaque binary blobs embedded in the archive.
+     *
+     * @param data the byte array to write from (must not be {@code null})
+     * @param offset the start offset in the array
+     * @param length the number of bytes to write
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry or raw data stream is still open, or this builder is closed
+     * @throws IndexOutOfBoundsException if {@code offset} or {@code length} is negative,
+     *         or {@code offset + length} exceeds the array length
+     */
+    public void addRawData(byte[] data, int offset, int length) throws IOException {
+        Assert.checkNotNullParam("data", data);
+        checkOpen();
+        checkNoActiveEntry();
+        file.write(data, offset, length);
+    }
+
     /**
      * Close this archive builder, writing the central directory and end-of-central-directory records.
      *
@@ -1808,6 +1894,41 @@ public final class ArchiveBuilder implements Closeable {
             c.reset();
 
             patchLfh(entry);
+        }
+    }
+
+    /**
+     * An output stream that writes raw data directly to the underlying file
+     * with no ZIP framing.
+     * Closing this stream releases the active entry lock so that further entries
+     * or raw data sections can be added.
+     */
+    private final class RawDataOutputStream extends OutputStream {
+        private boolean streamClosed;
+
+        @Override
+        public void write(int b) throws IOException {
+            if (streamClosed) {
+                throw new IOException("Stream is closed");
+            }
+            file.writeByte(b);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            if (streamClosed) {
+                throw new IOException("Stream is closed");
+            }
+            file.write(b, off, len);
+        }
+
+        @Override
+        public void close() {
+            if (streamClosed) {
+                return;
+            }
+            streamClosed = true;
+            activeEntry = null;
         }
     }
 }
