@@ -469,6 +469,162 @@ public final class ArchiveBuilder implements Closeable {
     }
 
     /**
+     * Add a file entry to the archive with the content from the given byte array,
+     * using the builder's default options and no file attributes.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the byte array to write (must not be {@code null})
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, byte[] content) throws IOException {
+        addEntry(name, content, Set.of());
+    }
+
+    /**
+     * Add a file entry to the archive with the content from the given byte array,
+     * with the given options.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the byte array to write (must not be {@code null})
+     * @param options the entry options; may contain {@link ZipOption} values
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, byte[] content, OpenOption... options) throws IOException {
+        addEntry(name, content, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive with the content from the given byte array,
+     * with the given file attributes.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the byte array to write (must not be {@code null})
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     */
+    public void addEntry(String name, byte[] content, FileAttribute<?>... attrs) throws IOException {
+        addEntry(name, content, Set.of(), attrs);
+    }
+
+    /**
+     * Add a file entry to the archive with the content from the given byte array,
+     * with the given options and file attributes.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the byte array to write (must not be {@code null})
+     * @param options the entry options (must not be {@code null}); may contain {@link ZipOption} values
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     */
+    public void addEntry(String name, byte[] content, Collection<? extends OpenOption> options,
+            FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("content", content);
+        try (OutputStream os = addEntry(name, options, attrs)) {
+            os.write(content);
+        }
+    }
+
+    /**
+     * Add a file entry to the archive with the content from a region of the given byte array,
+     * using the builder's default options and no file attributes.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the byte array to write from (must not be {@code null})
+     * @param offset the start offset in the array
+     * @param length the number of bytes to write
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IndexOutOfBoundsException if {@code offset} or {@code length} is negative,
+     *         or {@code offset + length} exceeds the array length
+     */
+    public void addEntry(String name, byte[] content, int offset, int length) throws IOException {
+        addEntry(name, content, offset, length, Set.of());
+    }
+
+    /**
+     * Add a file entry to the archive with the content from a region of the given byte array,
+     * with the given options.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the byte array to write from (must not be {@code null})
+     * @param offset the start offset in the array
+     * @param length the number of bytes to write
+     * @param options the entry options; may contain {@link ZipOption} values
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     * @throws IndexOutOfBoundsException if {@code offset} or {@code length} is negative,
+     *         or {@code offset + length} exceeds the array length
+     */
+    public void addEntry(String name, byte[] content, int offset, int length,
+            OpenOption... options) throws IOException {
+        addEntry(name, content, offset, length, List.of(options));
+    }
+
+    /**
+     * Add a file entry to the archive with the content from a region of the given byte array,
+     * with the given file attributes.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the byte array to write from (must not be {@code null})
+     * @param offset the start offset in the array
+     * @param length the number of bytes to write
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IndexOutOfBoundsException if {@code offset} or {@code length} is negative,
+     *         or {@code offset + length} exceeds the array length
+     */
+    public void addEntry(String name, byte[] content, int offset, int length,
+            FileAttribute<?>... attrs) throws IOException {
+        addEntry(name, content, offset, length, Set.of(), attrs);
+    }
+
+    /**
+     * Add a file entry to the archive with the content from a region of the given byte array,
+     * with the given options and file attributes.
+     * <p>
+     * {@link StandardOpenOption#CREATE CREATE}, {@link StandardOpenOption#CREATE_NEW CREATE_NEW},
+     * {@link StandardOpenOption#READ READ}, {@link StandardOpenOption#WRITE WRITE}, and
+     * {@link StandardOpenOption#TRUNCATE_EXISTING TRUNCATE_EXISTING} are accepted but ignored,
+     * since entries are always created within the archive.
+     *
+     * @param name the entry name (must not be {@code null})
+     * @param content the byte array to write from (must not be {@code null})
+     * @param offset the start offset in the array
+     * @param length the number of bytes to write
+     * @param options the entry options (must not be {@code null}); may contain {@link ZipOption} values
+     * @param attrs optional file attributes for the entry (e.g., POSIX permissions, timestamps)
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if an entry output stream is still open, or this builder is closed
+     * @throws IllegalArgumentException if conflicting compression options are specified
+     * @throws UnsupportedOperationException if an unsupported option is specified
+     * @throws IndexOutOfBoundsException if {@code offset} or {@code length} is negative,
+     *         or {@code offset + length} exceeds the array length
+     */
+    public void addEntry(String name, byte[] content, int offset, int length,
+            Collection<? extends OpenOption> options, FileAttribute<?>... attrs) throws IOException {
+        Assert.checkNotNullParam("content", content);
+        try (OutputStream os = addEntry(name, options, attrs)) {
+            os.write(content, offset, length);
+        }
+    }
+
+    /**
      * Add a file entry to the archive and return a {@link Writer} for writing text content,
      * using the builder's default options and no file attributes.
      * The returned writer wraps an {@link OutputStreamWriter} over the entry's output stream.
