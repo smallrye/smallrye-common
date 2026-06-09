@@ -1426,6 +1426,9 @@ public final class ArchiveBuilder implements Closeable {
      */
     private CdEntry initEntry(String name, int method, boolean zip64,
             FileAttribute<?>[] attrs, int fileType) throws IOException {
+        if (fileType != S_IFDIR && name.endsWith("/")) {
+            throw new IllegalArgumentException("Non-directory entry name must not end with '/': " + name);
+        }
         CdEntry entry = new CdEntry();
         entry.fileName = name.getBytes(StandardCharsets.UTF_8);
         entry.method = method;
