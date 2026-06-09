@@ -21,7 +21,7 @@
         <!-- Plugins -->
         <version.bridger>1.8</version.bridger>
         <version.sundrio>0.300.0</version.sundrio>
-        <version.jandex>3.5.3</version.jandex>
+        <version.jandex>3.6.0</version.jandex>
 		<bnd-maven-plugin.version>7.3.0</bnd-maven-plugin.version>
 
         <!-- Dependencies -->
