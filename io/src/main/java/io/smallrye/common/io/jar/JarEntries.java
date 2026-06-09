@@ -5,6 +5,7 @@ import java.util.jar.JarEntry;
 /**
  * Utility class for handling JAR entries.
  */
+@Deprecated(since = "2.19", forRemoval = true)
 public class JarEntries {
     private JarEntries() {
     }
