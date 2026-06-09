@@ -345,43 +345,7 @@ public final class Archive {
      * @param idx the entry index
      */
     public Instant creationTime(final long idx) {
-        // first check for extended attributes
-        long cde = index.cdeOffset(idx);
-        int fnLen = data.cdeFileNameLength(cde);
-        int efl = data.cdeExtraFieldLength(cde);
-        long off = cde + CDE_END + fnLen;
-        long endOff = off + efl;
-        while (off < endOff) {
-            int sig = data.u16le(off);
-            int len = data.u16le(off + 2);
-            switch (sig) {
-                case EX_NTFS -> {
-                    // skip 4 reserved bytes, then iterate NTFS subtags
-                    long subOff = off + 8;
-                    long subEnd = off + 4 + len;
-                    while (subOff < subEnd) {
-                        int subSig = data.u16le(subOff);
-                        int subLen = data.u16le(subOff + 2);
-                        if (subSig == 0x0001) {
-                            // got our times: ctime is at subtag data offset 16
-                            return ntfsFileTimeToInstant(data.s64le(subOff + 20));
-                        }
-                        subOff += subLen + 4;
-                    }
-                }
-                case EX_UNIX -> {
-                    return Instant.ofEpochSecond(data.u32le(off + 8));
-                }
-            }
-            off += len + 4;
-        }
-        // no match; use the info found in the CDE, such as it is
-        int date = data.cdeModDate(cde);
-        LocalDate ld = LocalDate.of(1980 + (date >> 9), date >> 5 & 0xf, date & 0x1f);
-        int time = data.cdeModTime(cde);
-        LocalTime lt = LocalTime.of(time >> 11, time >> 5 & 0x3f, (time & 0x1f) << 1);
-        return LocalDateTime.of(ld, lt).atZone(ZoneId.systemDefault()).toInstant();
-
+        return entryTime(idx, NTFS_SUBTAG_CTIME_OFFSET);
     }
 
     /**
@@ -393,7 +357,26 @@ public final class Archive {
      * @param idx the entry index
      */
     public Instant modifiedTime(final long idx) {
-        // first check for extended attributes
+        return entryTime(idx, NTFS_SUBTAG_MTIME_OFFSET);
+    }
+
+    // byte offset of mtime within NTFS subtag 0x0001 data (after the 4-byte subtag header)
+    private static final int NTFS_SUBTAG_MTIME_OFFSET = 4;
+    // byte offset of ctime within NTFS subtag 0x0001 data (after the 4-byte subtag header)
+    private static final int NTFS_SUBTAG_CTIME_OFFSET = 20;
+
+    /**
+     * Extract a timestamp from the extra field data of the entry at the given index.
+     * Searches for NTFS and Unix extended attributes; falls back to the DOS modification
+     * date and time from the central directory entry if no extended attributes are found.
+     *
+     * @param idx the entry index
+     * @param ntfsSubtagOffset the byte offset of the desired timestamp within NTFS subtag 0x0001
+     *        (including the 4-byte subtag header), e.g. {@link #NTFS_SUBTAG_MTIME_OFFSET} or
+     *        {@link #NTFS_SUBTAG_CTIME_OFFSET}
+     * @return the timestamp (not {@code null})
+     */
+    private Instant entryTime(long idx, int ntfsSubtagOffset) {
         long cde = index.cdeOffset(idx);
         int fnLen = data.cdeFileNameLength(cde);
         int efl = data.cdeExtraFieldLength(cde);
@@ -411,13 +394,14 @@ public final class Archive {
                         int subSig = data.u16le(subOff);
                         int subLen = data.u16le(subOff + 2);
                         if (subSig == 0x0001) {
-                            // got our times: mtime is at subtag data offset 0
-                            return ntfsFileTimeToInstant(data.s64le(subOff + 4));
+                            return ntfsFileTimeToInstant(data.s64le(subOff + ntfsSubtagOffset));
                         }
                         subOff += subLen + 4;
                     }
                 }
                 case EX_UNIX -> {
+                    // EX_UNIX has atime at +4 and mtime at +8; no creation time,
+                    // so mtime is used as the best available fallback for all queries
                     return Instant.ofEpochSecond(data.u32le(off + 8));
                 }
             }
