@@ -2,6 +2,7 @@ package io.smallrye.common.io.archive;
 
 import static io.smallrye.common.io.archive.Constants.*;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -281,7 +282,7 @@ public final class Archive {
         int method = data.cdeMethod(cde);
         return switch (method) {
             case METHOD_STORED -> new ArchiveDataInputStream(data, start, size);
-            case METHOD_DEFLATE -> new ArchiveInflaterInputStream(data, new Inflater(true), start, size, uncSize);
+            case METHOD_DEFLATE -> new BufferedInputStream(new ArchiveInflaterInputStream(data, new Inflater(true), start, size, uncSize));
             default -> throw new UnsupportedOperationException("Compression method not supported: " + method);
         };
     }
