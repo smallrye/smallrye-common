@@ -25,33 +25,21 @@ abstract class Index {
     abstract long cdeOffset(long index);
 
     private static int compareName(final ArchiveData data, final long e0, final long e1) {
+        long fn0 = data.cdeFileNameStart(e0);
+        int len0 = data.cdeFileNameLength(e0);
+        long fn1 = data.cdeFileNameStart(e1);
+        int len1 = data.cdeFileNameLength(e1);
         if (data.cdeIsUtf8(e0)) {
             if (data.cdeIsUtf8(e1)) {
-                return data.compareUtf8ToUtf8(
-                        e0 + CDE_END,
-                        data.cdeFileNameLength(e0),
-                        e1 + CDE_END,
-                        data.cdeFileNameLength(e1));
+                return data.compareUtf8ToUtf8(fn0, len0, fn1, len1);
             } else {
-                return data.compareUtf8ToCp437(
-                        e0 + CDE_END,
-                        data.cdeFileNameLength(e0),
-                        e1 + CDE_END,
-                        data.cdeFileNameLength(e1));
+                return data.compareUtf8ToCp437(fn0, len0, fn1, len1);
             }
         } else {
             if (data.cdeIsUtf8(e1)) {
-                return data.compareCp437ToUtf8(
-                        e0 + CDE_END,
-                        data.cdeFileNameLength(e0),
-                        e1 + CDE_END,
-                        data.cdeFileNameLength(e1));
+                return data.compareCp437ToUtf8(fn0, len0, fn1, len1);
             } else {
-                return data.compareCp437ToCp437(
-                        e0 + CDE_END,
-                        data.cdeFileNameLength(e0),
-                        e1 + CDE_END,
-                        data.cdeFileNameLength(e1));
+                return data.compareCp437ToCp437(fn0, len0, fn1, len1);
             }
         }
     }
@@ -86,6 +74,10 @@ abstract class Index {
             short[] table = new short[(int) count];
             long pos = cd;
             for (int i = 0; i < count; i++) {
+                if (data.cdeHeaderSignature(pos) != SIG_CDE) {
+                    throw new IllegalArgumentException(
+                            "Invalid archive (bad central directory entry signature at offset " + pos + ")");
+                }
                 table[i] = (short) pos;
                 pos += data.cdeEntrySize(pos);
             }
@@ -136,6 +128,10 @@ abstract class Index {
             int[] table = new int[(int) count];
             long pos = cd;
             for (int i = 0; i < count; i++) {
+                if (data.cdeHeaderSignature(pos) != SIG_CDE) {
+                    throw new IllegalArgumentException(
+                            "Invalid archive (bad central directory entry signature at offset " + pos + ")");
+                }
                 table[i] = (int) pos;
                 pos += data.cdeEntrySize(pos);
             }
@@ -186,6 +182,10 @@ abstract class Index {
             long[] table = new long[(int) count];
             long pos = cd;
             for (int i = 0; i < count; i++) {
+                if (data.cdeHeaderSignature(pos) != SIG_CDE) {
+                    throw new IllegalArgumentException(
+                            "Invalid archive (bad central directory entry signature at offset " + pos + ")");
+                }
                 table[i] = (int) pos;
                 pos += data.cdeEntrySize(pos);
             }

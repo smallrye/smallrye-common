@@ -164,6 +164,24 @@ abstract class ArchiveData {
         return offs == 0xFFFF_FFFFL && zip64 != -1 ? zip64LocalRelativeHeaderOffset(zip64) : offs;
     }
 
+    /**
+     * {@return the offset of the file name within the central directory entry}
+     *
+     * @param cdeOffset the offset of the central directory entry
+     */
+    long cdeFileNameStart(long cdeOffset) {
+        return cdeOffset + CDE_END;
+    }
+
+    /**
+     * {@return the offset of the extra field data within the central directory entry}
+     *
+     * @param cdeOffset the offset of the central directory entry
+     */
+    long cdeExtraFieldStart(long cdeOffset) {
+        return cdeOffset + CDE_END + cdeFileNameLength(cdeOffset);
+    }
+
     int cdeEntrySize(long cdeOffset) {
         return CDE_END + cdeFileNameLength(cdeOffset) + cdeExtraFieldLength(cdeOffset) + cdeFileCommentLength(cdeOffset);
     }
@@ -178,7 +196,7 @@ abstract class ArchiveData {
     }
 
     long cdeExtended(long cdeOffset, int id) {
-        long pos = cdeOffset + CDE_END + cdeFileNameLength(cdeOffset);
+        long pos = cdeExtraFieldStart(cdeOffset);
         long end = pos + cdeExtraFieldLength(cdeOffset);
         // test this location
         while (pos < end - 4) {
@@ -311,37 +329,17 @@ abstract class ArchiveData {
 
     protected abstract short s16le(long offset);
 
-    protected short s16be(final long offset) {
-        return Short.reverseBytes(s16le(offset));
-    }
-
     protected int u16le(long offset) {
         return Short.toUnsignedInt(s16le(offset));
     }
 
-    protected int u16be(long offset) {
-        return Short.toUnsignedInt(s16be(offset));
-    }
-
     protected abstract int s32le(long offset);
-
-    protected int s32be(final long offset) {
-        return Integer.reverseBytes(s32le(offset));
-    }
 
     protected long u32le(long offset) {
         return Integer.toUnsignedLong(s32le(offset));
     }
 
-    protected long u32be(long offset) {
-        return Integer.toUnsignedLong(s32be(offset));
-    }
-
     protected abstract long s64le(long offset);
-
-    protected long s64be(final long offset) {
-        return Long.reverseBytes(s64le(offset));
-    }
 
     protected abstract ByteBuffer buffer(long offset, int size);
 

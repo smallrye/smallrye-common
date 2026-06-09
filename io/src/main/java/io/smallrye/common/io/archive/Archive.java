@@ -79,9 +79,34 @@ public final class Archive {
         if (eocd == -1) {
             throw new IllegalArgumentException("Invalid archive (no EOCD record)");
         }
+        // reject multi-disk archives
+        if (data.eocdDiskNumber(eocd) != 0) {
+            throw new IllegalArgumentException("Multi-disk archives are not supported");
+        }
+        if (data.eocdCdDiskNumber(eocd) != 0) {
+            throw new IllegalArgumentException("Multi-disk archives are not supported");
+        }
         // look for a zip64 EOCDL
         long eocdl = data.findRecord(SIG_EOCDL_ZIP64, Math.max(start, eocd - 128), eocd);
-        long zip64eocd = eocdl == -1 ? -1 : data.zip64eocdlEocdRelativeOffset(eocdl);
+        long zip64eocd = -1;
+        if (eocdl != -1) {
+            if (data.zip64eocdlDiskCount(eocdl) != 1) {
+                throw new IllegalArgumentException("Multi-disk archives are not supported");
+            }
+            if (data.zip64eocdlCdDiskNumber(eocdl) != 0) {
+                throw new IllegalArgumentException("Multi-disk archives are not supported");
+            }
+            zip64eocd = data.zip64eocdlEocdRelativeOffset(eocdl);
+            if (data.zip64eocdSignature(zip64eocd) != SIG_EOCD_ZIP64) {
+                throw new IllegalArgumentException("Invalid archive (bad ZIP64 EOCD signature)");
+            }
+            if (data.zip64eocdDiskNumber(zip64eocd) != 0) {
+                throw new IllegalArgumentException("Multi-disk archives are not supported");
+            }
+            if (data.zip64eocdCdDiskNumber(zip64eocd) != 0) {
+                throw new IllegalArgumentException("Multi-disk archives are not supported");
+            }
+        }
         long cd = data.eocdDirectoryRelativeOffset(eocd);
         if (cd == 0xffffffffL && zip64eocd != -1) {
             cd = data.zip64eocdDirectoryRelativeOffset(zip64eocd);
@@ -138,10 +163,11 @@ public final class Archive {
     public String entryName(long idx) {
         long cde = index.cdeOffset(idx);
         int len = data.cdeFileNameLength(cde);
+        long fnStart = data.cdeFileNameStart(cde);
         if (data.cdeIsUtf8(cde)) {
-            return data.utf8ToString(cde + CDE_END, len);
+            return data.utf8ToString(fnStart, len);
         } else {
-            return data.cp437ToString(cde + CDE_END, len);
+            return data.cp437ToString(fnStart, len);
         }
     }
 
@@ -168,10 +194,11 @@ public final class Archive {
     public boolean entryNameStartsWith(long idx, String prefix) {
         long cde = index.cdeOffset(idx);
         int len = data.cdeFileNameLength(cde);
+        long fnStart = data.cdeFileNameStart(cde);
         if (data.cdeIsUtf8(cde)) {
-            return data.utf8StartsWithString(cde + CDE_END, len, prefix);
+            return data.utf8StartsWithString(fnStart, len, prefix);
         } else {
-            return data.cp437StartsWithString(cde + CDE_END, len, prefix);
+            return data.cp437StartsWithString(fnStart, len, prefix);
         }
     }
 
@@ -187,10 +214,11 @@ public final class Archive {
     public int compareEntryNameTo(long idx, String name) {
         long cde = index.cdeOffset(idx);
         int len = data.cdeFileNameLength(cde);
+        long fnStart = data.cdeFileNameStart(cde);
         if (data.cdeIsUtf8(cde)) {
-            return data.compareUtf8ToString(cde + CDE_END, len, name, 0);
+            return data.compareUtf8ToString(fnStart, len, name, 0);
         } else {
-            return data.compareCp437ToString(cde + CDE_END, len, name);
+            return data.compareCp437ToString(fnStart, len, name);
         }
     }
 
@@ -208,11 +236,12 @@ public final class Archive {
     public int compareEntryNameTo(long idx, String name, int offs) {
         long cde = index.cdeOffset(idx);
         int len = data.cdeFileNameLength(cde);
+        long fnStart = data.cdeFileNameStart(cde);
         if (data.cdeIsUtf8(cde)) {
             // compute character offset
-            return data.compareUtf8ToString(cde + CDE_END, len, name, offs);
+            return data.compareUtf8ToString(fnStart, len, name, offs);
         } else {
-            return data.compareCp437ToString(cde + CDE_END + offs, len, name);
+            return data.compareCp437ToString(fnStart + offs, len, name);
         }
     }
 
@@ -223,17 +252,15 @@ public final class Archive {
      * @return the archive (not {@code null})
      * @throws IllegalArgumentException if the zip entry is not {@code STORED} or if the entry
      *         does not appear to be a zip file
+     * @throws UnsupportedOperationException if the entry is encrypted
      */
     public Archive storedArchive(long idx) {
         long cde = index.cdeOffset(idx);
         if (data.cdeMethod(cde) != METHOD_STORED) {
             throw new IllegalArgumentException("Only STORED archive members can be mapped");
         }
-        // find zip64 info, if any
         long zip64 = data.cdeZip64(cde);
-        // find the start of the data
-        long lfh = data.cdeLocalHeaderRelativeOffset(cde, zip64);
-        long start = lfh + data.lfhEntrySize(lfh);
+        long start = resolveEntryData(cde, zip64);
         long size = data.cdeCompressedSize(cde, zip64);
         return Archive.of(data, start, start + size);
     }
@@ -245,17 +272,15 @@ public final class Archive {
      * @param idx the entry index
      * @return the byte buffer containing the entry data (not {@code null})
      * @throws IllegalArgumentException if the entry is not stored with the {@code STORED} method
+     * @throws UnsupportedOperationException if the entry is encrypted
      */
     public ByteBuffer mapStoredToBuffer(long idx) {
         long cde = index.cdeOffset(idx);
         if (data.cdeMethod(cde) != METHOD_STORED) {
             throw new IllegalArgumentException("Only STORED archive members can be mapped");
         }
-        // find zip64 info, if any
         long zip64 = data.cdeZip64(cde);
-        // find the start of the data
-        long lfh = data.cdeLocalHeaderRelativeOffset(cde, zip64);
-        long start = lfh + data.lfhEntrySize(lfh);
+        long start = resolveEntryData(cde, zip64);
         long size = data.cdeCompressedSize(cde, zip64);
         return data.buffer(start, (int) size);
     }
@@ -267,24 +292,47 @@ public final class Archive {
      *
      * @param idx the entry index
      * @return the input stream for reading the entry data (not {@code null})
-     * @throws UnsupportedOperationException if the entry uses an unsupported compression method
+     * @throws UnsupportedOperationException if the entry uses an unsupported compression method,
+     *         an unsupported version, or is encrypted
      */
     public InputStream openEntry(long idx) {
         long cde = index.cdeOffset(idx);
-        // find zip64 info, if any
+        int versionNeeded = data.cdeVersionNeeded(cde);
+        if (versionNeeded > VERSION_NEEDED_ZIP64) {
+            throw new UnsupportedOperationException("Entry requires unsupported version: " + versionNeeded);
+        }
         long zip64 = data.cdeZip64(cde);
-        // find the start of the compressed data
-        long lfh = data.cdeLocalHeaderRelativeOffset(cde, zip64);
-        long start = lfh + data.lfhEntrySize(lfh);
+        long start = resolveEntryData(cde, zip64);
         long size = data.cdeCompressedSize(cde, zip64);
         long uncSize = data.cdeUncompressedSize(cde, zip64);
-        // find the compression method
         int method = data.cdeMethod(cde);
         return switch (method) {
             case METHOD_STORED -> new ArchiveDataInputStream(data, start, size);
-            case METHOD_DEFLATE -> new BufferedInputStream(new ArchiveInflaterInputStream(data, new Inflater(true), start, size, uncSize));
+            case METHOD_DEFLATE ->
+                new BufferedInputStream(new ArchiveInflaterInputStream(data, new Inflater(true), start, size, uncSize));
             default -> throw new UnsupportedOperationException("Compression method not supported: " + method);
         };
+    }
+
+    /**
+     * Resolve the data start offset for a central directory entry, validating the local file header
+     * signature and checking for encryption.
+     *
+     * @param cde the central directory entry offset
+     * @param zip64 the ZIP64 extra field offset, or {@code -1} if not present
+     * @return the offset of the entry data within the archive
+     * @throws IllegalArgumentException if the local file header signature is invalid
+     * @throws UnsupportedOperationException if the entry is encrypted
+     */
+    private long resolveEntryData(long cde, long zip64) {
+        long lfh = data.cdeLocalHeaderRelativeOffset(cde, zip64);
+        if (data.lfhSignature(lfh) != SIG_LH) {
+            throw new IllegalArgumentException("Invalid archive (bad local file header signature at offset " + lfh + ")");
+        }
+        if ((data.lfhGeneralBits(lfh) & GP_ENCRYPTED) != 0) {
+            throw new UnsupportedOperationException("Encrypted entries are not supported");
+        }
+        return lfh + data.lfhEntrySize(lfh);
     }
 
     /**
@@ -360,11 +408,6 @@ public final class Archive {
         return entryTime(idx, NTFS_SUBTAG_MTIME_OFFSET);
     }
 
-    // byte offset of mtime within NTFS subtag 0x0001 data (after the 4-byte subtag header)
-    private static final int NTFS_SUBTAG_MTIME_OFFSET = 4;
-    // byte offset of ctime within NTFS subtag 0x0001 data (after the 4-byte subtag header)
-    private static final int NTFS_SUBTAG_CTIME_OFFSET = 20;
-
     /**
      * Extract a timestamp from the extra field data of the entry at the given index.
      * Searches for NTFS and Unix extended attributes; falls back to the DOS modification
@@ -372,37 +415,36 @@ public final class Archive {
      *
      * @param idx the entry index
      * @param ntfsSubtagOffset the byte offset of the desired timestamp within NTFS subtag 0x0001
-     *        (including the 4-byte subtag header), e.g. {@link #NTFS_SUBTAG_MTIME_OFFSET} or
-     *        {@link #NTFS_SUBTAG_CTIME_OFFSET}
+     *        (including the 4-byte subtag header), e.g. {@link Constants#NTFS_SUBTAG_MTIME_OFFSET} or
+     *        {@link Constants#NTFS_SUBTAG_CTIME_OFFSET}
      * @return the timestamp (not {@code null})
      */
     private Instant entryTime(long idx, int ntfsSubtagOffset) {
         long cde = index.cdeOffset(idx);
-        int fnLen = data.cdeFileNameLength(cde);
         int efl = data.cdeExtraFieldLength(cde);
-        long off = cde + CDE_END + fnLen;
+        long off = data.cdeExtraFieldStart(cde);
         long endOff = off + efl;
         while (off < endOff) {
             int sig = data.u16le(off);
             int len = data.u16le(off + 2);
             switch (sig) {
                 case EX_NTFS -> {
-                    // skip 4 reserved bytes, then iterate NTFS subtags
+                    // skip 4-byte extra field header and 4 reserved bytes, then iterate NTFS subtags
                     long subOff = off + 8;
                     long subEnd = off + 4 + len;
                     while (subOff < subEnd) {
                         int subSig = data.u16le(subOff);
                         int subLen = data.u16le(subOff + 2);
-                        if (subSig == 0x0001) {
+                        if (subSig == NTFS_SUBTAG_TIME) {
                             return ntfsFileTimeToInstant(data.s64le(subOff + ntfsSubtagOffset));
                         }
                         subOff += subLen + 4;
                     }
                 }
                 case EX_UNIX -> {
-                    // EX_UNIX has atime at +4 and mtime at +8; no creation time,
+                    // EX_UNIX has atime and mtime but no creation time,
                     // so mtime is used as the best available fallback for all queries
-                    return Instant.ofEpochSecond(data.u32le(off + 8));
+                    return Instant.ofEpochSecond(data.u32le(off + 4 + UNIX_MODIFIED_TIME));
                 }
             }
             off += len + 4;
@@ -425,7 +467,7 @@ public final class Archive {
     public boolean isDirectory(final long idx) {
         long cde = index.cdeOffset(idx);
         int len = data.cdeFileNameLength(cde);
-        int last = data.u8(cde + CDE_END + len - 1);
+        int last = data.u8(data.cdeFileNameStart(cde) + len - 1);
         return last == '/';
     }
 }

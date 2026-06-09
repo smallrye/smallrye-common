@@ -174,6 +174,10 @@ final class Constants {
     // NTFS extra field layout (subtag 0x0001 for timestamps)
     static final int NTFS_SUBTAG_TIME = 0x0001;
     static final int NTFS_SUBTAG_TIME_DATA_SIZE = 24; // 3 × 8 bytes (mtime, atime, ctime)
+    // byte offsets of timestamps within subtag 0x0001 (relative to subtag header start)
+    static final int NTFS_SUBTAG_MTIME_OFFSET = 4; // subtag header (4) + data offset 0
+    static final int NTFS_SUBTAG_ATIME_OFFSET = 12; // subtag header (4) + data offset 8
+    static final int NTFS_SUBTAG_CTIME_OFFSET = 20; // subtag header (4) + data offset 16
     // total data size for NTFS extra field: 4 (reserved) + 4 (subtag header) + 24 (time data)
     static final int NTFS_EXTRA_DATA_SIZE = 32;
     // total size including the extra field header (2-byte ID + 2-byte size)
