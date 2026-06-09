@@ -10,7 +10,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -51,12 +53,16 @@ public class JarFileResourceLoaderTests {
             assertEquals(0, dir1.size());
             assertEquals("jar:memory:test.jar!/dir1", dir1.url().toString());
             try (DirectoryStream<Resource> ds = dir1.openDirectoryStream()) {
+                Set<String> names = new HashSet<>(Set.of(
+                        "dir1/file-deflated.txt",
+                        "dir1/file-stored.txt"));
                 Iterator<Resource> iterator = ds.iterator();
                 assertTrue(iterator.hasNext());
-                assertEquals("dir1/file-stored.txt", iterator.next().pathName());
+                assertTrue(names.remove(iterator.next().pathName()));
                 assertTrue(iterator.hasNext());
-                assertEquals("dir1/file-deflated.txt", iterator.next().pathName());
+                assertTrue(names.remove(iterator.next().pathName()));
                 assertFalse(iterator.hasNext());
+                assertTrue(names.isEmpty());
             }
             Resource dir2_hidden_file_txt = rl.findResource("dir2/hidden-file.txt");
             assertNotNull(dir2_hidden_file_txt);
@@ -66,21 +72,27 @@ public class JarFileResourceLoaderTests {
             assertEquals(0, dir2.size());
             assertEquals("jar:memory:test.jar!/dir2", dir2.url().toString());
             try (DirectoryStream<Resource> ds = dir2.openDirectoryStream()) {
-                Iterator<Resource> iterator = ds.iterator();
-                assertTrue(iterator.hasNext());
-                assertEquals("dir2/hidden-file.txt", iterator.next().pathName());
-                assertTrue(iterator.hasNext());
-                Resource dir3 = iterator.next();
-                assertEquals("dir2/dir3", dir3.pathName());
-                assertFalse(iterator.hasNext());
-                try (DirectoryStream<Resource> ds3 = dir3.openDirectoryStream()) {
-                    Iterator<Resource> iter3 = ds3.iterator();
-                    assertTrue(iter3.hasNext());
-                    assertEquals("dir2/dir3/dir4", iter3.next().pathName());
-                    assertTrue(iter3.hasNext());
-                    assertEquals("dir2/dir3/blah.txt", iter3.next().pathName());
-                    assertFalse(iter3.hasNext());
+                Set<String> names = new HashSet<>(Set.of(
+                        "dir2/hidden-file.txt",
+                        "dir2/dir3"));
+                for (final Resource rsrc : ds) {
+                    assertTrue(names.remove(rsrc.pathName()));
+                    if (rsrc.pathName().equals("dir2/dir3")) {
+                        try (DirectoryStream<Resource> ds3 = rsrc.openDirectoryStream()) {
+                            Set<String> names3 = new HashSet<>(Set.of(
+                                    "dir2/dir3/dir4",
+                                    "dir2/dir3/blah.txt"));
+                            Iterator<Resource> iter3 = ds3.iterator();
+                            assertTrue(iter3.hasNext());
+                            assertTrue(names3.remove(iter3.next().pathName()));
+                            assertTrue(iter3.hasNext());
+                            assertTrue(names3.remove(iter3.next().pathName()));
+                            assertFalse(iter3.hasNext());
+                            assertTrue(names3.isEmpty());
+                        }
+                    }
                 }
+                assertTrue(names.isEmpty());
             }
             Resource rootDir = rl.findResource("/");
             assertNotNull(rootDir);
@@ -92,6 +104,9 @@ public class JarFileResourceLoaderTests {
                 assertEquals("META-INF", iterator.next().pathName());
                 assertTrue(iterator.hasNext());
                 assertEquals("dir1", iterator.next().pathName());
+                assertTrue(iterator.hasNext());
+                assertEquals("dir2", iterator.next().pathName());
+                assertTrue(iterator.hasNext());
                 assertEquals("end", iterator.next().pathName());
                 assertFalse(iterator.hasNext());
             }

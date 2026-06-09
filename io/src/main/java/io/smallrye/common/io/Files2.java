@@ -37,7 +37,6 @@ import java.nio.file.attribute.DosFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributes;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.UserPrincipal;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -1481,18 +1480,18 @@ public final class Files2 {
                         .setPermissions(permSet)
                         .setPrincipal(MY_USER)
                         .build());
-                PRIVATE_DIR_ATTR = new AclListFileAttribute(aclList);
+                PRIVATE_DIR_ATTR = FileAttributes.acl(aclList);
                 permSet.remove(AclEntryPermission.EXECUTE);
                 aclList = List.of(AclEntry.newBuilder()
                         .setType(AclEntryType.ALLOW)
                         .setPermissions(permSet)
                         .setPrincipal(MY_USER)
                         .build());
-                PRIVATE_FILE_ATTR = new AclListFileAttribute(aclList);
+                PRIVATE_FILE_ATTR = FileAttributes.acl(aclList);
             } else {
-                PRIVATE_DIR_ATTR = PosixFilePermissions.asFileAttribute(
+                PRIVATE_DIR_ATTR = FileAttributes.posixPermissions(
                         Set.of(OWNER_READ, OWNER_WRITE, OWNER_EXECUTE));
-                PRIVATE_FILE_ATTR = PosixFilePermissions.asFileAttribute(
+                PRIVATE_FILE_ATTR = FileAttributes.posixPermissions(
                         Set.of(OWNER_READ, OWNER_WRITE));
             }
         }
@@ -1681,7 +1680,7 @@ public final class Files2 {
                                 ALL_LINK_OPTIONS[opts & OPT_NO_FOLLOW]).readAttributes();
         // source file exists; continue
         FileAttribute<?>[] attrs = has(opts, C_OPT_COPY_ATTRS) && srcPosix != null ? new FileAttribute[] {
-                PosixFilePermissions.asFileAttribute(srcPosix.permissions())
+                FileAttributes.posixPermissions(srcPosix.permissions())
         } : NO_FILE_ATTRS;
         BasicFileAttributes oldDestBasic = null;
         try {
@@ -1863,24 +1862,5 @@ public final class Files2 {
             outer[i] = inner;
         }
         ALL_COPY_OPTIONS = outer;
-    }
-
-    /**
-     * An implementation of an ACL-based file attribute (Windows only).
-     */
-    private static class AclListFileAttribute implements FileAttribute<List<AclEntry>> {
-        private final List<AclEntry> aclList;
-
-        private AclListFileAttribute(final List<AclEntry> aclList) {
-            this.aclList = aclList;
-        }
-
-        public String name() {
-            return "acl:acl";
-        }
-
-        public List<AclEntry> value() {
-            return aclList;
-        }
     }
 }

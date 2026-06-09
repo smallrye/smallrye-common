@@ -30,7 +30,6 @@
         <version.vertx4>4.5.28</version.vertx4>
         <version.vertx5>5.1.0</version.vertx5>
         <version.maven-resolver>1.9.22</version.maven-resolver>
-        <version.shrinkwrap>1.2.6</version.shrinkwrap>
         <version.org.jboss.logging>3.6.0.Final</version.org.jboss.logging>
 
         <!-- Sonar settings -->
@@ -100,13 +99,6 @@
 
             <!-- External test dependencies -->
             <dependency>
-                <groupId>org.jboss.shrinkwrap</groupId>
-                <artifactId>shrinkwrap-bom</artifactId>
-                <version>${version.shrinkwrap}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
                 <groupId>io.github.dmlloyd</groupId>
                 <artifactId>jdk-classfile-backport</artifactId>
                 <version>${version.classfile.api}</version>
@@ -114,6 +106,11 @@
             </dependency>
 
             <!-- Internal module dependencies -->
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-annotation</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-constraint</artifactId>
@@ -131,12 +128,22 @@
             </dependency>
             <dependency>
                 <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-io</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-net</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.smallrye.common</groupId>
                 <artifactId>smallrye-common-os</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.smallrye.common</groupId>
+                <artifactId>smallrye-common-search</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -203,6 +210,17 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+                <plugin>
+                    <groupId>net.revelc.code</groupId>
+                    <artifactId>impsort-maven-plugin</artifactId>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.github.javaparser</groupId>
+                            <artifactId>javaparser-core</artifactId>
+                            <version>3.28.0</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
             </plugins>
         </pluginManagement>
