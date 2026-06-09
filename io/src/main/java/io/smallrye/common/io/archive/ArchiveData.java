@@ -348,7 +348,6 @@ abstract class ArchiveData {
     protected abstract long size();
 
     long findRecord(final int signature, final long start, final long end) {
-        // this can be further optimized using boyer-moore or similar, but just write a quick thing for now
         for (long pos = end - 4; pos >= start; pos--) {
             if (s32le(pos) == signature) {
                 return pos;
