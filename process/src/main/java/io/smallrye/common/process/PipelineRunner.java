@@ -62,6 +62,7 @@ class PipelineRunner<O> {
     private Gatherer errorGatherer;
     private Gatherer outputGatherer;
     private ProcessBuilder pb;
+    private WaitableProcessHandleImpl handle;
 
     PipelineRunner(final ProcessBuilderImpl<O> processBuilder, final PipelineRunner<O> prev) {
         this.processBuilder = processBuilder;
@@ -387,8 +388,7 @@ class PipelineRunner<O> {
                     Thread.currentThread().setName("process-while-running-\"%s\"-%d"
                             .formatted(processBuilder.command.getFileName(), process.pid()));
                     try {
-                        whileRunning.accept(
-                                new WaitableProcessHandleImpl(process, processBuilder.command, processBuilder.arguments));
+                        whileRunning.accept(handle);
                     } catch (ProcessHandlerException phe) {
                         whileRunningProblem = phe;
                     } catch (Throwable t) {
@@ -631,5 +631,10 @@ class PipelineRunner<O> {
             }
         }
         process = processes.get(index);
+        handle = new WaitableProcessHandleImpl(process, processBuilder.command, processBuilder.arguments);
+    }
+
+    WaitableProcessHandleImpl handle() {
+        return handle;
     }
 }
