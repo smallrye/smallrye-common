@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -52,6 +53,20 @@ public class TestBasicExecution {
                 .runAsync();
         List<String> result = future.get();
         assertEquals(strings, result);
+    }
+
+    @Test
+    public void testSimpleCatAsyncStart() throws Exception {
+        List<String> strings = List.of("Hello", "world", "foo", "bar");
+        Iterator<String> iter = strings.iterator();
+        try (WaitableProcessHandle wph = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .input()
+                .fromStrings(strings)
+                .output()
+                .consumeLinesWith(10, c -> assertEquals(iter.next(), c))
+                .start()) {
+            wph.waitUninterruptiblyFor();
+        }
     }
 
     @Test

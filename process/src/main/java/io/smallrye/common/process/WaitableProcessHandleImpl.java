@@ -1,5 +1,6 @@
 package io.smallrye.common.process;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +37,29 @@ final class WaitableProcessHandleImpl implements WaitableProcessHandle {
 
     public int exitValue() {
         return process.exitValue();
+    }
+
+    public void close() {
+        // see https://bugs.openjdk.org/browse/JDK-8364361 for behavior rationale
+        try (var es = process.getErrorStream(); var is = process.getInputStream(); var os = process.getOutputStream()) {
+            destroy();
+            boolean intr = false;
+            try {
+                for (;;) {
+                    try {
+                        waitFor();
+                        return;
+                    } catch (InterruptedException e) {
+                        intr = true;
+                    }
+                }
+            } finally {
+                if (intr) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        } catch (IOException ignored) {
+        }
     }
 
     public long pid() {
