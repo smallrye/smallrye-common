@@ -22,7 +22,7 @@
         <version.bridger>1.8</version.bridger>
         <version.sundrio>0.300.0</version.sundrio>
         <version.jandex>3.6.0</version.jandex>
-		<bnd-maven-plugin.version>7.3.0</bnd-maven-plugin.version>
+        <bnd-maven-plugin.version>7.3.0</bnd-maven-plugin.version>
 
         <!-- Dependencies -->
         <version.classfile.api>25.1</version.classfile.api>
@@ -210,17 +210,6 @@
                             </goals>
                         </execution>
                     </executions>
-                </plugin>
-                <plugin>
-                    <groupId>net.revelc.code</groupId>
-                    <artifactId>impsort-maven-plugin</artifactId>
-                    <dependencies>
-                        <dependency>
-                            <groupId>com.github.javaparser</groupId>
-                            <artifactId>javaparser-core</artifactId>
-                            <version>3.28.2</version>
-                        </dependency>
-                    </dependencies>
                 </plugin>
             </plugins>
         </pluginManagement>
