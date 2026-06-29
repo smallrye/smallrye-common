@@ -180,6 +180,28 @@ public class VertxContextTest {
     }
 
     @Test
+    void testBeginAndEndDispatch(Vertx vertx, VertxTestContext tc) {
+        var root = vertx.getOrCreateContext();
+        root.runOnContext(ignored -> {
+            var originalContext = Vertx.currentContext();
+            assertThat(originalContext).isNotNull();
+
+            var duplicated = VertxContext.createNewDuplicatedContext(root);
+            assertThat(duplicated).isNotNull();
+
+            Context previous = VertxContext.beginDispatch(duplicated);
+            try {
+                assertThat(Vertx.currentContext()).isSameAs(duplicated);
+                assertThat(previous).isSameAs(originalContext);
+            } finally {
+                VertxContext.endDispatch(duplicated, previous);
+            }
+            assertThat(Vertx.currentContext()).isSameAs(originalContext);
+            tc.completeNow();
+        });
+    }
+
+    @Test
     void testDuplicationOfDuplicateUsingVertxAPI(Vertx vertx, VertxTestContext tc) {
         var root = vertx.getOrCreateContext();
         assertThat(VertxContext.isDuplicatedContext(root)).isFalse();
