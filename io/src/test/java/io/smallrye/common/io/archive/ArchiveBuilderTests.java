@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -1867,6 +1868,131 @@ public class ArchiveBuilderTests {
             try (InputStream is = zf.getInputStream(zf.getEntry("f-path.dat"))) {
                 assertArrayEquals(binaryContent, is.readAllBytes());
             }
+        }
+    }
+
+    // ── lastEntry*() query method tests ─────────────────────────────────
+
+    /**
+     * Test that {@code lastEntry*()} methods return correct values for a STORED entry.
+     */
+    @Test
+    public void testLastEntryStoredEntry() throws Exception {
+        byte[] data = "hello, stored!".getBytes(StandardCharsets.UTF_8);
+        CRC32 expectedCrc = new CRC32();
+        expectedCrc.update(data);
+
+        Path file = tempDir.resolve("last-stored.zip");
+        long dataOffset;
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("stored.txt", data, ZipOption.STORED);
+
+            assertEquals("stored.txt", builder.lastEntryName());
+            dataOffset = builder.lastEntryDataOffset();
+            assertEquals(data.length, builder.lastEntryCompressedSize());
+            assertEquals(data.length, builder.lastEntryUncompressedSize());
+            assertEquals((int) expectedCrc.getValue(), builder.lastEntryCrc32());
+        }
+
+        // verify the data offset is correct by reading the raw file
+        byte[] raw = Files.readAllBytes(file);
+        byte[] atOffset = new byte[data.length];
+        System.arraycopy(raw, (int) dataOffset, atOffset, 0, data.length);
+        assertArrayEquals(data, atOffset);
+    }
+
+    /**
+     * Test that {@code lastEntry*()} methods return correct values for a DEFLATED entry.
+     */
+    @Test
+    public void testLastEntryDeflatedEntry() throws Exception {
+        byte[] data = "hello, deflated! repeat repeat repeat repeat repeat".getBytes(StandardCharsets.UTF_8);
+        CRC32 expectedCrc = new CRC32();
+        expectedCrc.update(data);
+
+        Path file = tempDir.resolve("last-deflated.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("deflated.txt", data, ZipOption.DEFLATED);
+
+            assertEquals("deflated.txt", builder.lastEntryName());
+            assertEquals(data.length, builder.lastEntryUncompressedSize());
+            assertTrue(builder.lastEntryCompressedSize() < data.length,
+                    "compressed size should be smaller than uncompressed for repetitive data");
+            assertEquals((int) expectedCrc.getValue(), builder.lastEntryCrc32());
+        }
+    }
+
+    /**
+     * Test that {@code lastEntry*()} methods return correct values for a directory entry.
+     */
+    @Test
+    public void testLastEntryDirectoryEntry() throws Exception {
+        Path file = tempDir.resolve("last-dir.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addDirectory("META-INF/");
+
+            assertEquals("META-INF/", builder.lastEntryName());
+            assertEquals(0, builder.lastEntryCompressedSize());
+            assertEquals(0, builder.lastEntryUncompressedSize());
+            assertEquals(0, builder.lastEntryCrc32());
+        }
+    }
+
+    /**
+     * Test that {@code lastEntry*()} throws {@link IllegalStateException}
+     * before any entry has been written.
+     */
+    @Test
+    public void testLastEntryBeforeAnyEntry() throws Exception {
+        Path file = tempDir.resolve("last-none.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            assertThrows(IllegalStateException.class, builder::lastEntryName);
+            assertThrows(IllegalStateException.class, builder::lastEntryDataOffset);
+            assertThrows(IllegalStateException.class, builder::lastEntryCompressedSize);
+            assertThrows(IllegalStateException.class, builder::lastEntryUncompressedSize);
+            assertThrows(IllegalStateException.class, builder::lastEntryCrc32);
+        }
+    }
+
+    /**
+     * Test that {@code lastEntry*()} throws {@link IllegalStateException}
+     * while an entry output stream is still open.
+     */
+    @Test
+    public void testLastEntryWhileStreamOpen() throws Exception {
+        Path file = tempDir.resolve("last-open.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            OutputStream os = builder.addEntry("open.txt");
+            assertThrows(IllegalStateException.class, builder::lastEntryName);
+            assertThrows(IllegalStateException.class, builder::lastEntryDataOffset);
+            assertThrows(IllegalStateException.class, builder::lastEntryCompressedSize);
+            assertThrows(IllegalStateException.class, builder::lastEntryUncompressedSize);
+            assertThrows(IllegalStateException.class, builder::lastEntryCrc32);
+            os.close();
+        }
+    }
+
+    /**
+     * Test that {@code lastEntry*()} reflects the most recently completed entry
+     * when multiple entries are written.
+     */
+    @Test
+    public void testLastEntryReflectsSecondEntry() throws Exception {
+        byte[] first = "first".getBytes(StandardCharsets.UTF_8);
+        byte[] second = "second entry data".getBytes(StandardCharsets.UTF_8);
+        CRC32 secondCrc = new CRC32();
+        secondCrc.update(second);
+
+        Path file = tempDir.resolve("last-two.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("first.txt", first, ZipOption.STORED);
+            assertEquals("first.txt", builder.lastEntryName());
+
+            builder.addEntry("second.txt", second, ZipOption.STORED);
+            assertEquals("second.txt", builder.lastEntryName());
+            assertEquals(second.length, builder.lastEntryCompressedSize());
+            assertEquals(second.length, builder.lastEntryUncompressedSize());
+            assertEquals((int) secondCrc.getValue(), builder.lastEntryCrc32());
         }
     }
 }
