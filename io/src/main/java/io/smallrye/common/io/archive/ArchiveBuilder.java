@@ -282,6 +282,91 @@ public final class ArchiveBuilder implements Closeable {
     }
 
     /**
+     * {@return the name of the most recently completed entry}
+     * This method may only be called after at least one entry has been fully written
+     * (i.e., its output stream has been closed, or the entry was added with inline content)
+     * and before the next entry is started.
+     *
+     * @throws IllegalStateException if no entry has been completed yet,
+     *         if an entry output stream is still open, or if this builder is closed
+     */
+    public String lastEntryName() {
+        return new String(lastEntry().fileName, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * {@return the offset of the data region of the most recently completed entry, in bytes}
+     * The offset is relative to the start of the archive data, not to the start of the underlying file,
+     * consistent with {@link #position()}.
+     * This method may only be called after at least one entry has been fully written
+     * and before the next entry is started.
+     *
+     * @throws IllegalStateException if no entry has been completed yet,
+     *         if an entry output stream is still open, or if this builder is closed
+     */
+    public long lastEntryDataOffset() {
+        CdEntry entry = lastEntry();
+        return entry.localHeaderOffset + LH_END + entry.fileName.length
+                + lfhExtraFieldLength(entry.zip64) - startOffset;
+    }
+
+    /**
+     * {@return the compressed size of the most recently completed entry, in bytes}
+     * For entries stored with the {@link ZipOption#STORED STORED} method, this equals the
+     * {@linkplain #lastEntryUncompressedSize() uncompressed size}.
+     * This method may only be called after at least one entry has been fully written
+     * and before the next entry is started.
+     *
+     * @throws IllegalStateException if no entry has been completed yet,
+     *         if an entry output stream is still open, or if this builder is closed
+     */
+    public long lastEntryCompressedSize() {
+        return lastEntry().compressedSize;
+    }
+
+    /**
+     * {@return the uncompressed size of the most recently completed entry, in bytes}
+     * This method may only be called after at least one entry has been fully written
+     * and before the next entry is started.
+     *
+     * @throws IllegalStateException if no entry has been completed yet,
+     *         if an entry output stream is still open, or if this builder is closed
+     */
+    public long lastEntryUncompressedSize() {
+        return lastEntry().uncompressedSize;
+    }
+
+    /**
+     * {@return the CRC-32 checksum of the most recently completed entry}
+     * The value is the raw 32-bit CRC as stored in the local file header.
+     * This method may only be called after at least one entry has been fully written
+     * and before the next entry is started.
+     *
+     * @throws IllegalStateException if no entry has been completed yet,
+     *         if an entry output stream is still open, or if this builder is closed
+     */
+    public int lastEntryCrc32() {
+        return lastEntry().crc32;
+    }
+
+    /**
+     * Return the most recently completed entry, validating that the builder is open,
+     * no entry stream is active, and at least one entry has been written.
+     *
+     * @return the last entry (not {@code null})
+     * @throws IllegalStateException if any precondition is violated
+     */
+    private CdEntry lastEntry() {
+        checkOpen();
+        checkNoActiveEntry();
+        List<CdEntry> entries = this.entries;
+        if (entries.isEmpty()) {
+            throw new IllegalStateException("No entries have been written");
+        }
+        return entries.get(entries.size() - 1);
+    }
+
+    /**
      * Add a directory entry to the archive.
      * A trailing {@code '/'} is appended to the name if not already present.
      * Directory entries are always stored with the {@link ZipOption#STORED STORED} method,
