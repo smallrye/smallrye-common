@@ -84,6 +84,26 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
         return cf;
     }
 
+    WaitableProcessHandle start() {
+        ThreadFactory tf = threadFactory();
+        asyncThread = tf.newThread(() -> {
+            if (awaitOk()) {
+                Thread shutdownHook = registerHook();
+                try {
+                    await();
+                } finally {
+                    Runtime.getRuntime().removeShutdownHook(shutdownHook);
+                }
+            }
+        });
+        if (asyncThread == null) {
+            throw new PipelineExecutionException("Failed to start process thread(s)", noThread(tf));
+        }
+        asyncThread.setName("process-async-handler");
+        initialize(tf);
+        return handle();
+    }
+
     O run() {
         initialize(threadFactory());
         Thread shutdownHook = registerHook();

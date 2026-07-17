@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * A process handle that can be waited for and whose exit value may be read.
  */
-public interface WaitableProcessHandle extends ProcessHandle {
+public interface WaitableProcessHandle extends ProcessHandle, AutoCloseable {
     /**
      * {@return the initial process command (not {@code null})}
      * This may differ from what {@link Info#command()} returns.
@@ -107,4 +107,9 @@ public interface WaitableProcessHandle extends ProcessHandle {
      * @see Process#exitValue()
      */
     int exitValue();
+
+    /**
+     * Close the process handle, terminating the subprocess (gracefully if possible).
+     */
+    void close();
 }
