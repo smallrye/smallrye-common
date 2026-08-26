@@ -205,6 +205,12 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         return makeRunner().runAsync();
     }
 
+    public WaitableProcessHandle start() {
+        check();
+        locked = true;
+        return makeRunner().start();
+    }
+
     private ProcessRunner<O> makeRunner() {
         return new ProcessRunner<O>(this, prev == null ? null : prev.makePipelineRunner());
     }
@@ -270,6 +276,10 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
         public CompletableFuture<O> runAsync() {
             return ProcessBuilderImpl.this.runAsync();
+        }
+
+        public WaitableProcessHandle start() {
+            return ProcessBuilderImpl.this.start();
         }
 
         public ProcessBuilder<O> exitCodeChecker(final IntPredicate checker) {
