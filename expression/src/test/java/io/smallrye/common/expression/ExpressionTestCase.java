@@ -809,4 +809,30 @@ public class ExpressionTestCase {
             assertEquals("bar", c.getKey());
         }));
     }
+
+    @Test
+    void preserveUnknownEscapes() {
+        assertEquals("a\\,b", Expression.compile("a\\,b", ESCAPES, PRESERVE_UNKNOWN_ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("sea\\,turtle", Expression.compile("sea\\,turtle", ESCAPES, PRESERVE_UNKNOWN_ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("\\.\\{", Expression.compile("\\.\\{", ESCAPES, PRESERVE_UNKNOWN_ESCAPES).evaluate((c, b) -> {
+        }));
+
+        assertEquals("$", Expression.compile("\\$", ESCAPES, PRESERVE_UNKNOWN_ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("${foo}", Expression.compile("\\${foo}", ESCAPES, PRESERVE_UNKNOWN_ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("\\", Expression.compile("\\\\", ESCAPES, PRESERVE_UNKNOWN_ESCAPES).evaluate((c, b) -> {
+        }));
+        assertEquals("\n", Expression.compile("\\n", ESCAPES, PRESERVE_UNKNOWN_ESCAPES).evaluate((c, b) -> {
+        }));
+
+        assertEquals("x\\,y", Expression.compile("${foo}\\,y", ESCAPES, PRESERVE_UNKNOWN_ESCAPES).evaluate((c, b) -> {
+            b.append("x");
+        }));
+
+        assertEquals("a\\", Expression.compile("a\\", ESCAPES, PRESERVE_UNKNOWN_ESCAPES, LENIENT_SYNTAX).evaluate((c, b) -> {
+        }));
+    }
 }

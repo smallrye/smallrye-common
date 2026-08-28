@@ -609,6 +609,11 @@ public final class Expression {
                                     break;
                                 }
                                 default: {
+                                    if (flags.contains(Flag.PRESERVE_UNKNOWN_ESCAPES)) {
+                                        // keep the backslash and the following character verbatim, e.g. "\," -> "\,".
+                                        // 'start' still points at the backslash, so just keep accumulating.
+                                        continue;
+                                    }
                                     if (flags.contains(Flag.LENIENT_SYNTAX)) {
                                         // TP 40
                                         // just append the literal character after the \, whatever it was
@@ -712,5 +717,10 @@ public final class Expression {
          * Treat expressions containing a double-colon delimiter as special, encoding the entire content into the key.
          */
         DOUBLE_COLON,
+        /**
+         * When combined with {@link #ESCAPES}, preserve unrecognized escape sequences verbatim, including the leading
+         * backslash. Has no effect unless {@link #ESCAPES} is also set.
+         */
+        PRESERVE_UNKNOWN_ESCAPES,
     }
 }
