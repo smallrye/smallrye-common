@@ -311,4 +311,55 @@ public class VertxContext {
     public static Context newNestedContext() {
         return newNestedContext(Vertx.currentContext());
     }
+
+    /**
+     * Begins the execution of a task on the given context.
+     * <p>
+     * This method makes the given context the current thread-local context, so that subsequent calls to
+     * {@link Vertx#currentContext()} return this context. It returns the previous context (if any), which
+     * <strong>must</strong> be passed to {@link #endDispatch(Context, Context)} when the task is complete.
+     * </p>
+     * <p>
+     * This is a low-level API intended for situations where the begin and end of a dispatch cannot be wrapped
+     * in a single {@code Runnable} (e.g., JCA message endpoint delivery where {@code beforeDelivery} and
+     * {@code afterDelivery} are separate calls). Prefer the Vert.x {@code Context#dispatch} methods when possible.
+     * </p>
+     *
+     * @param context the context to begin dispatching on, must not be {@code null}
+     * @return the previous context that was active on this thread, or {@code null} if there was none
+     * @see #endDispatch(Context, Context)
+     */
+    public static @Nullable Context beginDispatch(Context context) {
+        ContextInternal actual = Assert.checkNotNullParam("context", (ContextInternal) context);
+        return actual.beginDispatch();
+    }
+
+    /**
+     * Ends the execution of a task on the given context, restoring the previous context.
+     * <p>
+     * This method restores the thread-local context to the {@code previous} context that was returned by
+     * {@link #beginDispatch(Context)}. It must be called in a {@code finally} block to ensure proper cleanup.
+     * </p>
+     * <p>
+     * Typical usage:
+     * </p>
+     *
+     * <pre>
+     * Context previous = VertxContext.beginDispatch(myContext);
+     * try {
+     *     // ... perform work on myContext ...
+     * } finally {
+     *     VertxContext.endDispatch(myContext, previous);
+     * }
+     * </pre>
+     *
+     * @param context the context on which {@link #beginDispatch(Context)} was called, must not be {@code null}
+     * @param previous the previous context returned by {@link #beginDispatch(Context)}, or {@code null} if there was none
+     * @see #beginDispatch(Context)
+     */
+    public static void endDispatch(Context context, @Nullable Context previous) {
+        ContextInternal actual = Assert.checkNotNullParam("context", (ContextInternal) context);
+        actual.endDispatch((ContextInternal) previous);
+    }
+
 }
