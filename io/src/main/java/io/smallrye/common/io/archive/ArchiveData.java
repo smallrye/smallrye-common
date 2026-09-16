@@ -381,6 +381,20 @@ abstract class ArchiveData {
         return Integer.compare(len1, len2);
     }
 
+    /**
+     * Compare a UTF-8 encoded string region to a Java {@link String} lexicographically.
+     * <p>
+     * Theory of operation: Decodes the UTF-8 bytes character-by-character and compares
+     * them with the characters of the Java {@code String}. Optimizes for ASCII characters by checking
+     * if the leading byte is less than 128, avoiding the full UTF-8 decoding pathway.
+     *
+     * @param off1 the start offset of the UTF-8 string region
+     * @param len1 the byte length of the UTF-8 string region
+     * @param str2 the Java String to compare against
+     * @param skip the number of characters of the UTF-8 string region to skip at the start of comparison
+     * @return a negative integer, zero, or a positive integer as the first string is lexicographically
+     *         less than, equal to, or greater than the second string
+     */
     int compareUtf8ToString(long off1, int len1, String str2, int skip) {
         int off2 = 0;
         int len2 = str2.length();
@@ -395,19 +409,35 @@ abstract class ArchiveData {
                 return 1;
             }
             if (skip > 0) {
-                int cp1 = utf8(off1);
-                int sz1 = utf8Size(off1);
+                int cp1;
+                int sz1;
+                int b1 = u8(off1);
+                if (b1 < 128) {
+                    cp1 = b1;
+                    sz1 = 1;
+                } else {
+                    cp1 = utf8(off1);
+                    sz1 = utf8Size(off1);
+                }
                 off1 += sz1;
                 len1 -= sz1;
                 skip -= Character.charCount(cp1);
             } else {
-                int cp1 = utf8(off1);
+                int cp1;
+                int sz1;
+                int b1 = u8(off1);
+                if (b1 < 128) {
+                    cp1 = b1;
+                    sz1 = 1;
+                } else {
+                    cp1 = utf8(off1);
+                    sz1 = utf8Size(off1);
+                }
                 int cp2 = str2.codePointAt(off2);
                 int cmp = Integer.compare(cp1, cp2);
                 if (cmp != 0) {
                     return cmp;
                 }
-                int sz1 = utf8Size(off1);
                 off1 += sz1;
                 len1 -= sz1;
                 int sz2 = Character.charCount(cp2);
