@@ -2,7 +2,6 @@ package io.smallrye.common.io.archive;
 
 import static io.smallrye.common.io.archive.Constants.*;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 abstract class ArchiveData {
@@ -715,7 +714,4 @@ abstract class ArchiveData {
     }
 
     abstract void release();
-
-    void close() throws IOException {
-    }
 }
