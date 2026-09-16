@@ -354,30 +354,32 @@ abstract class ArchiveData {
         return -1;
     }
 
+    /**
+     * Compare two UTF-8 encoded string regions lexicographically byte-by-byte.
+     * <p>
+     * Because UTF-8 preserves lexicographical ordering, a direct unsigned byte-by-byte
+     * comparison yields the exact same sorting order as comparing the decoded Unicode code points,
+     * without the overhead of decoding.
+     *
+     * @param off1 the start offset of the first string region
+     * @param len1 the byte length of the first string region
+     * @param off2 the start offset of the second string region
+     * @param len2 the byte length of the second string region
+     * @return a negative integer, zero, or a positive integer as the first string is lexicographically
+     *         less than, equal to, or greater than the second string
+     */
     int compareUtf8ToUtf8(long off1, int len1, long off2, int len2) {
-        for (;;) {
-            if (len1 == 0) {
-                if (len2 == 0) {
-                    return 0;
-                } else {
-                    return -1;
-                }
-            } else if (len2 == 0) {
-                return 1;
+        // Theory of operation: Since UTF-8 preserves lexicographical ordering,
+        // we can perform an unsigned byte-by-byte comparison rather than decoding.
+        int len = Math.min(len1, len2);
+        for (int i = 0; i < len; i++) {
+            int b1 = u8(off1 + i);
+            int b2 = u8(off2 + i);
+            if (b1 != b2) {
+                return Integer.compare(b1, b2);
             }
-            int cp1 = utf8(off1);
-            int cp2 = utf8(off2);
-            int cmp = Integer.compare(cp1, cp2);
-            if (cmp != 0) {
-                return cmp;
-            }
-            int sz1 = utf8Size(off1);
-            off1 += sz1;
-            len1 -= sz1;
-            int sz2 = utf8Size(off2);
-            off2 += sz2;
-            len2 -= sz2;
         }
+        return Integer.compare(len1, len2);
     }
 
     int compareUtf8ToString(long off1, int len1, String str2, int skip) {
