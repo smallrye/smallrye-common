@@ -186,7 +186,7 @@ abstract class Index {
                     throw new IllegalArgumentException(
                             "Invalid archive (bad central directory entry signature at offset " + pos + ")");
                 }
-                table[i] = (int) pos;
+                table[i] = pos;
                 pos += data.cdeEntrySize(pos);
             }
             this.table = mergeSort(data, table, new long[(int) count]);
