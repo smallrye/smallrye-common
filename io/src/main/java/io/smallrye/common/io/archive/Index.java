@@ -84,11 +84,31 @@ abstract class Index {
             this.table = mergeSort(data, table, new short[(int) count]);
         }
 
+        /**
+         * Sort the index table using an adaptive bottom-up merge sort.
+         * <p>
+         * Theory of operation: Performs a standard non-recursive bottom-up merge sort.
+         * Optimizes for mostly-sorted or fully-sorted JARs by checking if the adjacent left
+         * and right runs are already in sorted order, copying them directly to the scratch array
+         * via {@link System#arraycopy} if so, bypassing element-by-element comparisons.
+         *
+         * @param data the archive data containing the files
+         * @param table the index table to sort
+         * @param temp the scratch/temporary working table
+         * @return the sorted index table (which is either table or temp)
+         */
         private static short[] mergeSort(ArchiveData data, short[] table, short[] temp) {
             for (int width = 1; width < table.length; width <<= 1) {
                 for (int i = 0; i < table.length; i += width << 1) {
-                    bottomUpMerge(data, table, i, Math.min(i + width, table.length), Math.min(i + (width << 1), table.length),
-                            temp);
+                    int left = i;
+                    int right = Math.min(i + width, table.length);
+                    int end = Math.min(i + (width << 1), table.length);
+                    if (right >= end || compareName(data, Short.toUnsignedLong(table[right - 1]),
+                            Short.toUnsignedLong(table[right])) <= 0) {
+                        System.arraycopy(table, left, temp, left, end - left);
+                    } else {
+                        bottomUpMerge(data, table, left, right, end, temp);
+                    }
                 }
                 // swap table and temp
                 short[] t = table;
@@ -138,11 +158,31 @@ abstract class Index {
             this.table = mergeSort(data, table, new int[(int) count]);
         }
 
+        /**
+         * Sort the index table using an adaptive bottom-up merge sort.
+         * <p>
+         * Theory of operation: Performs a standard non-recursive bottom-up merge sort.
+         * Optimizes for mostly-sorted or fully-sorted JARs by checking if the adjacent left
+         * and right runs are already in sorted order, copying them directly to the scratch array
+         * via {@link System#arraycopy} if so, bypassing element-by-element comparisons.
+         *
+         * @param data the archive data containing the files
+         * @param table the index table to sort
+         * @param temp the scratch/temporary working table
+         * @return the sorted index table (which is either table or temp)
+         */
         private static int[] mergeSort(ArchiveData data, int[] table, int[] temp) {
             for (int width = 1; width < table.length; width <<= 1) {
                 for (int i = 0; i < table.length; i += width << 1) {
-                    bottomUpMerge(data, table, i, Math.min(i + width, table.length), Math.min(i + (width << 1), table.length),
-                            temp);
+                    int left = i;
+                    int right = Math.min(i + width, table.length);
+                    int end = Math.min(i + (width << 1), table.length);
+                    if (right >= end || compareName(data, Integer.toUnsignedLong(table[right - 1]),
+                            Integer.toUnsignedLong(table[right])) <= 0) {
+                        System.arraycopy(table, left, temp, left, end - left);
+                    } else {
+                        bottomUpMerge(data, table, left, right, end, temp);
+                    }
                 }
                 // swap table and temp
                 int[] t = table;
@@ -192,11 +232,30 @@ abstract class Index {
             this.table = mergeSort(data, table, new long[(int) count]);
         }
 
+        /**
+         * Sort the index table using an adaptive bottom-up merge sort.
+         * <p>
+         * Theory of operation: Performs a standard non-recursive bottom-up merge sort.
+         * Optimizes for mostly-sorted or fully-sorted JARs by checking if the adjacent left
+         * and right runs are already in sorted order, copying them directly to the scratch array
+         * via {@link System#arraycopy} if so, bypassing element-by-element comparisons.
+         *
+         * @param data the archive data containing the files
+         * @param table the index table to sort
+         * @param temp the scratch/temporary working table
+         * @return the sorted index table (which is either table or temp)
+         */
         private static long[] mergeSort(ArchiveData data, long[] table, long[] temp) {
             for (int width = 1; width < table.length; width <<= 1) {
                 for (int i = 0; i < table.length; i += width << 1) {
-                    bottomUpMerge(data, table, i, Math.min(i + width, table.length), Math.min(i + (width << 1), table.length),
-                            temp);
+                    int left = i;
+                    int right = Math.min(i + width, table.length);
+                    int end = Math.min(i + (width << 1), table.length);
+                    if (right >= end || compareName(data, table[right - 1], table[right]) <= 0) {
+                        System.arraycopy(table, left, temp, left, end - left);
+                    } else {
+                        bottomUpMerge(data, table, left, right, end, temp);
+                    }
                 }
                 // swap table and temp
                 long[] t = table;
