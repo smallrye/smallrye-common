@@ -1,16 +1,26 @@
 package io.smallrye.common.net;
 
+import static io.smallrye.ffm.AsType.size_t;
+import static io.smallrye.ffm.AsType.stdc_int;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
 import io.smallrye.common.constraint.Assert;
+import io.smallrye.common.os.OS;
+import io.smallrye.ffm.As;
+import io.smallrye.ffm.Critical;
+import io.smallrye.ffm.In;
+import io.smallrye.ffm.Lib;
+import io.smallrye.ffm.Link;
+import io.smallrye.ffm.Out;
 
 /**
  * Methods for getting the system host name. The host name is detected from the environment, but may be overridden by
  * use of the {@code jboss.host.name} and/or {@code jboss.qualified.host.name} system properties.
  */
-@SuppressWarnings("removal")
 public final class HostName {
 
     private static final Object lock = new Object();
@@ -99,6 +109,30 @@ public final class HostName {
         if (qualifiedHostName == null) {
             // if host name is specified, don't pick a qualified host name that isn't related to it
             qualifiedHostName = providedHostName;
+            if (qualifiedHostName == null && Runtime.version().feature() >= 22) {
+                switch (OS.current()) {
+                    case MAC, LINUX, AIX, Z -> {
+                        byte[] bytes = new byte[512];
+                        int res = gethostname(bytes, bytes.length);
+                        if (res == 0) {
+                            for (int i = 0; i < bytes.length; i++) {
+                                if (bytes[i] == 0) {
+                                    qualifiedHostName = new String(bytes, 0, i, StandardCharsets.UTF_8);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    case WINDOWS -> {
+                        char[] chars = new char[512];
+                        int[] lenBuf = new int[1];
+                        lenBuf[0] = chars.length;
+                        if (GetComputerNameW(chars, lenBuf)) {
+                            qualifiedHostName = new String(chars, 0, lenBuf[0]);
+                        }
+                    }
+                }
+            }
             if (qualifiedHostName == null) {
                 // POSIX-like OSes including Mac should have this set
                 qualifiedHostName = System.getenv("HOSTNAME");
@@ -110,8 +144,7 @@ public final class HostName {
             if (qualifiedHostName == null) {
                 try {
                     qualifiedHostName = HostName.getLocalHost().getHostName();
-                } catch (UnknownHostException e) {
-                    qualifiedHostName = null;
+                } catch (UnknownHostException ignored) {
                 }
             }
             if (qualifiedHostName != null
@@ -141,4 +174,15 @@ public final class HostName {
         };
     }
 
+    // POSIX
+    @Link
+    @As(stdc_int)
+    @Critical(heap = true)
+    private static native int gethostname(@Out byte[] buffer, @As(size_t) int bufLen);
+
+    // Windows
+    @Link
+    @Critical(heap = true)
+    @Lib("kernel32")
+    private static native boolean GetComputerNameW(@Out char[] buffer, @In @Out int[] lenPtr);
 }
