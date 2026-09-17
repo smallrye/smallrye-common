@@ -38,7 +38,7 @@ public interface ExceptionUnaryOperator<T, E extends Exception> extends Exceptio
      * @param <E> the exception type
      */
     static <T, E extends Exception> ExceptionUnaryOperator<T, E> of(ExceptionFunction<T, T, E> func) {
-        return func instanceof ExceptionUnaryOperator ? (ExceptionUnaryOperator<T, E>) func : func::apply;
+        return func instanceof ExceptionUnaryOperator<T, E> euo ? euo : func::apply;
     }
 
     /**

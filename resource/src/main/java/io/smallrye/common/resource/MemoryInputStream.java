@@ -91,8 +91,7 @@ public final class MemoryInputStream extends InputStream {
         int lim = buf.limit();
         if (pos == lim) {
             return 0;
-        } else if (out instanceof FileOutputStream) {
-            FileOutputStream fos = (FileOutputStream) out;
+        } else if (out instanceof final FileOutputStream fos) {
             return fos.getChannel().write(buf);
         }
         int rem = lim - pos;

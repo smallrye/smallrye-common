@@ -53,11 +53,11 @@ public final class References {
             for (;;)
                 try {
                     final java.lang.ref.Reference<?> ref = ReaperThread.getReaperQueue().remove();
-                    if (ref instanceof CleanerReference) {
-                        ((CleanerReference<?, ?>) ref).clean();
+                    if (ref instanceof CleanerReference<?, ?> cr) {
+                        cr.clean();
                     }
-                    if (ref instanceof Reapable) {
-                        reap((Reapable<?, ?>) ref);
+                    if (ref instanceof Reapable<?, ?> reapable) {
+                        reap(reapable);
                     }
                 } catch (InterruptedException ignored) {
                     // we consume interrupts.
@@ -90,20 +90,13 @@ public final class References {
         if (value == null) {
             type = Reference.Type.NULL;
         }
-        switch (type) {
-            case STRONG:
-                return new StrongReference<T, A>(value, attachment);
-            case WEAK:
-                return new WeakReference<T, A>(value, attachment, reaper);
-            case PHANTOM:
-                return new PhantomReference<T, A>(value, attachment, reaper);
-            case SOFT:
-                return new SoftReference<T, A>(value, attachment, reaper);
-            case NULL:
-                return attachment == null ? getNullReference() : new StrongReference<>(null, attachment);
-            default:
-                throw Assert.impossibleSwitchCase(type);
-        }
+        return switch (type) {
+            case STRONG -> new StrongReference<T, A>(value, attachment);
+            case WEAK -> new WeakReference<T, A>(value, attachment, reaper);
+            case PHANTOM -> new PhantomReference<T, A>(value, attachment, reaper);
+            case SOFT -> new SoftReference<T, A>(value, attachment, reaper);
+            case NULL -> attachment == null ? getNullReference() : new StrongReference<>(null, attachment);
+        };
     }
 
     /**
@@ -122,25 +115,19 @@ public final class References {
     public static <T, A> Reference<T, A> create(Reference.Type type, T value, A attachment,
             ReferenceQueue<? super T> referenceQueue) {
         Assert.checkNotNullParam("type", type);
-        if (referenceQueue == null)
+        if (referenceQueue == null) {
             return create(type, value, attachment);
+        }
         if (value == null) {
             type = Reference.Type.NULL;
         }
-        switch (type) {
-            case STRONG:
-                return new StrongReference<T, A>(value, attachment);
-            case WEAK:
-                return new WeakReference<T, A>(value, attachment, referenceQueue);
-            case PHANTOM:
-                return new PhantomReference<T, A>(value, attachment, referenceQueue);
-            case SOFT:
-                return new SoftReference<T, A>(value, attachment, referenceQueue);
-            case NULL:
-                return attachment == null ? getNullReference() : new StrongReference<>(null, attachment);
-            default:
-                throw Assert.impossibleSwitchCase(type);
-        }
+        return switch (type) {
+            case STRONG -> new StrongReference<T, A>(value, attachment);
+            case WEAK -> new WeakReference<T, A>(value, attachment, referenceQueue);
+            case PHANTOM -> new PhantomReference<T, A>(value, attachment, referenceQueue);
+            case SOFT -> new SoftReference<T, A>(value, attachment, referenceQueue);
+            case NULL -> attachment == null ? getNullReference() : new StrongReference<>(null, attachment);
+        };
     }
 
     /**
@@ -161,19 +148,12 @@ public final class References {
         if (value == null) {
             type = Reference.Type.NULL;
         }
-        switch (type) {
-            case STRONG:
-                return new StrongReference<T, A>(value, attachment);
-            case WEAK:
-                return new WeakReference<T, A>(value, attachment);
-            case SOFT:
-                return new SoftReference<T, A>(value, attachment);
-            case PHANTOM:
-            case NULL:
-                return attachment == null ? getNullReference() : new StrongReference<>(null, attachment);
-            default:
-                throw Assert.impossibleSwitchCase(type);
-        }
+        return switch (type) {
+            case STRONG -> new StrongReference<T, A>(value, attachment);
+            case WEAK -> new WeakReference<T, A>(value, attachment);
+            case SOFT -> new SoftReference<T, A>(value, attachment);
+            case PHANTOM, NULL -> attachment == null ? getNullReference() : new StrongReference<>(null, attachment);
+        };
     }
 
     /**

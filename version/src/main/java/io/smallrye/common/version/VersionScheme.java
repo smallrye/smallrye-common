@@ -315,20 +315,12 @@ letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
         }
         int cp = range.codePointAt(start);
         int cnt = Character.charCount(cp);
-        switch (cp) {
-            case '[': {
-                return parseMinIncl(range, start + cnt, end);
-            }
-            case '(': {
-                return parseMinExcl(range, start + cnt, end);
-            }
-            case ',': {
-                return parseMore(whenEquals(""), range, start + cnt, end);
-            }
-            default: {
-                return parseSingle(range, start + cnt, end);
-            }
-        }
+        return switch (cp) {
+            case '[' -> parseMinIncl(range, start + cnt, end);
+            case '(' -> parseMinExcl(range, start + cnt, end);
+            case ',' -> parseMore(whenEquals(""), range, start + cnt, end);
+            default -> parseSingle(range, start + cnt, end);
+        };
     }
 
     private Predicate<String> parseSingle(String range, int start, int end) {
@@ -338,13 +330,10 @@ letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
             cp = range.codePointAt(i);
             cnt = Character.charCount(cp);
             switch (cp) {
-                case ',': {
+                case ',' -> {
                     return parseMore(whenEquals(range.substring(start, i)), range, i + cnt, end);
                 }
-                case ']':
-                case ')': {
-                    throw Messages.msg.standaloneVersionCannotBeBound();
-                }
+                case ']', ')' -> throw Messages.msg.standaloneVersionCannotBeBound();
             }
             i += cnt;
         } while (i < end);
@@ -359,18 +348,16 @@ letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
             cp = range.codePointAt(i);
             int cnt = Character.charCount(cp);
             switch (cp) {
-                case ',': {
+                case ',' -> {
                     if (i == start) {
                         throw Messages.msg.inclusiveVersionCannotBeEmpty();
                     }
                     return parseRangeMax(whenGe(range.substring(start, i)), range, i + cnt, end);
                 }
-                case ']': {
+                case ']' -> {
                     return parseMore(whenEquals(range.substring(start, i)), range, i + cnt, end);
                 }
-                case ')': {
-                    throw Messages.msg.singleVersionMustBeSurroundedByBrackets(range.substring(start, i + cnt));
-                }
+                case ')' -> throw Messages.msg.singleVersionMustBeSurroundedByBrackets(range.substring(start, i + cnt));
             }
             i += cnt;
         } while (i < end);
@@ -385,7 +372,7 @@ letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
             cp = range.codePointAt(i);
             int cnt = Character.charCount(cp);
             switch (cp) {
-                case ',': {
+                case ',' -> {
                     if (i == start) {
                         // include all
                         return parseRangeMax(null, range, i + cnt, end);
@@ -393,10 +380,7 @@ letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
                         return parseRangeMax(whenGt(range.substring(start, i)), range, i + cnt, end);
                     }
                 }
-                case ']':
-                case ')': {
-                    throw Messages.msg.singleVersionMustBeSurroundedByBrackets(range.substring(start, i + cnt));
-                }
+                case ']', ')' -> throw Messages.msg.singleVersionMustBeSurroundedByBrackets(range.substring(start, i + cnt));
             }
             i += cnt;
         } while (i < end);
@@ -411,14 +395,11 @@ letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
             cp = range.codePointAt(i);
             int cnt = Character.charCount(cp);
             switch (cp) {
-                case ')': {
-                    if (i == start) {
+                case ')', ']' -> {
+                    if (cp == ')' && i == start) {
                         // empty upper range; only consider the minimum range
                         return parseMore(min, range, i + cnt, end);
                     }
-                    // fall through
-                }
-                case ']': {
                     String high = range.substring(start, i);
                     if (min != null && !min.test(high)) {
                         // low end must be higher than high end
@@ -427,9 +408,7 @@ letter ::= &lt;{@linkplain Character#isLetter(int) Unicode letters}&gt;
                     Predicate<String> max = cp == ']' ? whenLe(high) : whenLt(high);
                     return parseMore(min == null ? max : min.and(max), range, i + cnt, end);
                 }
-                case ',': {
-                    throw Messages.msg.rangeUnexpected(range.substring(start, i + cnt));
-                }
+                case ',' -> throw Messages.msg.rangeUnexpected(range.substring(start, i + cnt));
             }
             i += cnt;
         } while (i < end);

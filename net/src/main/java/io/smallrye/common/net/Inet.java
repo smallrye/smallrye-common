@@ -136,8 +136,8 @@ public final class Inet {
      * @return the converted address (not {@code null})
      */
     public static Inet6Address toInet6Address(InetAddress inetAddress) {
-        if (inetAddress instanceof Inet6Address) {
-            return (Inet6Address) inetAddress;
+        if (inetAddress instanceof Inet6Address i6a) {
+            return i6a;
         } else {
             assert inetAddress instanceof Inet4Address;
             final byte[] addr = new byte[16];
@@ -954,7 +954,7 @@ public final class Inet {
      * @return the scope ID, or 0 if there is none or the address is an IPv4 address
      */
     public static int getScopeId(InetAddress address) {
-        return address instanceof Inet6Address ? ((Inet6Address) address).getScopeId() : 0;
+        return address instanceof Inet6Address i6a ? i6a.getScopeId() : 0;
     }
 
     private static final Pattern NUMERIC = Pattern.compile("\\d+");
@@ -1031,13 +1031,12 @@ public final class Inet {
      */
     public static int getScopeId(NetworkInterface networkInterface, InetAddress compareWith) {
         Assert.checkNotNullParam("networkInterface", networkInterface);
-        Inet6Address cw6 = compareWith instanceof Inet6Address ? (Inet6Address) compareWith : null;
+        Inet6Address cw6 = compareWith instanceof Inet6Address i6a ? i6a : null;
         Inet6Address address = null;
         final Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
         while (addresses.hasMoreElements()) {
             final InetAddress a = addresses.nextElement();
-            if (a instanceof Inet6Address) {
-                final Inet6Address a6 = (Inet6Address) a;
+            if (a instanceof Inet6Address a6) {
                 if (cw6 == null ||
                         a6.isLinkLocalAddress() == cw6.isLinkLocalAddress() &&
                                 a6.isSiteLocalAddress() == cw6.isSiteLocalAddress()) {

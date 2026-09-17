@@ -143,10 +143,10 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
      */
     public boolean matches(InetAddress address) {
         Assert.checkNotNullParam("address", address);
-        if (address instanceof Inet4Address) {
-            return matches((Inet4Address) address);
-        } else if (address instanceof Inet6Address) {
-            return matches((Inet6Address) address);
+        if (address instanceof Inet4Address i4a) {
+            return matches(i4a);
+        } else if (address instanceof Inet6Address i6a) {
+            return matches(i6a);
         } else {
             throw Assert.unreachableCode();
         }
@@ -331,7 +331,7 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
      * @param obj the other address
      */
     public boolean equals(final Object obj) {
-        return obj instanceof CidrAddress && equals((CidrAddress) obj);
+        return obj instanceof CidrAddress ca && equals(ca);
     }
 
     /**
