@@ -89,6 +89,44 @@ public class TestBasicExecution {
     }
 
     @Test
+    public void testDaemonValidationAndExecution() throws Exception {
+        // 1. Synchronous execution must be forbidden
+        ProcessBuilder<Void> builder1 = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon();
+        assertThrows(UnsupportedOperationException.class, builder1::run);
+
+        // 2. Forbidden I/O: inherit input
+        ProcessBuilder<Void> builder2 = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon()
+                .input().inherited();
+        assertThrows(IllegalStateException.class, builder2::start);
+
+        // 3. Forbidden I/O: pipe-based output handler
+        PipelineBuilder<String> builder3 = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon()
+                .output().toSingleString(100);
+        assertThrows(IllegalStateException.class, builder3::start);
+
+        // 4. Forbidden timeout config
+        ProcessBuilder<Void> builder4 = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon()
+                .softExitTimeout(Duration.ofSeconds(1));
+        assertThrows(IllegalStateException.class, builder4::start);
+
+        // 5. Successful daemon execution with decoupled streams
+        try (WaitableProcessHandle<Void> wph = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon()
+                .input().empty()
+                .output().discard()
+                .error().discard()
+                .start()) {
+            // we should be able to wait for it (and it exits quickly because stdin is empty)
+            wph.waitUninterruptiblyFor();
+            assertNull(wph.result());
+        }
+    }
+
+    @Test
     public void testSimpleCatWithTee() throws Exception {
         List<String> strings = List.of("Hello", "world", "foo", "bar");
         List<String> result = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))

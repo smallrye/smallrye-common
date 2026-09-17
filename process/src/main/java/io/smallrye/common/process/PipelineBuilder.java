@@ -83,6 +83,14 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
     PipelineBuilder<O> modifyEnvironment(Consumer<Map<String, String>> action);
 
     /**
+     * Configure the process or pipeline to run as a daemon.
+     * A daemon process is allowed to outlive the parent JVM.
+     *
+     * @return this builder
+     */
+    PipelineBuilder<O> daemon();
+
+    /**
      * Configure the output handling of the process.
      *
      * @return the output configuration view of this builder (not {@code null})

@@ -91,6 +91,10 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
      */
     WaitableProcessHandle<O> start() {
         ThreadFactory tf = threadFactory();
+        if (processBuilder.daemon) {
+            initialize(tf);
+            return handle();
+        }
         asyncThread = tf.newThread(() -> {
             if (awaitOk()) {
                 Thread shutdownHook = registerHook();

@@ -366,6 +366,9 @@ public sealed interface ProcessBuilder<O>
     ProcessBuilder<O> modifyEnvironment(Consumer<Map<String, String>> action);
 
     @Override
+    ProcessBuilder<O> daemon();
+
+    @Override
     ProcessBuilder<O> exitCodeChecker(IntPredicate checker);
 
     @Override

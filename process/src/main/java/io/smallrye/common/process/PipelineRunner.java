@@ -605,6 +605,12 @@ class PipelineRunner<O> {
         pb.command(processBuilder.argumentRule.formatArguments(processBuilder.command, processBuilder.arguments,
                 processBuilder.specialQuoting));
         pb.directory(processBuilder.directory);
+        if (processBuilder.daemon) {
+            createInputThread(tf, runner);
+            createErrorThreads(tf, runner);
+            createOutputThreads(tf, runner, nextRunner);
+            return prev == null ? 0 : prev.createThreads(tf, runner, this);
+        }
         int cnt = createInputThread(tf, runner)
                 + createErrorThreads(tf, runner)
                 + createOutputThreads(tf, runner, nextRunner)

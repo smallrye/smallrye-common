@@ -90,6 +90,7 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
     int errorTailLines = 5;
     File errorFile;
     Consumer<WaitableProcessHandle<?>> whileRunning;
+    boolean daemon;
     // we create this very early so we can access the env map
     final java.lang.ProcessBuilder pb = new java.lang.ProcessBuilder();
 
@@ -105,6 +106,7 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         pb.environment().putAll(prev.pb.environment());
         directory = prev.directory;
         inputStrategy = prev.outputStrategy == OUT_PIPELINE_SPLIT ? IN_PIPELINE_SPLIT : IN_PIPELINE;
+        this.daemon = prev.daemon;
     }
 
     ProcessBuilderImpl(Path command) {
@@ -193,8 +195,24 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
         return this;
     }
 
+    public ProcessBuilder<O> daemon() {
+        check();
+        this.daemon = true;
+        errorLogOnSuccess = false;
+        errorGatherOnFail = false;
+        softExitTimeout = null;
+        hardExitTimeout = null;
+        if (prev != null) {
+            prev.daemon();
+        }
+        return this;
+    }
+
     public O run() {
         check();
+        if (daemon) {
+            throw new UnsupportedOperationException("Synchronous execution is not supported for daemon processes");
+        }
         locked = true;
         return makeRunner().run();
     }
@@ -207,8 +225,46 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
     public WaitableProcessHandle<O> start() {
         check();
+        if (daemon) {
+            validateDaemonConfig();
+        }
         locked = true;
         return makeRunner().start();
+    }
+
+    private void validateDaemonConfig() {
+        if (daemon) {
+            if (prev != null) {
+                prev.validateDaemonConfig();
+            }
+            if (inputStrategy == IN_INHERIT || inputStrategy == IN_HANDLER) {
+                throw new IllegalStateException(
+                        "Daemon process cannot inherit parent's standard input or use pipe-based input handlers");
+            }
+            if (outputStrategy == OUT_INHERIT || outputStrategy == OUT_HANDLER) {
+                throw new IllegalStateException(
+                        "Daemon process cannot inherit parent's standard output or use pipe-based output handlers");
+            }
+            if (errorStrategy == ERR_INHERIT || errorStrategy == ERR_HANDLER) {
+                throw new IllegalStateException(
+                        "Daemon process cannot inherit parent's standard error or use pipe-based error handlers");
+            }
+            if (errorGatherOnFail) {
+                throw new IllegalStateException("Daemon process cannot gather error output on failure");
+            }
+            if (errorLogOnSuccess) {
+                throw new IllegalStateException("Daemon process cannot log error output on success");
+            }
+            if (outputGatherOnFail) {
+                throw new IllegalStateException("Daemon process cannot gather standard output on failure");
+            }
+            if (softExitTimeout != null || hardExitTimeout != null) {
+                throw new IllegalStateException("Daemon process cannot be configured with soft or hard exit timeouts");
+            }
+            if (whileRunning != null) {
+                throw new IllegalStateException("Daemon process cannot be configured with a whileRunning task");
+            }
+        }
     }
 
     private ProcessRunner<O> makeRunner() {
@@ -296,6 +352,10 @@ final class ProcessBuilderImpl<O> implements ProcessBuilder<O> {
 
         public ProcessBuilder<O> whileRunning(final Consumer<WaitableProcessHandle<?>> action) {
             return ProcessBuilderImpl.this.whileRunning(action);
+        }
+
+        public ProcessBuilder<O> daemon() {
+            return ProcessBuilderImpl.this.daemon();
         }
     }
 
