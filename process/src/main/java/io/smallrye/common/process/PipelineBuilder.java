@@ -83,6 +83,14 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
     PipelineBuilder<O> modifyEnvironment(Consumer<Map<String, String>> action);
 
     /**
+     * Configure the process or pipeline to run as a daemon.
+     * A daemon process is allowed to outlive the parent JVM.
+     *
+     * @return this builder
+     */
+    PipelineBuilder<O> daemon();
+
+    /**
      * Configure the output handling of the process.
      *
      * @return the output configuration view of this builder (not {@code null})
@@ -107,8 +115,18 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
      * Run the process or pipeline asynchronously.
      *
      * @return the asynchronous result (not {@code null} but may yield {@code null})
+     * @deprecated Use {@link #start} instead.
      */
+    @Deprecated
     CompletableFuture<O> runAsync();
+
+    /**
+     * Start the process or pipeline asynchronously, returning its handle.
+     * The returned handle is suitable for usage with a {@code try}-with-resources block.
+     *
+     * @return the waitable process handle (not {@code null})
+     */
+    WaitableProcessHandle<O> start();
 
     /**
      * Add a failure exit code checker.
@@ -128,7 +146,7 @@ public sealed interface PipelineBuilder<O> permits PipelineBuilder.Error, Pipeli
      * @param action the action to run (must not be {@code null})
      * @return this builder
      */
-    PipelineBuilder<O> whileRunning(Consumer<WaitableProcessHandle> action);
+    PipelineBuilder<O> whileRunning(Consumer<WaitableProcessHandle<?>> action);
 
     /**
      * The output handling aspect of the process builder.

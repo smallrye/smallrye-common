@@ -6,8 +6,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * A process handle that can be waited for and whose exit value may be read.
+ *
+ * @param <O> the process output type
  */
-public interface WaitableProcessHandle extends ProcessHandle {
+public interface WaitableProcessHandle<O> extends ProcessHandle, AutoCloseable {
     /**
      * {@return the initial process command (not {@code null})}
      * This may differ from what {@link Info#command()} returns.
@@ -107,4 +109,22 @@ public interface WaitableProcessHandle extends ProcessHandle {
      * @see Process#exitValue()
      */
     int exitValue();
+
+    /**
+     * Close the process handle, terminating the subprocess (gracefully if possible).
+     */
+    void close();
+
+    /**
+     * Get the result of the process execution.
+     * <p>
+     * If the process has not completed, this method throws {@link IllegalStateException}.
+     * If the execution failed with one or more errors, a {@link PipelineExecutionException}
+     * is thrown, which may contain suppressed exceptions for other encountered issues.
+     *
+     * @return the process execution result (may be {@code null})
+     * @throws IllegalStateException if the process is still running
+     * @throws PipelineExecutionException if the process execution failed
+     */
+    O result() throws IllegalStateException, PipelineExecutionException;
 }

@@ -84,6 +84,49 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
         return cf;
     }
 
+    /**
+     * Start the process or pipeline asynchronously and return its handle.
+     *
+     * @return the waitable process handle (not {@code null})
+     */
+    WaitableProcessHandle<O> start() {
+        ThreadFactory tf = threadFactory();
+        if (processBuilder.daemon) {
+            initialize(tf);
+            return handle();
+        }
+        asyncThread = tf.newThread(() -> {
+            if (awaitOk()) {
+                Thread shutdownHook = registerHook();
+                try {
+                    await();
+                } finally {
+                    Runtime.getRuntime().removeShutdownHook(shutdownHook);
+                }
+            }
+        });
+        if (asyncThread == null) {
+            throw new PipelineExecutionException("Failed to start process thread(s)", noThread(tf));
+        }
+        asyncThread.setName("process-async-handler");
+        initialize(tf);
+        return handle();
+    }
+
+    /**
+     * Get the result of the process execution if it is complete.
+     *
+     * @return the process execution result (may be {@code null})
+     * @throws IllegalStateException if the process is still running
+     * @throws PipelineExecutionException if the process execution failed
+     */
+    O result() throws IllegalStateException, PipelineExecutionException {
+        if (taskCount != 0) {
+            throw new IllegalStateException("Process is still running");
+        }
+        return complete();
+    }
+
     O run() {
         initialize(threadFactory());
         Thread shutdownHook = registerHook();

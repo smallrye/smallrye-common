@@ -1,6 +1,7 @@
 package io.smallrye.common.process;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -12,6 +13,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -52,6 +54,76 @@ public class TestBasicExecution {
                 .runAsync();
         List<String> result = future.get();
         assertEquals(strings, result);
+    }
+
+    @Test
+    public void testSimpleCatAsyncStart() throws Exception {
+        List<String> strings = List.of("Hello", "world", "foo", "bar");
+        Iterator<String> iter = strings.iterator();
+        try (WaitableProcessHandle<Void> wph = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .input()
+                .fromStrings(strings)
+                .output()
+                .consumeLinesWith(10, c -> assertEquals(iter.next(), c))
+                .start()) {
+            assertThrows(IllegalStateException.class, wph::result);
+            wph.waitUninterruptiblyFor();
+            assertNull(wph.result());
+        }
+    }
+
+    @Test
+    public void testSimpleCatAsyncStartString() throws Exception {
+        List<String> strings = List.of("Hello", "world", "foo", "bar");
+        try (WaitableProcessHandle<String> wph = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .input()
+                .fromStrings(strings)
+                .output()
+                .toSingleString(500)
+                .start()) {
+            assertThrows(IllegalStateException.class, wph::result);
+            wph.waitUninterruptiblyFor();
+            String result = wph.result();
+            assertEquals(String.join(System.lineSeparator(), strings) + System.lineSeparator(), result);
+        }
+    }
+
+    @Test
+    public void testDaemonValidationAndExecution() throws Exception {
+        // 1. Synchronous execution must be forbidden
+        ProcessBuilder<Void> builder1 = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon();
+        assertThrows(UnsupportedOperationException.class, builder1::run);
+
+        // 2. Forbidden I/O: inherit input
+        ProcessBuilder<Void> builder2 = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon()
+                .input().inherited();
+        assertThrows(IllegalStateException.class, builder2::start);
+
+        // 3. Forbidden I/O: pipe-based output handler
+        PipelineBuilder<String> builder3 = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon()
+                .output().toSingleString(100);
+        assertThrows(IllegalStateException.class, builder3::start);
+
+        // 4. Forbidden timeout config
+        ProcessBuilder<Void> builder4 = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon()
+                .softExitTimeout(Duration.ofSeconds(1));
+        assertThrows(IllegalStateException.class, builder4::start);
+
+        // 5. Successful daemon execution with decoupled streams
+        try (WaitableProcessHandle<Void> wph = ProcessBuilder.newBuilder(ProcessUtil.pathOfJava(), findHelper(Cat.class))
+                .daemon()
+                .input().empty()
+                .output().discard()
+                .error().discard()
+                .start()) {
+            // we should be able to wait for it (and it exits quickly because stdin is empty)
+            wph.waitUninterruptiblyFor();
+            assertNull(wph.result());
+        }
     }
 
     @Test

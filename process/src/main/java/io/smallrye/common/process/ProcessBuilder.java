@@ -366,10 +366,13 @@ public sealed interface ProcessBuilder<O>
     ProcessBuilder<O> modifyEnvironment(Consumer<Map<String, String>> action);
 
     @Override
+    ProcessBuilder<O> daemon();
+
+    @Override
     ProcessBuilder<O> exitCodeChecker(IntPredicate checker);
 
     @Override
-    ProcessBuilder<O> whileRunning(Consumer<WaitableProcessHandle> action);
+    ProcessBuilder<O> whileRunning(Consumer<WaitableProcessHandle<?>> action);
 
     /**
      * Configure the input handling of the process.
