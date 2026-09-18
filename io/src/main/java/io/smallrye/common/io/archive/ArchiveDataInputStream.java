@@ -32,7 +32,7 @@ final class ArchiveDataInputStream extends InputStream {
             return -1;
         }
         int cnt = (int) Math.min(size - position, len);
-        archiveData.get(offset, b, off, cnt);
+        archiveData.get(offset + position, b, off, cnt);
         position += cnt;
         return cnt;
     }
@@ -40,7 +40,7 @@ final class ArchiveDataInputStream extends InputStream {
     public byte[] readNBytes(final int len) {
         int cnt = (int) Math.min(size - position, len);
         byte[] b = new byte[cnt];
-        archiveData.get(offset, b, 0, cnt);
+        archiveData.get(offset + position, b, 0, cnt);
         position += cnt;
         return b;
     }
