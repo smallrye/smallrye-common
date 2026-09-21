@@ -59,8 +59,8 @@ final class ArchiveJarFileResource extends JarFileResource {
         Assert.checkMinimumParameter("length", 0, length);
         ByteBuffer data = archive.mapStoredToBuffer(index);
         int lim = data.limit();
-        Assert.checkMaximumParameter("offset", offset, lim);
-        Assert.checkMaximumParameter("length", length, lim - offset);
+        Assert.checkMaximumParameter("offset", lim, offset);
+        Assert.checkMaximumParameter("length", lim - offset, length);
         return data.slice((int) offset, length);
     }
 
