@@ -128,7 +128,7 @@ public class ClassPathUtils {
     public static <R> R processAsPath(URL url, Function<Path, R> function) {
         if (JAR.equals(url.getProtocol())) {
             final String file = url.getFile();
-            int exclam = file.indexOf("!/");
+            int exclam = file.lastIndexOf("!/");
             for (;;) {
                 try {
                     URL fileUrl;
@@ -171,7 +171,7 @@ public class ClassPathUtils {
             Path localPath = jarFs.getPath("/");
             int start = 0;
             for (;;) {
-                int idx = path.indexOf("!/", start);
+                int idx = path.lastIndexOf("!/", start);
                 if (idx == -1) {
                     return function.apply(localPath.resolve(path));
                 } else {
