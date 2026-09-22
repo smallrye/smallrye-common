@@ -31,6 +31,35 @@ import org.junit.jupiter.api.io.TempDir;
 import io.smallrye.common.os.OS;
 
 public class Files2Test {
+    /**
+     * Test the mapping of POSIX permission masks and individual permissions
+     * in the {@link FileAttributes} utility.
+     */
+    @Test
+    public void testPosixPermissionsMask() {
+        // Test standard masks
+        assertEquals("rw-r--r--",
+                java.nio.file.attribute.PosixFilePermissions.toString(FileAttributes.posixPermissions(0_644).value()));
+        assertEquals("rwxr-xr-x",
+                java.nio.file.attribute.PosixFilePermissions.toString(FileAttributes.posixPermissions(0_755).value()));
+        assertEquals("rw-------",
+                java.nio.file.attribute.PosixFilePermissions.toString(FileAttributes.posixPermissions(0_600).value()));
+        assertEquals("rwx------",
+                java.nio.file.attribute.PosixFilePermissions.toString(FileAttributes.posixPermissions(0_700).value()));
+        assertEquals("rwxrwxrwx",
+                java.nio.file.attribute.PosixFilePermissions.toString(FileAttributes.posixPermissions(0_777).value()));
+        assertEquals("---------",
+                java.nio.file.attribute.PosixFilePermissions.toString(FileAttributes.posixPermissions(0_000).value()));
+
+        // Test individual / collection permission overloads
+        assertEquals("r--------",
+                java.nio.file.attribute.PosixFilePermissions.toString(FileAttributes.posixPermissions(OWNER_READ).value()));
+        assertEquals("rw-r-----", java.nio.file.attribute.PosixFilePermissions
+                .toString(FileAttributes.posixPermissions(OWNER_READ, OWNER_WRITE, GROUP_READ).value()));
+        assertEquals("rwxr-x---", java.nio.file.attribute.PosixFilePermissions.toString(FileAttributes
+                .posixPermissions(Set.of(OWNER_READ, OWNER_WRITE, OWNER_EXECUTE, GROUP_READ, GROUP_EXECUTE)).value()));
+    }
+
     public Files2Test() {
     }
 

@@ -161,7 +161,7 @@ public final class FileAttributes {
     public static FileAttribute<Set<PosixFilePermission>> posixPermissions(Set<PosixFilePermission> perms) {
         int mask = 0;
         for (PosixFilePermission item : perms) {
-            mask |= 1 << item.ordinal();
+            mask |= 1 << (8 - item.ordinal());
         }
         return permissionAttr(mask);
     }
@@ -177,7 +177,7 @@ public final class FileAttributes {
     public static FileAttribute<Set<PosixFilePermission>> posixPermissions(PosixFilePermission... perms) {
         int mask = 0;
         for (PosixFilePermission item : perms) {
-            mask |= 1 << item.ordinal();
+            mask |= 1 << (8 - item.ordinal());
         }
         return permissionAttr(mask);
     }
@@ -191,7 +191,7 @@ public final class FileAttributes {
      * @return the file attribute (not {@code null})
      */
     public static FileAttribute<Set<PosixFilePermission>> posixPermissions(PosixFilePermission perm1) {
-        return permissionAttr(1 << perm1.ordinal());
+        return permissionAttr(1 << (8 - perm1.ordinal()));
     }
 
     /**
@@ -205,7 +205,7 @@ public final class FileAttributes {
      */
     public static FileAttribute<Set<PosixFilePermission>> posixPermissions(PosixFilePermission perm1,
             PosixFilePermission perm2) {
-        return permissionAttr(1 << perm1.ordinal() | 1 << perm2.ordinal());
+        return permissionAttr(1 << (8 - perm1.ordinal()) | 1 << (8 - perm2.ordinal()));
     }
 
     /**
@@ -220,7 +220,7 @@ public final class FileAttributes {
      */
     public static FileAttribute<Set<PosixFilePermission>> posixPermissions(PosixFilePermission perm1, PosixFilePermission perm2,
             PosixFilePermission perm3) {
-        return permissionAttr(1 << perm1.ordinal() | 1 << perm2.ordinal() | 1 << perm3.ordinal());
+        return permissionAttr(1 << (8 - perm1.ordinal()) | 1 << (8 - perm2.ordinal()) | 1 << (8 - perm3.ordinal()));
     }
 
     /**
@@ -270,7 +270,7 @@ public final class FileAttributes {
             int v = mask;
             while (v != 0) {
                 int lob = Integer.lowestOneBit(v);
-                set.add(perms.get(Integer.numberOfTrailingZeros(lob)));
+                set.add(perms.get(8 - Integer.numberOfTrailingZeros(lob)));
                 v &= ~lob;
             }
             attr = new FileAttributeImpl<>("posix:permissions", Collections.unmodifiableSet(set));
