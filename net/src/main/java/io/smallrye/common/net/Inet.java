@@ -21,7 +21,7 @@ import io.smallrye.common.constraint.Assert;
 /**
  * Utilities relating to Internet protocol (a.k.a. "INET" or "IP") address manipulation.
  */
-@SuppressWarnings("removal")
+@SuppressWarnings("deprecation")
 public final class Inet {
     private Inet() {
     }
@@ -558,7 +558,6 @@ public final class Inet {
         if (bytes == null) {
             return null;
         }
-        int scopeId = 0;
         Inet6Address inetAddress;
         try {
             inetAddress = Inet6Address.getByAddress(hostName == null ? toOptimalStringV6(bytes) : hostName, bytes, 0);
@@ -568,7 +567,7 @@ public final class Inet {
         }
         final int pctIdx = address.indexOf('%');
         if (pctIdx != -1) {
-            scopeId = getScopeId(address.substring(pctIdx + 1), inetAddress);
+            int scopeId = getScopeId(address.substring(pctIdx + 1), inetAddress);
             if (scopeId == 0) {
                 // address not valid after all...
                 return null;
@@ -799,11 +798,11 @@ public final class Inet {
             return null;
         }
         // if the first segment is empty, the second one must be too - "::<address end>"
-        if (segments[0].length() == 0 && segments[1].length() != 0) {
+        if (segments[0].isEmpty() && !segments[1].isEmpty()) {
             return null;
         }
         // if the last segment is empty, the segment before it must be too - "<address beginning>::"
-        if (segments[segments.length - 1].length() == 0 && segments[segments.length - 2].length() != 0) {
+        if (segments[segments.length - 1].isEmpty() && !segments[segments.length - 2].isEmpty()) {
             return null;
         }
 
@@ -822,7 +821,7 @@ public final class Inet {
         // look for an empty segment - "::"
         int emptyIndex = -1;
         for (int i = 0; i < segments.length - 1; i++) {
-            if (segments[i].length() == 0) {
+            if (segments[i].isEmpty()) {
                 if (emptyIndex > 0) {
                     return null; // more than one occurrence of "::", invalid address
                 } else if (emptyIndex != 0) { // don't rewrite skipIndex=0, when address starts with "::"
@@ -908,12 +907,12 @@ public final class Inet {
             return null; // require 4 segments
         }
         // validate segments
-        for (int i = 0; i < segments.length; i++) {
-            if (segments[i].length() < 1) {
+        for (String segment : segments) {
+            if (segment.isEmpty()) {
                 return null; // empty segment
             }
-            for (int cidx = 0; cidx < segments[i].length(); cidx++) {
-                if (Character.digit(segments[i].charAt(cidx), 10) < 0) {
+            for (int cidx = 0; cidx < segment.length(); cidx++) {
+                if (Character.digit(segment.charAt(cidx), 10) < 0) {
                     return null; // not a digit
                 }
             }
