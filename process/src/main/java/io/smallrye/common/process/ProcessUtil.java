@@ -282,7 +282,7 @@ public final class ProcessUtil {
             return false;
         }
 
-        String name = path.getFileName().toString().toLowerCase();
-        return name.equals("java") || name.equals("java.exe") || name.equals("javaw.exe");
+        String name = path.getFileName().toString();
+        return name.equalsIgnoreCase("java") || name.equalsIgnoreCase("java.exe") || name.equalsIgnoreCase("javaw.exe");
     }
 }
