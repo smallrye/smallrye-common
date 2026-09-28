@@ -254,7 +254,7 @@ public final class ProcessUtil {
             javaHome = javaHomeStr == null ? Optional.empty() : Optional.of(Path.of(javaHomeStr));
             javaName = OS.current() == OS.WINDOWS ? "java.exe" : "java";
             Path javaTestPath = ProcessHandle.current().info().command().map(Path::of).orElse(null);
-            if ((javaTestPath == null || !Files.isExecutable(javaTestPath)) && javaHomeStr != null) {
+            if (!isJavaExecutable(javaTestPath) && javaHomeStr != null) {
                 javaTestPath = Path.of(javaHomeStr, "bin", javaName);
                 if (!Files.isExecutable(javaTestPath)) {
                     javaTestPath = null;
@@ -275,5 +275,14 @@ public final class ProcessUtil {
             }
             javaPath = javaTestPath;
         }
+    }
+
+    private static boolean isJavaExecutable(Path path) {
+        if (path == null || !Files.isExecutable(path)) {
+            return false;
+        }
+
+        String name = path.getFileName().toString();
+        return name.equalsIgnoreCase("java") || name.equalsIgnoreCase("java.exe") || name.equalsIgnoreCase("javaw.exe");
     }
 }
