@@ -37,5 +37,11 @@ public enum ZipOption implements OpenOption {
      * exceeds 4 GB), regardless of this option.
      */
     ZIP64,
+    /**
+     * Allow duplicate entries to be added to the archive.
+     * When this option is not specified, attempting to add multiple entries with the same
+     * name will throw an {@link IllegalArgumentException}.
+     */
+    ALLOW_DUPLICATE_ENTRIES,
     ;
 }
