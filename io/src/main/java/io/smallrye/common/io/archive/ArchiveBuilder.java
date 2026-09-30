@@ -25,6 +25,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.zip.CRC32;
@@ -89,17 +90,40 @@ public final class ArchiveBuilder implements Closeable {
     private final long startOffset;
     private final int defaultMethod;
     private final boolean defaultZip64;
+    /**
+     * Indicates whether duplicate entry names are permitted.
+     * If {@code false}, adding a duplicate entry name will throw an {@link IllegalArgumentException}.
+     */
+    private final boolean allowDuplicateEntries;
+    /**
+     * The set of entry names that have already been added to this archive.
+     * Used to prevent duplicate entry names when {@link #allowDuplicateEntries} is {@code false}.
+     * This field is {@code null} if duplicate entry names are permitted.
+     */
+    private final Set<String> addedNames;
     private final List<CdEntry> entries = new ArrayList<>();
     private Deflater deflater;
     private CRC32 crc;
     private Closeable activeEntry;
     private boolean closed;
 
-    private ArchiveBuilder(BufferedFile file, long startOffset, int defaultMethod, boolean defaultZip64) {
+    /**
+     * Construct a new {@code ArchiveBuilder} instance.
+     *
+     * @param file the buffered file to write the archive to (must not be {@code null})
+     * @param startOffset the file position where the archive begins (must be non-negative)
+     * @param defaultMethod the default compression method ({@link Constants#METHOD_STORED} or {@link Constants#METHOD_DEFLATE})
+     * @param defaultZip64 whether to use ZIP64 by default
+     * @param allowDuplicateEntries whether duplicate entry names are permitted
+     */
+    private ArchiveBuilder(BufferedFile file, long startOffset, int defaultMethod, boolean defaultZip64,
+            boolean allowDuplicateEntries) {
         this.file = file;
         this.startOffset = startOffset;
         this.defaultMethod = defaultMethod;
         this.defaultZip64 = defaultZip64;
+        this.allowDuplicateEntries = allowDuplicateEntries;
+        this.addedNames = allowDuplicateEntries ? null : new HashSet<>();
     }
 
     /**
@@ -181,7 +205,7 @@ public final class ArchiveBuilder implements Closeable {
         for (OpenOption opt : options) {
             if (opt instanceof ZipOption zo) {
                 switch (zo) {
-                    case STORED, DEFLATED, ZIP64 -> {
+                    case STORED, DEFLATED, ZIP64, ALLOW_DUPLICATE_ENTRIES -> {
                     }
                 }
             } else if (opt instanceof StandardOpenOption soo) {
@@ -264,7 +288,7 @@ public final class ArchiveBuilder implements Closeable {
         int parsed = parseEntryOptions(options, true);
         int method = parsed & PARSED_METHOD_MASK;
         return new ArchiveBuilder(file, file.filePosition(), method == PARSED_NO_METHOD ? METHOD_DEFLATE : method,
-                (parsed & PARSED_ZIP64) != 0);
+                (parsed & PARSED_ZIP64) != 0, (parsed & PARSED_ALLOW_DUPLICATE_ENTRIES) != 0);
     }
 
     /**
@@ -1282,7 +1306,8 @@ public final class ArchiveBuilder implements Closeable {
         // create the inner builder; ownsFile = true so closing it closes the nested file,
         // which triggers the close action for CRC/LFH patching on the outer entry
         return new ArchiveBuilder(nested, nested.filePosition(),
-                innerMethod == PARSED_NO_METHOD ? METHOD_DEFLATE : innerMethod, zip64);
+                innerMethod == PARSED_NO_METHOD ? METHOD_DEFLATE : innerMethod, zip64,
+                (parsed & PARSED_ALLOW_DUPLICATE_ENTRIES) != 0 || allowDuplicateEntries);
     }
 
     // ── Raw data methods ────────────────────────────────────────────────
@@ -1442,6 +1467,11 @@ public final class ArchiveBuilder implements Closeable {
     private static final int PARSED_ZIP64 = 1 << 8;
 
     /**
+     * Flag bit indicating that {@link ZipOption#ALLOW_DUPLICATE_ENTRIES} was present in the parsed options.
+     */
+    private static final int PARSED_ALLOW_DUPLICATE_ENTRIES = 1 << 9;
+
+    /**
      * Parse {@link ZipOption} and {@link StandardOpenOption} values from an option collection,
      * returning the compression method and ZIP64 flag packed into a single {@code int}.
      * The low {@link #PARSED_METHOD_MASK} bits hold the method
@@ -1475,6 +1505,7 @@ public final class ArchiveBuilder implements Closeable {
                         method = setMethod(method, METHOD_DEFLATE);
                     }
                     case ZIP64 -> flags |= PARSED_ZIP64;
+                    case ALLOW_DUPLICATE_ENTRIES -> flags |= PARSED_ALLOW_DUPLICATE_ENTRIES;
                 }
             } else if (opt instanceof StandardOpenOption soo) {
                 switch (soo) {
@@ -1513,6 +1544,9 @@ public final class ArchiveBuilder implements Closeable {
             FileAttribute<?>[] attrs, int fileType) throws IOException {
         if (fileType != S_IFDIR && name.endsWith("/")) {
             throw new IllegalArgumentException("Non-directory entry name must not end with '/': " + name);
+        }
+        if (!allowDuplicateEntries && !addedNames.add(name)) {
+            throw new IllegalArgumentException("Duplicate entry: " + name);
         }
         CdEntry entry = new CdEntry();
         entry.fileName = name.getBytes(StandardCharsets.UTF_8);

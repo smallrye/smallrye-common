@@ -1995,4 +1995,81 @@ public class ArchiveBuilderTests {
             assertEquals((int) secondCrc.getValue(), builder.lastEntryCrc32());
         }
     }
+
+    /**
+     * Test that adding a duplicate entry name without {@link ZipOption#ALLOW_DUPLICATE_ENTRIES}
+     * throws an {@link IllegalArgumentException}.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testDuplicateEntryBlockedByDefault() throws Exception {
+        Path file = tempDir.resolve("duplicate-blocked.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addEntry("hello.txt", "hello".getBytes(StandardCharsets.UTF_8));
+            assertThrows(IllegalArgumentException.class, () -> {
+                builder.addEntry("hello.txt", "world".getBytes(StandardCharsets.UTF_8));
+            });
+        }
+    }
+
+    /**
+     * Test that adding a duplicate entry name with {@link ZipOption#ALLOW_DUPLICATE_ENTRIES}
+     * is permitted and creates duplicate entries successfully.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testDuplicateEntryAllowedWithOptions() throws Exception {
+        Path file = tempDir.resolve("duplicate-allowed.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file, ZipOption.ALLOW_DUPLICATE_ENTRIES)) {
+            builder.addEntry("hello.txt", "hello".getBytes(StandardCharsets.UTF_8));
+            assertDoesNotThrow(() -> {
+                builder.addEntry("hello.txt", "world".getBytes(StandardCharsets.UTF_8));
+            });
+        }
+
+        // Verify that we actually have 2 entries with the same name in the zip
+        try (ZipFile zf = new ZipFile(file.toFile())) {
+            assertEquals(2, zf.size());
+        }
+    }
+
+    /**
+     * Test that adding duplicate directory entry names without {@link ZipOption#ALLOW_DUPLICATE_ENTRIES}
+     * throws an {@link IllegalArgumentException}.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testDuplicateDirectoryBlockedByDefault() throws Exception {
+        Path file = tempDir.resolve("duplicate-dir-blocked.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addDirectory("META-INF");
+            assertThrows(IllegalArgumentException.class, () -> {
+                builder.addDirectory("META-INF");
+            });
+        }
+    }
+
+    /**
+     * Test that adding a duplicate nested archive entry name without {@link ZipOption#ALLOW_DUPLICATE_ENTRIES}
+     * throws an {@link IllegalArgumentException}.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testDuplicateNestedArchiveBlockedByDefault() throws Exception {
+        Path file = tempDir.resolve("duplicate-archive-blocked.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (ArchiveBuilder inner1 = builder.addArchive("inner.jar")) {
+                inner1.addEntry("foo.txt", "foo".getBytes(StandardCharsets.UTF_8));
+            }
+            assertThrows(IllegalArgumentException.class, () -> {
+                try (ArchiveBuilder inner2 = builder.addArchive("inner.jar")) {
+                    inner2.addEntry("bar.txt", "bar".getBytes(StandardCharsets.UTF_8));
+                }
+            });
+        }
+    }
 }
