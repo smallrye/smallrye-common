@@ -2072,4 +2072,33 @@ public class ArchiveBuilderTests {
             });
         }
     }
+
+    /**
+     * Test that {@link ZipOption#ALLOW_DUPLICATE_ENTRIES} is not inherited by a nested archive,
+     * but can be specified explicitly on the nested archive if desired.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testDuplicateOptionNotInheritedByNestedArchive() throws Exception {
+        Path file = tempDir.resolve("duplicate-nested-not-inherited.zip");
+        // Outer archive has duplicates allowed
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file, ZipOption.ALLOW_DUPLICATE_ENTRIES)) {
+            // Nested archive does NOT have duplicate options specified, so it should NOT allow duplicates
+            try (ArchiveBuilder inner = builder.addArchive("inner1.jar")) {
+                inner.addEntry("foo.txt", "foo".getBytes(StandardCharsets.UTF_8));
+                assertThrows(IllegalArgumentException.class, () -> {
+                    inner.addEntry("foo.txt", "bar".getBytes(StandardCharsets.UTF_8));
+                });
+            }
+
+            // Nested archive explicitly has duplicate options specified, so it should allow duplicates
+            try (ArchiveBuilder inner = builder.addArchive("inner2.jar", ZipOption.ALLOW_DUPLICATE_ENTRIES)) {
+                inner.addEntry("foo.txt", "foo".getBytes(StandardCharsets.UTF_8));
+                assertDoesNotThrow(() -> {
+                    inner.addEntry("foo.txt", "bar".getBytes(StandardCharsets.UTF_8));
+                });
+            }
+        }
+    }
 }

@@ -1221,7 +1221,8 @@ public final class ArchiveBuilder implements Closeable {
      * or the outer builder can be closed.
      * <p>
      * {@link ZipOption#ZIP64} applies to the outer entry (reserving ZIP64 space in the outer local
-     * file header). The inner builder inherits the same options as its defaults.
+     * file header). The inner builder inherits the same options as its defaults, with the exception of
+     * {@link ZipOption#ALLOW_DUPLICATE_ENTRIES}.
      *
      * @param name the entry name for the nested archive (must not be {@code null})
      * @param options the options; may contain {@link ZipOption} values
@@ -1272,7 +1273,8 @@ public final class ArchiveBuilder implements Closeable {
      * or the outer builder can be closed.
      * <p>
      * {@link ZipOption#ZIP64} applies to the outer entry (reserving ZIP64 space in the outer local
-     * file header). The inner builder inherits the same options as its defaults.
+     * file header). The inner builder inherits the same options as its defaults, with the exception of
+     * {@link ZipOption#ALLOW_DUPLICATE_ENTRIES}.
      * {@link ZipOption#DEFLATED} is permitted here (unlike {@code addBufferedEntry}) and sets
      * the inner builder's default compression method; the outer entry is always STORED.
      * <p>
@@ -1307,7 +1309,7 @@ public final class ArchiveBuilder implements Closeable {
         // which triggers the close action for CRC/LFH patching on the outer entry
         return new ArchiveBuilder(nested, nested.filePosition(),
                 innerMethod == PARSED_NO_METHOD ? METHOD_DEFLATE : innerMethod, zip64,
-                (parsed & PARSED_ALLOW_DUPLICATE_ENTRIES) != 0 || allowDuplicateEntries);
+                (parsed & PARSED_ALLOW_DUPLICATE_ENTRIES) != 0);
     }
 
     // ── Raw data methods ────────────────────────────────────────────────
