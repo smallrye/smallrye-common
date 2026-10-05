@@ -30,7 +30,7 @@
         <version.vertx4>4.5.34</version.vertx4>
         <version.vertx5>5.1.0</version.vertx5>
         <version.maven-resolver>2.0.0</version.maven-resolver>
-        <version.smallrye-ffm>0.3</version.smallrye-ffm>
+        <version.smallrye-ffm>0.4</version.smallrye-ffm>
         <version.org.jboss.logging>3.6.0.Final</version.org.jboss.logging>
 
         <!-- Sonar settings -->
