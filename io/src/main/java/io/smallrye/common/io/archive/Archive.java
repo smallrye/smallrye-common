@@ -18,13 +18,11 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.zip.Inflater;
 
-import io.smallrye.common.annotation.Experimental;
 import io.smallrye.common.search.BinarySearch;
 
 /**
  * A ZIP archive.
  */
-@Experimental("Incubating archive API")
 public final class Archive {
     private final ArchiveData data;
     private final Index index;

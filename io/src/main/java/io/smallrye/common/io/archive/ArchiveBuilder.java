@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.zip.CRC32;
 import java.util.zip.Deflater;
 
-import io.smallrye.common.annotation.Experimental;
 import io.smallrye.common.constraint.Assert;
 import io.smallrye.common.io.BufferedFile;
 import io.smallrye.common.io.Files2;
@@ -81,7 +80,6 @@ import io.smallrye.common.io.Files2;
  * @see Archive
  * @see ZipOption
  */
-@Experimental("Incubating archive API")
 public final class ArchiveBuilder implements Closeable {
 
     private static final Instant NTFS_EPOCH = Instant.from(ZonedDateTime.of(1601, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC));
