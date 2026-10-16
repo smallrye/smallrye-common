@@ -2,8 +2,6 @@ package io.smallrye.common.io.archive;
 
 import java.nio.file.OpenOption;
 
-import io.smallrye.common.annotation.Experimental;
-
 /**
  * Options that control the behavior of archive creation.
  * These options may be specified at the builder level (as defaults) and/or per entry (as overrides).
@@ -15,7 +13,6 @@ import io.smallrye.common.annotation.Experimental;
  * @see ArchiveBuilder#open(java.nio.file.Path, java.util.Collection, java.nio.file.attribute.FileAttribute[])
  * @see ArchiveBuilder#addEntry(String, java.util.Collection, java.nio.file.attribute.FileAttribute[])
  */
-@Experimental("Incubating archive API")
 public enum ZipOption implements OpenOption {
     /**
      * Store the entry without compression.
