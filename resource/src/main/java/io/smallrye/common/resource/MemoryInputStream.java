@@ -51,6 +51,9 @@ public final class MemoryInputStream extends InputStream {
         Objects.checkFromIndexSize(off, len, b.length);
         ByteBuffer buf = this.buf;
         checkClosed(buf);
+        if (len == 0) {
+            return 0;
+        }
         int rem = buf.remaining();
         if (rem == 0) {
             return -1;
@@ -77,7 +80,7 @@ public final class MemoryInputStream extends InputStream {
         checkClosed(buf);
         int pos = buf.position();
         int lim = buf.limit();
-        int cnt = (int) Math.min(n, lim - pos);
+        int cnt = (int) Math.max(0, Math.min(n, lim - pos));
         if (cnt > 0) {
             buf.position(pos + cnt);
         }
