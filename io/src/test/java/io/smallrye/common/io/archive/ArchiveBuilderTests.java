@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.Writer;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
@@ -21,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -2100,5 +2102,157 @@ public class ArchiveBuilderTests {
                 });
             }
         }
+    }
+
+    /**
+     * Test that when no POSIX permissions are given, entries are written with MS-DOS compatibility
+     * (version made by host 0) and zero UNIX mode bits in the external attributes field.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testNoPermissionsEmitsNoPosixPermissions() throws Exception {
+        Path file = tempDir.resolve("no-perms.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addDirectory("dir/");
+            try (OutputStream os = builder.addEntry("file.txt")) {
+                os.write("content".getBytes(StandardCharsets.UTF_8));
+            }
+        }
+
+        byte[] bytes = Files.readAllBytes(file);
+        BufferArchiveData data = new BufferArchiveData(ByteBuffer.wrap(bytes));
+        long eocd = data.findRecord(Constants.SIG_EOCD, 0, bytes.length);
+        assertTrue(eocd >= 0);
+        long cdOffset = data.eocdDirectoryRelativeOffset(eocd);
+
+        // First entry: dir/
+        assertEquals(Constants.SIG_CDE, data.cdeHeaderSignature(cdOffset));
+        int dirVersionMadeBy = data.cdeVersionMadeBy(cdOffset);
+        assertEquals(Constants.MADE_BY_MS_DOS, dirVersionMadeBy >> 8, "Host should be MADE_BY_MS_DOS");
+        int dirExtAttrs = data.cdeExternalAttributes(cdOffset);
+        assertEquals(0x10, dirExtAttrs, "Directory should only have DOS directory attribute (0x10)");
+
+        // Second entry: file.txt
+        long nextCdOffset = cdOffset + data.cdeEntrySize(cdOffset);
+        assertEquals(Constants.SIG_CDE, data.cdeHeaderSignature(nextCdOffset));
+        int fileVersionMadeBy = data.cdeVersionMadeBy(nextCdOffset);
+        assertEquals(Constants.MADE_BY_MS_DOS, fileVersionMadeBy >> 8, "Host should be MADE_BY_MS_DOS");
+        int fileExtAttrs = data.cdeExternalAttributes(nextCdOffset);
+        assertEquals(0, fileExtAttrs, "File should have 0 external attributes");
+    }
+
+    /**
+     * Test that when explicit POSIX permissions are given, entries are written with UNIX compatibility
+     * (version made by host 3) and correct UNIX mode and permission bits in the external attributes field.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testExplicitPosixPermissions() throws Exception {
+        Path file = tempDir.resolve("with-perms.zip");
+        Set<PosixFilePermission> filePerms = Set.of(
+                PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE,
+                PosixFilePermission.GROUP_READ,
+                PosixFilePermission.OTHERS_READ);
+        Set<PosixFilePermission> dirPerms = Set.of(
+                PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE,
+                PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_EXECUTE,
+                PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_EXECUTE);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            builder.addDirectory("dir/", FileAttributes.posixPermissions(dirPerms));
+            try (OutputStream os = builder.addEntry("file.txt", FileAttributes.posixPermissions(filePerms))) {
+                os.write("content".getBytes(StandardCharsets.UTF_8));
+            }
+        }
+
+        byte[] bytes = Files.readAllBytes(file);
+        BufferArchiveData data = new BufferArchiveData(ByteBuffer.wrap(bytes));
+        long eocd = data.findRecord(Constants.SIG_EOCD, 0, bytes.length);
+        assertTrue(eocd >= 0);
+        long cdOffset = data.eocdDirectoryRelativeOffset(eocd);
+
+        // First entry: dir/
+        assertEquals(Constants.SIG_CDE, data.cdeHeaderSignature(cdOffset));
+        int dirVersionMadeBy = data.cdeVersionMadeBy(cdOffset);
+        assertEquals(Constants.MADE_BY_UNIX, dirVersionMadeBy >> 8, "Host should be MADE_BY_UNIX");
+        int dirExtAttrs = data.cdeExternalAttributes(cdOffset);
+        // S_IFDIR (0040000) | 0755 = 0040755 = 0x41ed, shifted by 16 = 0x41ed0000, plus 0x10 DOS dir bit = 0x41ed0010
+        assertEquals(0x41ed0010, dirExtAttrs, "Directory external attributes should contain UNIX mode and DOS directory bit");
+
+        // Second entry: file.txt
+        long nextCdOffset = cdOffset + data.cdeEntrySize(cdOffset);
+        assertEquals(Constants.SIG_CDE, data.cdeHeaderSignature(nextCdOffset));
+        int fileVersionMadeBy = data.cdeVersionMadeBy(nextCdOffset);
+        assertEquals(Constants.MADE_BY_UNIX, fileVersionMadeBy >> 8, "Host should be MADE_BY_UNIX");
+        int fileExtAttrs = data.cdeExternalAttributes(nextCdOffset);
+        // S_IFREG (0100000) | 0644 = 0100644 = 0x81a4, shifted by 16 = 0x81a40000
+        assertEquals(0x81a40000, fileExtAttrs,
+                "File external attributes should contain UNIX regular file mode and permissions");
+    }
+
+    /**
+     * Test an archive with mixed entries: some with explicit POSIX permissions and some without.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testMixedPosixPermissions() throws Exception {
+        Path file = tempDir.resolve("mixed-perms.zip");
+        Set<PosixFilePermission> scriptPerms = Set.of(
+                PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE,
+                PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_EXECUTE,
+                PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_EXECUTE);
+
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file)) {
+            try (OutputStream os = builder.addEntry("script.sh", FileAttributes.posixPermissions(scriptPerms))) {
+                os.write("#!/bin/sh\necho hello\n".getBytes(StandardCharsets.UTF_8));
+            }
+            try (OutputStream os = builder.addEntry("data.txt")) {
+                os.write("plain data".getBytes(StandardCharsets.UTF_8));
+            }
+        }
+
+        byte[] bytes = Files.readAllBytes(file);
+        BufferArchiveData data = new BufferArchiveData(ByteBuffer.wrap(bytes));
+        long eocd = data.findRecord(Constants.SIG_EOCD, 0, bytes.length);
+        assertTrue(eocd >= 0);
+        long cdOffset = data.eocdDirectoryRelativeOffset(eocd);
+
+        // First entry: script.sh (with explicit perms)
+        assertEquals(Constants.MADE_BY_UNIX, data.cdeVersionMadeBy(cdOffset) >> 8);
+        // S_IFREG | 0755 = 0100755 = 0x81ed << 16 = 0x81ed0000
+        assertEquals(0x81ed0000, data.cdeExternalAttributes(cdOffset));
+
+        // Second entry: data.txt (without perms)
+        long nextCdOffset = cdOffset + data.cdeEntrySize(cdOffset);
+        assertEquals(Constants.MADE_BY_MS_DOS, data.cdeVersionMadeBy(nextCdOffset) >> 8);
+        assertEquals(0, data.cdeExternalAttributes(nextCdOffset));
+    }
+
+    /**
+     * Test that ZIP64 end of central directory record writes MS-DOS host compatibility.
+     *
+     * @throws Exception if an unexpected error occurs
+     */
+    @Test
+    public void testZip64EocdVersionMadeBy() throws Exception {
+        Path file = tempDir.resolve("zip64-eocd.zip");
+        try (ArchiveBuilder builder = ArchiveBuilder.open(file, ZipOption.ZIP64)) {
+            try (OutputStream os = builder.addEntry("test.txt")) {
+                os.write("zip64 test".getBytes(StandardCharsets.UTF_8));
+            }
+        }
+
+        byte[] bytes = Files.readAllBytes(file);
+        BufferArchiveData data = new BufferArchiveData(ByteBuffer.wrap(bytes));
+        long eocdl = data.findRecord(Constants.SIG_EOCDL_ZIP64, 0, bytes.length);
+        assertTrue(eocdl >= 0);
+        long zip64eocd = data.zip64eocdlEocdRelativeOffset(eocdl);
+        assertTrue(zip64eocd >= 0);
+        int vmb = data.zip64eocdVersionMadeBy(zip64eocd);
+        assertEquals(Constants.MADE_BY_MS_DOS, vmb >> 8, "ZIP64 EOCD host should be MADE_BY_MS_DOS");
+        assertEquals(Constants.VERSION_NEEDED_ZIP64, vmb & 0xFF, "ZIP64 EOCD version needed should be 45");
     }
 }
