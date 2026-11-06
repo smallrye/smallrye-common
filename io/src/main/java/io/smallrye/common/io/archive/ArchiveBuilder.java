@@ -1553,7 +1553,12 @@ public final class ArchiveBuilder implements Closeable {
         entry.method = method;
         entry.zip64 = zip64;
         parseEntryAttributes(entry, attrs);
-        entry.externalAttributes |= fileType << 16;
+        if (fileType == S_IFDIR) {
+            entry.externalAttributes |= DOS_ATTR_DIRECTORY;
+        }
+        if (entry.hasPerms) {
+            entry.externalAttributes |= fileType << 16;
+        }
         entry.localHeaderOffset = file.filePosition();
         writeLfh(entry);
         entries.add(entry);
@@ -1612,7 +1617,12 @@ public final class ArchiveBuilder implements Closeable {
         return c;
     }
 
-    // ── POSIX permission bit constants ──────────────────────────────────
+    // ── File attribute bit constants ────────────────────────────────────
+
+    /**
+     * MS-DOS directory attribute flag ({@code 0x10}).
+     */
+    private static final int DOS_ATTR_DIRECTORY = 0x10;
 
     @SuppressWarnings("OctalInteger")
     private static final int S_IFREG = 0100000;
@@ -1682,6 +1692,7 @@ public final class ArchiveBuilder implements Closeable {
         entry.ntfsCtime = creationTime != null ? instantToNtfsFileTime(creationTime.toInstant()) : modFt;
 
         if (hasPerms) {
+            entry.hasPerms = true;
             entry.externalAttributes = unixMode << 16;
         }
     }
@@ -1887,7 +1898,8 @@ public final class ArchiveBuilder implements Closeable {
         BufferedFile file = this.file;
         file.writeIntLE(SIG_CDE);
         int versionNeeded = zip64 ? VERSION_NEEDED_ZIP64 : VERSION_NEEDED_DEFAULT;
-        file.writeShortLE((MADE_BY_UNIX << 8) | versionNeeded);
+        int host = entry.hasPerms ? MADE_BY_UNIX : MADE_BY_MS_DOS;
+        file.writeShortLE((host << 8) | versionNeeded);
         file.writeShortLE(versionNeeded);
         file.writeShortLE(GP_UTF_8);
         file.writeShortLE(entry.method);
@@ -1931,7 +1943,7 @@ public final class ArchiveBuilder implements Closeable {
         // ZIP64 end of central directory record
         file.writeIntLE(SIG_EOCD_ZIP64);
         file.writeLongLE(EOCD_ZIP64_END - 12L); // size of remaining record (exclude signature + size fields)
-        file.writeShortLE((MADE_BY_UNIX << 8) | VERSION_NEEDED_ZIP64);
+        file.writeShortLE((MADE_BY_MS_DOS << 8) | VERSION_NEEDED_ZIP64);
         file.writeShortLE(VERSION_NEEDED_ZIP64);
         file.writeIntLE(0); // disk number
         file.writeIntLE(0); // CD first disk number
@@ -1989,19 +2001,34 @@ public final class ArchiveBuilder implements Closeable {
      * Also serves as the target for parsed {@link FileAttribute} values.
      */
     private static final class CdEntry {
+        /** The offset of the local file header in the archive file. */
         long localHeaderOffset;
+        /** The UTF-8 encoded file name. */
         byte[] fileName;
+        /** The compression method. */
         int method;
+        /** Whether this entry uses ZIP64 format. */
         boolean zip64;
+        /** The CRC-32 checksum of the uncompressed data. */
         int crc32;
+        /** The compressed size in bytes. */
         long compressedSize;
+        /** The uncompressed size in bytes. */
         long uncompressedSize;
+        /** The DOS-encoded modification time. */
         int dosTime;
+        /** The DOS-encoded modification date. */
         int dosDate;
+        /** The external file attributes bitfield. */
         int externalAttributes;
+        /** The NTFS modification time in 100-ns intervals since 1601-01-01 UTC. */
         long ntfsMtime;
+        /** The NTFS access time in 100-ns intervals since 1601-01-01 UTC. */
         long ntfsAtime;
+        /** The NTFS creation time in 100-ns intervals since 1601-01-01 UTC. */
         long ntfsCtime;
+        /** Indicates whether POSIX file permissions were explicitly specified for this entry. */
+        boolean hasPerms;
     }
 
     // ── Entry output stream ─────────────────────────────────────────────
