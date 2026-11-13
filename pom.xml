@@ -21,7 +21,7 @@
         <!-- Plugins -->
         <version.bridger>1.8</version.bridger>
         <version.bom-builder>1.3.4</version.bom-builder>
-        <version.jandex>3.6.0</version.jandex>
+        <version.jandex>3.6.1</version.jandex>
         <bnd-maven-plugin.version>7.4.0</bnd-maven-plugin.version>
 
         <!-- Dependencies -->
