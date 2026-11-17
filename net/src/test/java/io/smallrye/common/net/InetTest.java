@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -88,6 +89,93 @@ public class InetTest {
         assertNull(parseInet4AddressToBytes("1.1.1")); // short notation not supported
         assertNull(parseInet4AddressToBytes("1.1"));
         assertNull(parseInet4AddressToBytes("1"));
+    }
+
+    /**
+     * Test IPv6 formatting for addresses ending in a single zero.
+     *
+     * @throws Exception if an address resolution fails
+     */
+    @Test
+    public void testTrailingSingleZero() throws Exception {
+        assertEquals("1:2:3:4:5:6:7:0", toOptimalString(InetAddress.getByName("1:2:3:4:5:6:7:0")));
+        assertEquals("1:0:3:4:5:6:7:0", toOptimalString(InetAddress.getByName("1:0:3:4:5:6:7:0")));
+        assertEquals("1::4:5:6:7:0", toOptimalString(InetAddress.getByName("1:0:0:4:5:6:7:0")));
+    }
+
+    /**
+     * Test IPv6 formatting adheres to RFC 5952 §4.2.3 (compressing the longest run of zeroes,
+     * or the first run in case of a tie).
+     *
+     * @throws Exception if an address resolution fails
+     */
+    @Test
+    public void testLongestZeroRunCompression() throws Exception {
+        // Longer run at the end: 0:0:0 vs 0:0 -> 2001:0:0:1::1
+        assertEquals("2001:0:0:1::1", toOptimalString(InetAddress.getByName("2001:0:0:1:0:0:0:1")));
+        // Longer run at the beginning: 0:0:0 vs 0:0 -> 2001::1:0:0:1
+        assertEquals("2001::1:0:0:1", toOptimalString(InetAddress.getByName("2001:0:0:0:1:0:0:1")));
+        // Tie of length 2: compress first run -> 2001::1:0:0:1:1
+        assertEquals("2001::1:0:0:1:1", toOptimalString(InetAddress.getByName("2001:0:0:1:0:0:1:1")));
+    }
+
+    /**
+     * Test IPv6 formatting with leading single zero and boundary compression cases.
+     *
+     * @throws Exception if an address resolution fails
+     */
+    @Test
+    public void testLeadingAndBoundaryZeroCompression() throws Exception {
+        assertEquals("0:1:2:3:4:5:6:7", toOptimalString(InetAddress.getByName("0:1:2:3:4:5:6:7")));
+        assertEquals("::3:4:5:6:7:8", toOptimalString(InetAddress.getByName("0:0:3:4:5:6:7:8")));
+        assertEquals("1:2:3:4:5:6::", toOptimalString(InetAddress.getByName("1:2:3:4:5:6:0:0")));
+        assertEquals("0:1::", toOptimalString(InetAddress.getByName("0:1:0:0:0:0:0:0")));
+        assertEquals("::1:0", toOptimalString(InetAddress.getByName("0:0:0:0:0:0:1:0")));
+        assertEquals("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                toOptimalString(InetAddress.getByName("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")));
+    }
+
+    /**
+     * Test IPv6 formatting for special address ranges (IPv4-mapped and SIIT boundary addresses).
+     *
+     * @throws Exception if an address resolution fails
+     */
+    @Test
+    public void testSpecialAddressRanges() throws Exception {
+        assertEquals("::ffff:0.0.0.0", toOptimalString(toInet6Address(getInet4Address(0, 0, 0, 0))));
+        assertEquals("::ffff:255.255.255.255", toOptimalString(toInet6Address(getInet4Address(255, 255, 255, 255))));
+        assertEquals("::ffff:0:0.0.0.0", toOptimalString(bytes(0, 0, 0, 0, 0xffff, 0, 0, 0)));
+        assertEquals("::ffff:0:255.255.255.255", toOptimalString(bytes(0, 0, 0, 0, 0xffff, 0, 0xffff, 0xffff)));
+        assertEquals("1::ffff:0:0:0", toOptimalString(bytes(1, 0, 0, 0, 0xffff, 0, 0, 0)));
+    }
+
+    /**
+     * Test {@link Inet#toOptimalString(byte[])} directly and error validation.
+     */
+    @Test
+    public void testToOptimalStringBytesAndValidation() {
+        assertEquals("::1", toOptimalString(bytes(0, 0, 0, 0, 0, 0, 0, 1)));
+        assertEquals("1.2.3.4", toOptimalString(bytes(1, 2, 3, 4)));
+        assertThrows(IllegalArgumentException.class, () -> toOptimalString((byte[]) null));
+        assertThrows(IllegalArgumentException.class, () -> toOptimalString((InetAddress) null));
+        assertThrows(IllegalArgumentException.class, () -> toOptimalString(new byte[0]));
+        assertThrows(IllegalArgumentException.class, () -> toOptimalString(new byte[5]));
+        assertThrows(IllegalArgumentException.class, () -> toOptimalString(new byte[15]));
+        assertThrows(IllegalArgumentException.class, () -> toOptimalString(new byte[17]));
+    }
+
+    /**
+     * Test {@link Inet#toURLString(byte[])} and {@link Inet#toURLString(InetAddress, boolean)}.
+     *
+     * @throws Exception if an address resolution fails
+     */
+    @Test
+    public void testToURLString() throws Exception {
+        assertEquals("[::1]", toURLString(bytes(0, 0, 0, 0, 0, 0, 0, 1)));
+        assertEquals("1.2.3.4", toURLString(bytes(1, 2, 3, 4)));
+        assertEquals("[::1]", toURLString(InetAddress.getByName("::1"), false));
+        assertEquals("1.2.3.4", toURLString(InetAddress.getByName("1.2.3.4"), false));
+        assertEquals("[2001:db8::1]", toURLString(InetAddress.getByName("2001:db8::1"), false));
     }
 
     private void checkAddressToBytes(String ipv6) throws UnknownHostException {
