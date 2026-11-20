@@ -1,5 +1,7 @@
 package io.smallrye.common.net;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.lang.reflect.Array;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -13,6 +15,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Enumeration;
 import java.util.regex.Pattern;
 
@@ -25,6 +28,24 @@ import io.smallrye.common.constraint.Assert;
 public final class Inet {
     private Inet() {
     }
+
+    /**
+     * VarHandle for reading and writing 16-bit big-endian shorts from byte arrays.
+     */
+    private static final VarHandle SHORT_BE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.BIG_ENDIAN)
+            .withInvokeExactBehavior();
+
+    /**
+     * VarHandle for reading and writing 32-bit big-endian ints from byte arrays.
+     */
+    private static final VarHandle INT_BE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN)
+            .withInvokeExactBehavior();
+
+    /**
+     * VarHandle for reading and writing 64-bit big-endian longs from byte arrays.
+     */
+    private static final VarHandle LONG_BE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN)
+            .withInvokeExactBehavior();
 
     /**
      * The "any" address for IPv4.
@@ -1093,60 +1114,79 @@ public final class Inet {
         return (short) i;
     }
 
+    /**
+     * Converts a 16-byte IPv6 address to its optimal string representation according to RFC 5952.
+     *
+     * @param bytes the 16-byte IPv6 address (must not be {@code null} and must have length 16)
+     * @return the optimal string representation (not {@code null})
+     */
     private static String toOptimalStringV6(final byte[] bytes) {
+        // Fast-path multi-value checks for special cases using VarHandles
+        if ((long) LONG_BE.get(bytes, 0) == 0L) {
+            final long low = (long) LONG_BE.get(bytes, 8);
+            if (low == 0L) {
+                return "::";
+            } else if (low == 1L) {
+                return "::1";
+            }
+            final int mid = (int) INT_BE.get(bytes, 8);
+            if (mid == 0x0000_ffff) {
+                // IPv4-mapped address: ::ffff:d.d.d.d
+                return "::ffff:" + Byte.toUnsignedInt(bytes[12]) + "." + Byte.toUnsignedInt(bytes[13]) + "."
+                        + Byte.toUnsignedInt(bytes[14]) + "."
+                        + Byte.toUnsignedInt(bytes[15]);
+            } else if (mid == 0xffff_0000) {
+                // SIIT address: ::ffff:0:d.d.d.d
+                return "::ffff:0:" + Byte.toUnsignedInt(bytes[12]) + "." + Byte.toUnsignedInt(bytes[13]) + "."
+                        + Byte.toUnsignedInt(bytes[14]) + "."
+                        + Byte.toUnsignedInt(bytes[15]);
+            }
+        }
+
+        // Read big-endian 16-bit segments into an array
         final int[] segments = new int[8];
         for (int i = 0; i < 8; i++) {
-            segments[i] = (bytes[i << 1] & 0xff) << 8 | bytes[(i << 1) + 1] & 0xff;
+            segments[i] = Short.toUnsignedInt((short) SHORT_BE.get(bytes, i << 1));
         }
-        // now loop through the segments and add them as optimally as possible
-        final StringBuilder b = new StringBuilder();
+
+        // Find the longest run of consecutive 16-bit zero fields (RFC 5952 §4.2.3).
+        // If there is a tie, the first sequence is chosen by using strict inequality.
+        int longestStart = -1;
+        int longestLen = 0;
+        int currentStart = -1;
+        int currentLen = 0;
         for (int i = 0; i < 8; i++) {
             if (segments[i] == 0) {
-                if (i == 7) {
-                    b.append('0');
+                if (currentStart == -1) {
+                    currentStart = i;
+                    currentLen = 1;
                 } else {
-                    // possible to collapse it
-                    i++;
-                    if (segments[i] == 0) {
-                        // yup
-                        b.append(':').append(':');
-                        for (i++; i < 8; i++) {
-                            if (segments[i] == 0xffff && b.length() == 2) {
-                                b.append("ffff");
-                                if (i == 5) {
-                                    // it's an IPv4 compat address.
-                                    b.append(':').append(bytes[12] & 0xff).append('.').append(bytes[13] & 0xff).append('.')
-                                            .append(bytes[14] & 0xff).append('.').append(bytes[15] & 0xff);
-                                    i = 8;
-                                } else if (i == 4 && segments[5] == 0) {
-                                    // it's a SIIT address.
-                                    b.append(":0:").append(bytes[12] & 0xff).append('.').append(bytes[13] & 0xff).append('.')
-                                            .append(bytes[14] & 0xff).append('.').append(bytes[15] & 0xff);
-                                    i = 8;
-                                } else {
-                                    // finally break and do the rest normally
-                                    for (i++; i < 8; i++) {
-                                        b.append(':').append(Integer.toHexString(segments[i]));
-                                    }
-                                }
-                            } else if (segments[i] != 0) {
-                                // finally break and do the rest normally
-                                b.append(Integer.toHexString(segments[i]));
-                                for (i++; i < 8; i++) {
-                                    b.append(':').append(Integer.toHexString(segments[i]));
-                                }
-                            }
-                        }
-                    } else {
-                        // no, just a single 0 in isolation doesn't get collapsed
-                        if (i > 1)
-                            b.append(':');
-                        b.append('0').append(':').append(Integer.toHexString(segments[i]));
-                    }
+                    currentLen++;
+                }
+                if (currentLen > longestLen) {
+                    longestStart = currentStart;
+                    longestLen = currentLen;
                 }
             } else {
-                if (i > 0)
+                currentStart = -1;
+                currentLen = 0;
+            }
+        }
+
+        // RFC 5952 §4.2.2: A single 16-bit 0 field MUST NOT be shortened.
+        if (longestLen < 2) {
+            longestStart = -1;
+        }
+
+        final StringBuilder b = new StringBuilder();
+        for (int i = 0; i < 8; i++) {
+            if (i == longestStart) {
+                b.append(':').append(':');
+                i += longestLen - 1;
+            } else {
+                if (b.length() > 0 && b.charAt(b.length() - 1) != ':') {
                     b.append(':');
+                }
                 b.append(Integer.toHexString(segments[i]));
             }
         }
