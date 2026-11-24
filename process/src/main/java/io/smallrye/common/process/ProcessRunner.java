@@ -72,7 +72,7 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
                 } catch (Throwable t) {
                     cf.completeExceptionally(t);
                 } finally {
-                    Runtime.getRuntime().removeShutdownHook(shutdownHook);
+                    removeHook(shutdownHook);
                 }
             }
         });
@@ -101,7 +101,7 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
                 try {
                     await();
                 } finally {
-                    Runtime.getRuntime().removeShutdownHook(shutdownHook);
+                    removeHook(shutdownHook);
                 }
             }
         });
@@ -133,7 +133,7 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
         try {
             await();
         } finally {
-            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            removeHook(shutdownHook);
         }
         return complete();
     }
@@ -202,6 +202,14 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
         }, "pipeline-shutdown");
         Runtime.getRuntime().addShutdownHook(shutdownHook);
         return shutdownHook;
+    }
+
+    private static void removeHook(final Thread shutdownHook) {
+        try {
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        } catch (IllegalStateException ignored) {
+            // the JVM is already shutting down; the hook is running (or about to) and cannot be removed
+        }
     }
 
     private O complete() {
