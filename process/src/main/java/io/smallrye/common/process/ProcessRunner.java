@@ -174,30 +174,31 @@ final class ProcessRunner<O> extends PipelineRunner<O> {
     }
 
     private void await() {
-        int cnt = taskCount;
-        if (cnt != 0) {
+        // register before re-checking the count so that a completion can never slip between check and park
+        while (taskCount != 0) {
             waiters.add(Thread.currentThread());
-        }
-        do {
+            if (taskCount == 0) {
+                break;
+            }
             Thread.interrupted();
             LockSupport.park(this);
-            cnt = taskCount;
-        } while (cnt != 0);
+        }
     }
 
     private Thread registerHook() {
         Thread shutdownHook = new Thread(() -> {
-            int cnt = taskCount;
-            if (cnt != 0) {
+            int cnt;
+            while ((cnt = taskCount) != 0) {
                 waiters.add(Thread.currentThread());
-                do {
-                    log.debugf("Waiting for processes to exit (%d subtasks remaining)", cnt);
-                    Thread.interrupted();
-                    LockSupport.park(this);
-                    cnt = taskCount;
-                } while (cnt != 0);
-                log.debug("All process exit tasks are complete");
+                cnt = taskCount;
+                if (cnt == 0) {
+                    break;
+                }
+                log.debugf("Waiting for processes to exit (%d subtasks remaining)", cnt);
+                Thread.interrupted();
+                LockSupport.park(this);
             }
+            log.debug("All process exit tasks are complete");
         }, "pipeline-shutdown");
         Runtime.getRuntime().addShutdownHook(shutdownHook);
         return shutdownHook;
