@@ -314,12 +314,12 @@ public final class CidrAddress implements Serializable, Comparable<CidrAddress> 
             i++;
             commonPrefix -= 8;
         }
-        while (commonPrefix > 0) {
-            final int bit = 1 << commonPrefix;
-            res = Integer.compare(cachedBytes[i] & bit, otherBytes[i] & bit);
+        if (commonPrefix > 0) {
+            // compare the remaining 1-7 prefix bits, which are the high-order bits of the next byte
+            final int mask = 0xff << 8 - commonPrefix & 0xff;
+            res = Integer.compare(cachedBytes[i] & mask, otherBytes[i] & mask);
             if (res != 0)
                 return res;
-            commonPrefix--;
         }
         // common prefix is a match; now the shortest mask wins
         return Integer.compare(netmaskBits, otherNetmaskBits);

@@ -153,4 +153,31 @@ public class CidrAddressTest {
         assertFalse(cidrAddress.matches(Inet.parseInet6Address("fed::")));
         assertFalse(cidrAddress.matches(Inet.parseInet6Address("fed::%1")));
     }
+
+    @Test
+    public void testCompareToPartialByte4() {
+        // 10.0.0.0/9 and 10.128.0.0/9 differ only in the top bit of the second byte
+        CidrAddress low = CidrAddress.create(Inet.parseInet4Address("10.0.0.0"), 9);
+        CidrAddress high = CidrAddress.create(Inet.parseInet4Address("10.128.0.0"), 9);
+        assertTrue(low.compareTo(high) < 0);
+        assertTrue(high.compareTo(low) > 0);
+        assertFalse(low.equals(high));
+        // a middle bit of the partial byte: 10.32.0.0/11 and 10.64.0.0/11
+        CidrAddress a = CidrAddress.create(Inet.parseInet4Address("10.32.0.0"), 11);
+        CidrAddress b = CidrAddress.create(Inet.parseInet4Address("10.64.0.0"), 11);
+        assertTrue(a.compareTo(b) < 0);
+        assertTrue(b.compareTo(a) > 0);
+        // equal blocks, and a block before a longer block inside it
+        assertEquals(0, low.compareTo(CidrAddress.create(Inet.parseInet4Address("10.127.255.255"), 9)));
+        assertTrue(low.compareTo(CidrAddress.create(Inet.parseInet4Address("10.0.0.0"), 10)) < 0);
+    }
+
+    @Test
+    public void testCompareToPartialByte6() {
+        // fed:0::/17 and fed:8000::/17 differ only in the top bit of the third byte
+        CidrAddress low = CidrAddress.create(Inet.parseInet6Address("fed:0::"), 17);
+        CidrAddress high = CidrAddress.create(Inet.parseInet6Address("fed:8000::"), 17);
+        assertTrue(low.compareTo(high) < 0);
+        assertTrue(high.compareTo(low) > 0);
+    }
 }

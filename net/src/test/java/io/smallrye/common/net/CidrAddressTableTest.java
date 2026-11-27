@@ -33,6 +33,17 @@ public class CidrAddressTableTest {
     }
 
     @Test
+    public void testSiblingBlocksDifferingInPartialByte4() {
+        CidrAddressTable<String> table = new CidrAddressTable<>();
+        table.put(CidrAddress.create(Inet.parseInet4Address("10.0.0.0"), 9), "low half");
+        table.put(CidrAddress.create(Inet.parseInet4Address("10.128.0.0"), 9), "high half");
+        assertEquals(2, table.size());
+        assertEquals("low half", table.get(Inet.parseInet4Address("10.1.2.3")));
+        assertEquals("high half", table.get(Inet.parseInet4Address("10.200.1.1")));
+        assertEquals("woof", table.getOrDefault(Inet.parseInet4Address("11.0.0.1"), "woof"));
+    }
+
+    @Test
     public void testBig4() {
         CidrAddressTable<String> table = new CidrAddressTable<>();
         table.put(CidrAddress.create(Inet.parseInet4Address("0.0.0.0"), 0), "the big block");
